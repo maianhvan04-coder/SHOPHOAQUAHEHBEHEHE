@@ -7,7 +7,7 @@ import { authStorage } from "~/features/auth/authStorage";
 const Ctx = createContext(null);
 
 export default function AuthProvider({ children }) {
-  const cached = authStorage.getMe();
+  const cached = useMemo(() => authStorage.getMe(), []);
 
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState(cached?.permissions || []);
@@ -19,19 +19,19 @@ export default function AuthProvider({ children }) {
   const refreshMe = useCallback(async () => {
     setLoading(true);
     try {
-      const me = await authService.me(); // { user, roles, permissions }
-      setUser(me?.user || null);
-      setRoles(me?.roles || []);
-      setPermissions(me?.permissions || []);
-
-      console.log("Day login")
-      authStorage.setMe({
+      const me = await authService.me();
+      const normalized = {
         user: me?.user || null,
         roles: me?.roles || [],
         permissions: me?.permissions || [],
-      });
+      };
 
-      return me;
+      setUser(normalized.user);
+      setRoles(normalized.roles);
+      setPermissions(normalized.permissions);
+      authStorage.setMe(normalized);
+
+      return normalized; // ✅ return data chuẩn
     } catch (e) {
       authStorage.clear();
       setUser(null);
@@ -44,20 +44,37 @@ export default function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    const token = authStorage.getToken(); // ✅
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     refreshMe();
   }, [refreshMe]);
 
+  const logout = useCallback(() => {
+  authStorage.clear();
+  setUser(null);
+  setRoles([]);
+  setPermissions([]);
+}, []);
+
   const value = useMemo(
-    () => ({ loading, isAuthed, user, roles, permissions, refreshMe }),
-    [loading, isAuthed, user, roles, permissions, refreshMe]
+    () => ({ loading, isAuthed, user, roles, permissions, logout,  refreshMe }),
+    [loading, isAuthed, user, roles, permissions, logout,  refreshMe]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+
+
 AuthProvider.propTypes = {
   children: PropTypes.node.isRequired,
 };
+
+
+
 
 export function useAuth() {
   const v = useContext(Ctx);

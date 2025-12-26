@@ -1,7 +1,7 @@
 import { axiosUser } from "../../shared/utils/axios.custiomize";
 export const getAllProductsAPI = (filters) => {
   const URL_API = "/api/v1/products/me";
-  console.log(filters);
+  
   return axiosUser.get(URL_API, {
     params: {
       search: filters.search,

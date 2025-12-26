@@ -37,11 +37,9 @@ exports.login = async ({ email, password }) => {
       avatar: user.image?.url || "",
       avatar_hash: user.image?.publicId || "",
     },
-
     version: user.authzVersion || 0,
     accessToken,
     refreshToken
-
   };
 }
 

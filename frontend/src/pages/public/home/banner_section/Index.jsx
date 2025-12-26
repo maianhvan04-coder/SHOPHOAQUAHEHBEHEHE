@@ -56,24 +56,29 @@ const BannerSection = () => {
           Gọt sẵn tiện lợi
         </p>
 
-        <button
-        onClick={() => handleScrollToSection("menuFruit")}
-          className="
-          !mt-3 xl:mt-4
-          !w-[360px] lg:w-[460px] xl:w-[575px]
-          !h-12 lg:h-14 xl:h-16
-          !rounded-xl
-          !bg-(--color-green-button)
-          !text-white
-          !text-[22px] lg:text-[30px] xl:text-[40px]
-          !font-extrabold uppercase
-          !shadow-lg
-          !hover:brightness-110 transition
-        "
-      
-        >
-          Thử ngay nha
-        </button>
+        <div
+  role="button"
+  onClick={() => handleScrollToSection("menuFruit")}
+  className="
+    mt-3 xl:mt-4
+    w-[360px] lg:w-[460px] xl:w-[575px]
+    h-12 lg:h-14 xl:h-16
+    rounded-xl
+    bg-(--color-green-button)
+    text-white
+    text-[22px] lg:text-[30px] xl:text-[40px]
+    font-extrabold uppercase
+    shadow-lg
+    hover:brightness-110
+    transition
+    cursor-pointer
+    flex items-center justify-center
+    select-none
+  "
+>
+  Thử ngay nha
+</div>
+
       </div>
 
       {/* MOBILE */}

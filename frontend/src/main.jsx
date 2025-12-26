@@ -11,8 +11,7 @@ import { store } from "./app/store/store.js";
 
 import { UserAuthWrapper } from "./app/context/user.auth.context.jsx";
 
-import { ChakraProvider, ColorModeScript } from "@chakra-ui/react";
-import theme from "./theme";
+
 
 import AuthProvider from "./app/providers/AuthProvides.jsx";
 import ToastProvider from "./shared/ui/Toast/ToastProvider";
@@ -22,9 +21,7 @@ createRoot(document.getElementById("root")).render(
     <Provider store={store}>
       <AuthProvider>
         <UserAuthWrapper>
-          <ChakraProvider theme={theme}>
-            <ColorModeScript initialColorMode={theme.config.initialColorMode} />
-
+        
             <BrowserRouter>
               <ScrollToTop />
               <ToastProvider>
@@ -32,7 +29,7 @@ createRoot(document.getElementById("root")).render(
               </ToastProvider>
             </BrowserRouter>
 
-          </ChakraProvider>
+         
         </UserAuthWrapper>
       </AuthProvider>
     </Provider>

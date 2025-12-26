@@ -13,10 +13,10 @@ const ProductComponent = ({ img, num, title, description }) => {
         <div className="p-5 space-y-5">
           <h3 className="font-bold uppercase text-lg">{title}</h3>
           <p className="text-[#908e89] text-sm ">{description}</p>
-          <div className=" flex justify-around items-center ">
-            <button className="cursor-pointer uppercase font-bold text-xs border-2 rounded-3xl border-amber-600 w-40 py-2 px-4">
+          <div  className=" flex justify-around items-center ">
+            <div  role="button" className="!cursor-pointer !uppercase !font-bold !text-xs !border-2 !rounded-3xl !border-amber-600 !w-40 !py-2 !px-4">
               Mua ngay
-            </button>
+            </div>
             <div className="inline-flex  cursor-pointer size-8 rounded-full border-2 border-(--color-green-button) justify-center items-center ">
               <img src={favorite_icon} alt="icon"></img>
             </div>

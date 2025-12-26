@@ -11,7 +11,7 @@ const uploadRoutes = require("../modules/upload/upload.routes");
 
 
 const publicProduct = require("../modules/product/public.router")
-
+const CartRoutes = require("../modules/cart/cart.routes")
 
 router.get("/health", (req, res) => {
   res.status(200).json({
@@ -34,4 +34,5 @@ module.exports = (app) => {
   app.use(v1 + "/admin/upload", uploadRoutes);
   // public client
   app.use(v1 + "/categories", categoryPublic)
+   app.use(v1 + "/cart", CartRoutes)
 }

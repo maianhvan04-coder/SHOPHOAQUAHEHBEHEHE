@@ -1,15 +1,16 @@
 import { lazy } from "react";
 
-const Dashboard = lazy(() => import("~/pages/admin/Dashboard"));
 const Users = lazy(() => import("~/pages/admin/Users"));
-const Roles = lazy(() => import("~/pages/admin/Roles"));
+// const Categories = lazy(() => import("~/pages/admin/Categories"));
+// const Products = lazy(() => import("~/pages/admin/Products"));
+const Rbac = lazy(() => import("~/pages/admin/Roles"));
 
 export const adminRouters = [
-    { path: "home", component: Dashboard }, // /admin/home
-    { path: "user", component: Users },     // /admin/user
-    { path: "rbac", component: Roles },     // /admin/rbac
+  { path: "user", component: Users },         // /admin/user
+//   { path: "category", component: Categories },// /admin/category
+//   { path: "product", component: Products },   // /admin/product
+  { path: "rbac", component: Rbac },          // /admin/rbac
 ];
-
 
 // import { lazy } from "react";
 

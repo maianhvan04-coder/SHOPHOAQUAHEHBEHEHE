@@ -1,26 +1,30 @@
 import { authApi } from "~/api/authApi";
-import { authStorage } from "./authStorage"
+import { authStorage } from "./authStorage";
+
 function unwrap(res) {
-  // backend bạn: res.json({ data: ... })
   return res?.data?.data ?? res?.data;
 }
 
 export const authService = {
   async login(payload) {
-    const res = await authApi.login(payload);
-    console.log("Vao day reoi neeeeee")
-    return unwrap(res); // => { user, accessToken, refreshToken? }
+    try {
+      const res = await authApi.login(payload);
+      return unwrap(res); // { accessToken, user, ... }
+    } catch (err) {
+      // 🔥 QUAN TRỌNG: ném lỗi lên cho useLogin xử lý
+      throw err;
+    }
   },
 
   async me() {
     const res = await authApi.me();
-    return unwrap(res); // => { user, roles, permissions }
+    return unwrap(res);
   },
 
   async logout() {
-    await authStorage.clear()
+    // ❌ ĐỪNG clear trước
     const res = await authApi.logout();
-
+    authStorage.clear(); // ✅ clear sau
     return unwrap(res);
   },
 };

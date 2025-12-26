@@ -5,14 +5,18 @@ import { MdKeyboardArrowDown } from "react-icons/md";
 import { HiOutlineMenu, HiOutlineX } from "react-icons/hi";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { fetchCart } from "../../../../features/cart/cart.slice";
 import { fetchAllCategories } from "../../../../features/category/category.store";
+import { useAuth } from "~/app/providers/AuthProvides";
 
 const Navbar = ({ onScrollToSection }) => {
+
   const [isSticky, setIsSticky] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openMix, setOpenMix] = useState(false);
   const [openShop, setOpenShop] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+const { isAuthed, user, logout } = useAuth();
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -24,11 +28,15 @@ const Navbar = ({ onScrollToSection }) => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
   const { listCategories, isLoading } = useSelector((state) => state.category);
-
+const { totalQuantity } = useSelector((state) => state.cart);
   useEffect(() => {
     dispatch(fetchAllCategories());
   }, [dispatch]);
-
+useEffect(() => {
+    if (isAuthed) {
+      dispatch(fetchCart());
+    }
+  }, [isAuthed, dispatch])
   const [searchParams] = useSearchParams();
   const currentSearch = searchParams.get("search") || "";
   const [searchInput, setSearchInput] = useState(currentSearch);
@@ -83,7 +91,7 @@ const Navbar = ({ onScrollToSection }) => {
               onClick={() => navigate("/cart")}
             />
             <span className="absolute -top-1 -right-1 min-w-3 h-3 flex items-center justify-center rounded-full bg-[var(--color-green-button)] px-1 text-[8px] font-semibold text-white">
-              0
+              {totalQuantity}
             </span>
           </div>
           <button
@@ -365,22 +373,44 @@ const Navbar = ({ onScrollToSection }) => {
               onClick={() => navigate("/cart")}
             />
             <span className="absolute -top-1 -right-2 min-w-4 h-4 flex items-center justify-center rounded-full bg-[var(--color-green-button)] px-1 text-[10px] font-semibold text-white">
-              0
+              {totalQuantity}
             </span>
           </div>
 
           {/* USER */}
-          <div className="relative group">
-            <span className=" inline-flex items-center gap-1 px-3 py-2 cursor-pointer">
-              <FaRegUser />
-              <MdKeyboardArrowDown />
-            </span>
-            <Dropdown align="right">
-              <DropdownItem text="Đăng nhập" />
-           
-     
-            </Dropdown>
-          </div>
+           <div className="relative group">
+      <span
+        className="inline-flex items-center gap-1 px-3 py-2 cursor-pointer"
+        onClick={() => {
+          // click vào icon/user: nếu đã login thì qua account, chưa thì qua login
+          navigate(isAuthed ? "/account" : "/login");
+        }}
+      >
+        <FaRegUser />
+        <MdKeyboardArrowDown />
+      </span>
+
+      <Dropdown align="right">
+        {!isAuthed ? (
+          <>
+            <DropdownItem text="Đăng nhập" onClick={() => navigate("/login")} />
+            <DropdownItem text="Đăng ký" onClick={() => navigate("/register")} />
+          </>
+        ) : (
+          <>
+            <DropdownItem
+              text={user?.fullName || user?.name || user?.email || "Tài khoản"}
+              onClick={() => navigate("/account")}
+            />
+            <DropdownItem text="Đăng xuất" onClick={() => { logout(); navigate("/"); }} />
+
+            <DropdownItem text="Thông tin tài khoản" onClick={() => navigate("/account")} />
+            {/* nếu bạn có logout thì thêm ở đây */}
+            {/* <DropdownItem text="Đăng xuất" onClick={logout} /> */}
+          </>
+        )}
+      </Dropdown>
+    </div>
         </li>
       </ul>
     </nav>
@@ -406,8 +436,12 @@ const Dropdown = ({ children, align = "left" }) => (
   </ul>
 );
 
-const DropdownItem = ({ text }) => (
-  <li className="px-5 py-2.5 hover:bg-gradient-to-r hover:from-green-50 hover:to-transparent hover:text-green-600 transition cursor-pointer">
+const DropdownItem = ({ text, onClick }) => (
+  <li
+    onClick={onClick}
+    className="px-5 py-2.5 hover:bg-gradient-to-r hover:from-green-50 hover:to-transparent hover:text-green-600 transition cursor-pointer"
+  >
     {text}
   </li>
 );
+
