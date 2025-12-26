@@ -1,0 +1,126 @@
+/* ==== SIDEBAR ==== */
+.admin-sidebar {
+  width: 260px;
+  min-width: 260px;
+  background: #0d1a36;
+  height: 100vh;
+  padding-top: 20px;
+  color: white;
+  position: fixed;         
+  display: flex;           
+  flex-direction: column;  
+
+  z-index: 10;
+}
+
+
+.admin-sidebar.collapsed {
+  width: 90px;
+  min-width: 90px;
+}
+
+/* Logo */
+.logo {
+  height: 60px;        
+  width: auto;               
+  object-fit: contain;
+}
+
+/* MENU AREA */
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* MENU ITEM */
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  text-decoration: none;
+  color: #d5d9e2;
+  font-size: 14px;
+  cursor: pointer;
+  transition: 0.25s;
+}
+
+.menu-item:hover {
+  background: #152448;
+  color: #fff;
+}
+
+.menu-item.active {
+  background: #1e3466;
+  color: #fff;
+}
+
+.menu-icon {
+  font-size: 16px;
+}
+
+/* ==== SUBMENU ==== */
+.submenu {
+  flex-direction: column;
+}
+
+.submenu-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  cursor: pointer;
+}
+
+.submenu-title:hover {
+  background: #152448;
+}
+
+.arrow {
+  margin-left: auto;
+  transition: 0.25s;
+}
+
+.arrow.open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.submenu-panel {
+  background: #162949;
+  display: flex;
+  flex-direction: column;
+}
+
+.submenu-option {
+  padding: 10px 45px;
+  color: #d5d9e2;
+  text-decoration: none;
+  font-size: 14px;
+  transition: 0.25s;
+}
+
+.submenu-option:hover {
+  background: #1f335f;
+  color: #fff;
+}
+.admin-create-link {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 13px;
+  color: #aad4ff;
+}
+
+.admin-create-link a {
+  color: #4da6ff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: 0.25s ease;
+}
+
+.admin-create-link a:hover {
+  color: #79c0ff;
+  text-decoration: underline;
+}
+

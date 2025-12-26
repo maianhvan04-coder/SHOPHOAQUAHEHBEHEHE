@@ -1,0 +1,24 @@
+@import "tailwindcss";
+@theme {
+  --color-green-text: #9acd32;
+  --color-orange-text: #ff9100;
+  --color-green-button: #4baf46;
+}
+@layer utilities {
+  .font-dancing {
+    font-family: "Dancing Script", cursive;
+  }
+  .font-montserrat {
+    font-family: "Montserrat", sans-serif;
+  }
+  .font-comming-soon {
+    font-family: "Coming Soon", cursive;
+  }
+}
+
+
+
+
+
+
+
