@@ -34,7 +34,7 @@ const ADMIN_SCREENS = Object.freeze({
     USERS: {
         key: "user",
         group: PERMISSION_GROUPS.USERS.key,
-        label: "Người dùng  sssss",
+        label: "Người dùng",
         icon: "users",
         order: 10,
         routes: [
