@@ -5,7 +5,7 @@ import { findScreenByPathname, canAccessScreen, firstAccessibleScreen } from "~/
 import { useAuth } from "~/app/providers/AuthProvides";
 import { useRbacCatalog } from "~/features/rbac/hooks/useRbacCatalog";
 
-const ALWAYS_ALLOW = ["/admin/rbac", "/admin/rbac/"];
+const ALWAYS_ALLOW = ["/admin", "/admin/rbac/"];
 console.log("AdminRoute MOUNTED");
 
 const adminTheme = extendTheme({

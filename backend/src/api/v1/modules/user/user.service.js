@@ -198,3 +198,83 @@ exports.updateMyAvatar = async (userId, file) => {
 
   return updated.image;
 };
+
+
+
+
+const pick = (obj, keys) => {
+  const out = {};
+  keys.forEach((k) => {
+    if (obj[k] !== undefined) out[k] = obj[k];
+  });
+  return out;
+};
+
+
+
+exports.updateMyProfile = async (userId, body) => {
+  // ✅ chỉ cho phép update các field này
+  const payload = pick(body, ["fullName", "phone", "image", "addresses"]);
+
+  // Validate nhẹ
+  if (payload.fullName !== undefined) {
+    payload.fullName = String(payload.fullName).trim();
+    if (!payload.fullName) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Họ tên không hợp lệ");
+    }
+  }
+
+  if (payload.phone !== undefined) {
+    payload.phone = String(payload.phone).trim();
+    if (!payload.phone) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Số điện thoại không hợp lệ");
+    }
+
+    // check trùng phone (trừ chính mình)
+    const existed = await userRepo.findByPhone(payload.phone);
+    if (existed && String(existed._id) !== String(userId)) {
+      throw new ApiError(httpStatus.CONFLICT, "Số điện thoại đã được sử dụng");
+    }
+  }
+
+  //normalize image
+  if (payload.image !== undefined) {
+    payload.image = {
+      url: payload.image?.url ? String(payload.image.url).trim() : "",
+      publicId: payload.image?.publicId ? String(payload.image.publicId).trim() : "",
+    };
+  }
+
+  //addresses: nếu muốn bắt buộc 1 default thì làm ở đây
+  if (payload.addresses !== undefined) {
+    if (!Array.isArray(payload.addresses)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "addresses phải là mảng");
+    }
+
+    // đảm bảo đúng schema
+    payload.addresses = payload.addresses.map((a) => ({
+      name: a?.name ? String(a.name).trim() : "",
+      phone: a?.phone ? String(a.phone).trim() : "",
+      street: a?.street ? String(a.street).trim() : "",
+      ward: a?.ward ? String(a.ward).trim() : "",
+      district: a?.district ? String(a.district).trim() : "",
+      province: a?.province ? String(a.province).trim() : "",
+      isDefault: !!a?.isDefault,
+    }));
+
+    // optional: ép chỉ 1 default
+    const defaultCount = payload.addresses.filter((x) => x.isDefault).length;
+    if (defaultCount > 1) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Chỉ được chọn 1 địa chỉ mặc định");
+    }
+  }
+
+  const updated = await userRepo.updateById(userId, payload);
+  if (!updated) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
+  }
+
+  // Không trả passwordHash
+  const safe = await userRepo.findById(userId);
+  return safe;
+};

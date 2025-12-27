@@ -79,5 +79,16 @@ exports.softDeleteMany = (ids) => {
   );
 }
 
-exports.updateById = (id, payload) =>
-  User.findByIdAndUpdate(id, { $set: payload }, { new: true });
+exports.updateById = (id, data) => {
+  return User.findOneAndUpdate(
+    { _id: id, isDeleted: false },
+    { $set: data },
+    { new: true }
+  ).select("-passwordHash");
+};
+
+
+
+exports.findByPhone = (phone) => {
+  return User.findOne({ phone, isDeleted: false }).select("_id phone");
+};

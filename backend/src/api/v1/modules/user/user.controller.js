@@ -44,3 +44,17 @@ exports.updateMyAvatar = asyncHandler(async (req, res) => {
       data: { image },
    });
 });
+
+
+
+
+exports.updateMyProfile = asyncHandler(async (req, res) => {
+  const userId = req.user.sub; // từ auth.middleware
+  console.log(userId)
+  const updated = await userService.updateMyProfile(userId, req.body);
+
+  res.json({
+    data: updated,
+    message: "Cập nhật profile thành công",
+  });
+});

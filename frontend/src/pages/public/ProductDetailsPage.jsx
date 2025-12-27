@@ -7,13 +7,14 @@ import {
   fetchProductDetailBySlug,
   clearCurrentProduct,
 } from "../../features/product/product_slice";
-import { addToCart } from "../../features/cart/cart.slice";
+import { addToCart,fetchCart } from "../../features/cart/cart.slice";
+import { useAuth } from "~/app/providers/AuthProvides";
 
 const ProductDetails = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const [quantity, setQuantity] = useState(1);
-
+const { isAuthed} = useAuth();
   const { currentProduct, isLoading, error } = useSelector(
     (state) => state.product
   );
@@ -28,8 +29,9 @@ const ProductDetails = () => {
   }, [slug, dispatch]);
 
   const handleAddToCart = () => {
-    if (!currentProduct?._id) return;
-
+    if(!isAuthed){ message.error("Bạn chưa đăng nhập");}
+    else{
+       if (!currentProduct?._id) return;
     
     dispatch(
       addToCart({
@@ -48,6 +50,8 @@ const ProductDetails = () => {
         message.error(err || "Không thể thêm vào giỏ hàng");
         dispatch(fetchCart());
       });
+    }
+   
   };
 
   if (isLoading) {

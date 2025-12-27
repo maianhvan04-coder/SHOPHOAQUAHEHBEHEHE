@@ -54,15 +54,24 @@ export function useLogin() {
       const me = await refreshMe();
       const permissions = me?.permissions || [];
 
-      // ✅ 3) nếu có from (bị đá từ PrivateRoute) -> ưu tiên quay về đó
-      const from = location.state?.from;
-      if (from) {
-        navigate(from, { replace: true });
+    const role =me?.roles || me?.user?.roles 
+     
+      const roles = Array.isArray(me?.roles)
+        ? me.roles
+        : role
+        ? [role]
+        : [];
+
+      const isOnlyUser =
+        roles.length > 0 &&
+        roles.every((r) => String(r).toUpperCase() === "USER");
+
+
+            console.log("Roles>>>>>",isOnlyUser)
+      if (isOnlyUser) {
+        navigate("/", { replace: true });
         return;
       }
-
-      // 4) nếu không có from: thử điều hướng admin theo RBAC
-      // (nếu endpoint catalog fail thì coi như user thường)
       let catalog = {};
       try {
         const catalogRes = await rbacApi.catalog();

@@ -14,11 +14,14 @@ export const getUsersApi = (params) =>
 export const getUserDetailApi = (id) =>
   axiosUser.get(`/api/v1/users/${id}`);
 
-export const updateProfileApi = (data) =>
-  axiosUser.put("/api/v1/users/me/profile", data);
+export const updateProfileApi = (data) =>{
+   const URL_API = "/api/v1/users/me/profile";
+  return axiosUser.patch(URL_API, {data});
+
+}
 
 export const changePasswordApi = (data) =>
-  axiosUser.put("/api/v1/users/me/change-password", data);
+  axiosUser.patch("/api/v1/users/me/change-password", data);
 export const getCartAPI = () => {
   const URL_API = "/api/v1/cart";
  return axiosUser.get(URL_API);
@@ -36,3 +39,15 @@ export const deleteFromCartAPI = (productId)=>{
    const URL_API = `/api/v1/cart/delete/${productId}`;
    return axiosUser.delete(URL_API);
 }
+
+
+
+
+// ✅ Upload avatar (multipart/form-data)
+export const uploadUserAvatarApi = (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return axiosUser.patch("/api/v1/users/me/avatar", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};

@@ -3,6 +3,7 @@ const router = require("express").Router()
 
 const auth = require("../modules/auth/auth.routes")
 const user = require("../modules/user/user.routes")
+const publicUser = require("../modules/user/publicUser.routes")
 const rbac = require("../modules/rbac/rbacAdmin.routes")
 const categoryAdmin = require("../modules/category/category.admin.routes")
 const categoryPublic = require("../modules/category/category.public.routes")
@@ -28,6 +29,7 @@ module.exports = (app) => {
 
   // admin
   app.use(v1 + "/admin/user", user)
+  app.use(v1 + "/users", publicUser)
   app.use(v1 + "/admin/category", categoryAdmin)
   app.use(v1 + "/admin/product", productAdmin)
   app.use(v1 + "/products", publicProduct)

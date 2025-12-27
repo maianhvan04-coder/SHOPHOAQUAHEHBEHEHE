@@ -11,14 +11,13 @@ import AdminRoute from "../guards/admin.router"; // guard RBAC của bạn
 // Public pages/admin (client)
 import ProductDetails from "~/pages/public/ProductDetailsPage";
 import HomePage from "~/pages/public/HomePage";
-import AccountPage from "../../../pages/public/AccountPage.jsx";
 import CartPage from "../../../pages/client/cart/CartPage";
 import ShopPage from "~/pages/public/ShopPage";
 
 // Auth pages (client)
 import LoginPage from "~/features/login/user/login.jsx";
 import RegisterPage from "~/features/register/user/register.jsx";
-
+import ProfilePage from "../../../pages/client/profile/ProfilePage";
 
 // Error pages
 import ForbiddenPage from "~/pages/admin/ForbiddenPage";
@@ -33,13 +32,15 @@ const routes = [
   element: <PublicLayout />,
   children: [
     { index: true, element: <HomePage /> },
-    { path: "details/:slug", element: <ProductDetails /> },
-    { path: "cart", element: <CartPage /> },
+    { path: "details/:slug", element: <ProductDetails /> },   
     { path: "category", element: <ShopPage /> },
-
+    
     {
       element: <PrivateRoute />,
-      children: [{ path: "account", element: <AccountPage /> }],
+      children: [
+      {path: "/profile", element: <ProfilePage /> },
+      { path: "cart", element: <CartPage /> },
+     ],      
     },
   ],
 },

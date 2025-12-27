@@ -8,9 +8,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchCart } from "../../../../features/cart/cart.slice";
 import { fetchAllCategories } from "../../../../features/category/category.store";
 import { useAuth } from "~/app/providers/AuthProvides";
-
+import UserPopup from "./UserPopup";
 const Navbar = ({ onScrollToSection }) => {
-
+  const [openUser, setOpenUser] = useState(false);
   const [isSticky, setIsSticky] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openMix, setOpenMix] = useState(false);
@@ -383,7 +383,7 @@ useEffect(() => {
         className="inline-flex items-center gap-1 px-3 py-2 cursor-pointer"
         onClick={() => {
           // click vào icon/user: nếu đã login thì qua account, chưa thì qua login
-          navigate(isAuthed ? "/account" : "/login");
+          navigate(isAuthed ? "/profile" : "/login");
         }}
       >
         <FaRegUser />
@@ -394,19 +394,21 @@ useEffect(() => {
         {!isAuthed ? (
           <>
             <DropdownItem text="Đăng nhập" onClick={() => navigate("/login")} />
-            <DropdownItem text="Đăng ký" onClick={() => navigate("/register")} />
+           
           </>
         ) : (
           <>
-            <DropdownItem
-              text={user?.fullName || user?.name || user?.email || "Tài khoản"}
-              onClick={() => navigate("/account")}
-            />
-            <DropdownItem text="Đăng xuất" onClick={() => { logout(); navigate("/"); }} />
-
-            <DropdownItem text="Thông tin tài khoản" onClick={() => navigate("/account")} />
-            {/* nếu bạn có logout thì thêm ở đây */}
-            {/* <DropdownItem text="Đăng xuất" onClick={logout} /> */}
+           
+                <div className="absolute right-0 mt-3 z-50">
+                <UserPopup
+                  user={user}
+                  onProfile={() => {
+                    setOpenUser(false);
+                    navigate("/profile");
+                  }}
+                  onLogout={logout}
+                />
+              </div>
           </>
         )}
       </Dropdown>

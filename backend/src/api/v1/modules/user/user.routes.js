@@ -6,6 +6,8 @@ const { guard } = require("../../middlewares/auth"); // auth/index.js
 const { PERMISSIONS } = require("../../../../constants/permissions.js");
 const { validate } = require("../../middlewares/validate.middleware");
 const { uploadAvatar } = require("../../middlewares/upload/avatarUpload.middleware")
+const { auth } = require("../../middlewares/auth/auth.middleware")
+
 // GET /api/v1/admin/user
 router.get(
     "/",
@@ -50,6 +52,6 @@ router.patch(
     controller.updateMyAvatar
 );
 
-
+router.patch("/me/profile", auth, controller.updateMyProfile);
 
 module.exports = router;
