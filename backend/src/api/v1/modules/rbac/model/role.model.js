@@ -2,10 +2,12 @@ const { Schema, model } = require("mongoose");
 
 const roleSchema = new Schema(
     {
-        code: { type: String, required: true, unique: true, index: true }, // ADMIN, MANAGER...
+        code: { type: String, required: true, unique: true, index: true },
         name: { type: String, default: "" },
 
-        //dùng cho FE phân luồng (admin/user)
+        description: { type: String, default: "", trim: true },
+
+        //dùng cho FE phân luồng (admin/user)   
         type: {
             type: String,
             enum: ["owner", "manager", "staff", "shipper", "user"],
@@ -17,6 +19,7 @@ const roleSchema = new Schema(
         priority: { type: Number, default: 0, index: true },
 
         isActive: { type: Boolean, default: true, index: true },
+        isDeleted: { type: Boolean, default: false, index: true },
     },
     { timestamps: true }
 );

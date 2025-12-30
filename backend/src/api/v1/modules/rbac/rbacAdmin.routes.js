@@ -1,56 +1,61 @@
-const router = require("express").Router()
-
+const router = require("express").Router();
 const { guard } = require("../../middlewares/auth");
-
-const controller = require("./rbac.controller.js")
+const controller = require("./rbac.controller.js");
 const validator = require("./rbacAdmin.validator");
 const { PERMISSIONS } = require("../../../../constants/permissions.js");
-const { validate } = require("../../middlewares/validate.middleware.js")
+const { validate } = require("../../middlewares/validate.middleware.js");
+const { auth } = require("../../middlewares/auth/auth.middleware");
 
-const { auth } = require("../../middlewares/auth/auth.middleware")
-router.get("/catalog", auth, controller.getRbacCatalog)
+// Guards
+const RBAC_READ = guard({ any: [PERMISSIONS.RBAC_READ, PERMISSIONS.RBAC_MANAGE] });
+const RBAC_READ_PERM = guard({ any: [PERMISSIONS.RBAC_READ_PERMISSION, PERMISSIONS.RBAC_MANAGE] });
 
+const RBAC_SET_ROLE_PERMS = guard({ any: [PERMISSIONS.RBAC_SET_ROLE_PERMISSIONS, PERMISSIONS.RBAC_MANAGE] });
+const RBAC_SET_USER_ROLES = guard({ any: [PERMISSIONS.RBAC_SET_USER_ROLES, PERMISSIONS.RBAC_MANAGE] });
 
-router.get("/roles", ...guard({ any: [PERMISSIONS.USER_READ] }), controller.listRoles)
+const RBAC_OVERRIDE_SET = guard({ any: [PERMISSIONS.RBAC_SET_USER_OVERRIDE, PERMISSIONS.RBAC_MANAGE] });
+const RBAC_OVERRIDE_REMOVE = guard({ any: [PERMISSIONS.RBAC_REMOVE_USER_OVERRIDE, PERMISSIONS.RBAC_MANAGE] });
 
-router.get("/roles/:roleCode/permissions", ...guard({ any: [PERMISSIONS.USER_READ] }), controller.getPermissionByRole)
+const RBAC_SYNC_ADMIN = guard({ any: [PERMISSIONS.RBAC_SYNC_ADMIN, PERMISSIONS.RBAC_MANAGE] });
 
+// public-ish (đã auth)
+router.get("/catalog", auth, controller.getRbacCatalog);
 
+// read
+router.get("/roles", ...RBAC_READ, controller.listRoles);
+router.get("/permissions", ...RBAC_READ_PERM, controller.listPermissions);
+router.get("/roles/:roleCode/permissions", ...RBAC_READ_PERM, controller.getPermissionByRole);
 
-
-router.post("/sync-admin", ...guard({ any: [PERMISSIONS.USER_WRITE] }), controller.syncAdminAllPermissions)
-router.get(
-    "/permissions",
-    ...guard({ any: [PERMISSIONS.USER_READ] }),
-    controller.listPermissions
-);
-
+// write
 router.post(
     "/role-permissions",
-    ...guard({ any: [PERMISSIONS.USER_WRITE] }),
+    ...guard(PERMISSIONS.RBAC_READ),
     validate(validator.setRolePermissions),
     controller.setRolePermissions
 );
 
 router.post(
     "/user-roles",
-    ...guard({ any: [PERMISSIONS.USER_WRITE] }),
+    ...RBAC_SET_USER_ROLES,
     validate(validator.setUserRoles),
     controller.setUserRoles
 );
 
 router.post(
     "/user-override",
-    ...guard({ any: [PERMISSIONS.USER_WRITE] }),
+    ...RBAC_OVERRIDE_SET,
     validate(validator.setUserOverride),
     controller.setUserOverride
 );
 
 router.delete(
     "/user-override",
-    ...guard({ any: [PERMISSIONS.USER_WRITE] }),
+    ...RBAC_OVERRIDE_REMOVE,
     validate(validator.removeUserOverride),
     controller.removeUserOverride
 );
 
-module.exports = router
+// sync (admin only)
+router.post("/sync-admin", ...RBAC_SYNC_ADMIN, controller.syncAdminAllPermissions);
+
+module.exports = router;

@@ -7,6 +7,7 @@ module.exports.getAllUsers = (asyncHandler(async (req, res) => {
 }))
 // Delete
 module.exports.delete = (asyncHandler(async (req, res) => {
+   console.log(req.params)
    const { id } = req.params
    // console.log(id)
    await userService.deleteUser(id)
@@ -15,6 +16,29 @@ module.exports.delete = (asyncHandler(async (req, res) => {
    });
 
 }))
+
+module.exports.createUser = async (req, res) => {
+   console.log(req.body)
+   try {
+      const data = await userService.createUserAdmin(req.body);
+      return res.status(201).json({ data });
+   } catch (e) {
+      return res.status(400).json({
+         error: { message: e?.message || "Create user failed" },
+      });
+   }
+}
+
+
+exports.updateUserAdmin = async (req, res, next) => {
+   try {
+      const data = await userService.updateUserAdmin(req.params.id, req.body);
+      res.json({ data });
+   } catch (e) {
+      next(e);
+   }
+};
+
 
 module.exports.changeStatusMany = (asyncHandler(async (req, res) => {
    const { ids, isActive } = req.body
@@ -49,12 +73,32 @@ exports.updateMyAvatar = asyncHandler(async (req, res) => {
 
 
 exports.updateMyProfile = asyncHandler(async (req, res) => {
-  const userId = req.user.sub; // từ auth.middleware
-  console.log(userId)
-  const updated = await userService.updateMyProfile(userId, req.body);
+   const userId = req.user.sub; // từ auth.middleware
+   console.log(userId)
+   const updated = await userService.updateMyProfile(userId, req.body);
 
-  res.json({
-    data: updated,
-    message: "Cập nhật profile thành công",
-  });
+   res.json({
+      data: updated,
+      message: "Cập nhật profile thành công",
+   });
+});
+
+
+
+
+exports.getAssignableRoles = asyncHandler(async (req, res, next) => {
+
+   console.log(">>>>", req.user?.sub)
+   const roles = await userService.getAssignableRoles(req.user?.sub);
+   console.log("Đay la list role", roles)
+   return res.json({ result: roles });
+});
+
+exports.setUserRoles = asyncHandler(async (req, res, next) => {
+
+   const userId = req.params.id;
+   const { roleCodes } = req.body;
+
+   const result = await userService.setUserRoles(userId, roleCodes, req.user?.sub);
+   return res.json({ result });
 });

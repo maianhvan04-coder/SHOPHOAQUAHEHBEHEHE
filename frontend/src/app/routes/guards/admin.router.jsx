@@ -35,7 +35,6 @@ export default function AdminRoute() {
 
   const loading = authLoading || catalogLoading;
 
-  // ✅ log CHẮC CHẮN hiện
   const matched = useMemo(() => findScreenByPathname(screens, pathname), [screens, pathname]);
 
   useEffect(() => {

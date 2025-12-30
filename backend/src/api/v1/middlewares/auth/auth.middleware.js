@@ -7,9 +7,13 @@ const authzCache = require("./authzCache");
 const rbacService = require("../../modules/rbac/rbac.service");
 
 exports.auth = async (req, res, next) => {
-  const header = req.headers.authorization;
 
+  if (req.method === "OPTIONS") return next(); // nên để luôn
+
+  const header = req.headers.authorization;
+  console.log(header)
   if (!header?.startsWith("Bearer ")) {
+    console.log("!!! BLOCKED (NO BEARER):", req.method, req.originalUrl);
     return next(new ApiError(httpStatus.UNAUTHORIZED, "Cấm truy cập 1"));
   }
 

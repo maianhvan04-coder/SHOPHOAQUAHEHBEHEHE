@@ -28,5 +28,11 @@ export const userService = {
   bulkSoftDelete(ids) {
     return apiClient.patch(endpoints.users.bulkSoftDelete, { ids });
   },
+   // ~/features/users/userService.jsx
+getAssignableRoles: async () => {
+  const res = await apiClient.get(endpoints.users.getAssignableRoles);
+  return res?.data?.result || []; // <-- trả về array
+},
+
 };
 
