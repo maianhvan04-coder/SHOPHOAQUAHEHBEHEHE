@@ -97,7 +97,9 @@ module.exports.cancelOrderService = async (userId, orderId) => {
   const order = await Order.findOne({ _id: orderId, user: userId });
 
   if (!order) {
-    throw new Error("Không tìm thấy đơn hàng hoặc bạn không có quyền thực hiện.");
+    throw new Error(
+      "Không tìm thấy đơn hàng hoặc bạn không có quyền thực hiện."
+    );
   }
 
   if (order.status.orderStatus !== "Pending") {
@@ -106,11 +108,42 @@ module.exports.cancelOrderService = async (userId, orderId) => {
     );
   }
 
-
   order.status.orderStatus = "Cancelled";
-  
 
   const cancelledOrder = await order.save();
 
   return cancelledOrder;
+};
+module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
+  const { orderStatus, shopNote } = statusData;
+
+  const order = await Order.findById(orderId);
+  if (!order) throw new Error("Không tìm thấy đơn hàng.");
+
+  if (shopNote) order.shopNote = shopNote;
+
+  if (orderStatus) {
+    order.status.orderStatus = orderStatus;
+
+    if (orderStatus === "Delivered") {
+      order.status.isDelivered = true;
+      order.status.deliveredAt = Date.now();
+      order.status.isPaid = true;
+      order.status.paidAt = Date.now();
+    }
+  }
+
+  return await order.save();
+};
+module.exports.getAllOrdersAdmin = async (query) => {
+  const { status, limit = 10, page = 1 } = query;
+  
+  const filter = {};
+  if (status) filter["status.orderStatus"] = status;
+
+  return await Order.find(filter)
+    .populate("user", "fullName phone") 
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .skip((page - 1) * limit);
 };
