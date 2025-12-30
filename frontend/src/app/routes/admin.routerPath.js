@@ -1,13 +1,13 @@
 import { lazy } from "react";
 
 const Users = lazy(() => import("~/pages/admin/Users"));
-// const Categories = lazy(() => import("~/pages/admin/Categories"));
+const Categories = lazy(() => import("~/features/category/pages/admin"));
 // const Products = lazy(() => import("~/pages/admin/Products"));
 const Rbac = lazy(() => import("~/pages/admin/Roles"));
 
 export const adminRouters = [
   { path: "user", component: Users },         // /admin/user
-//   { path: "category", component: Categories },// /admin/category
+  { path: "category", component: Categories },// /admin/category
 //   { path: "product", component: Products },   // /admin/product
   { path: "rbac", component: Rbac },          // /admin/rbac
 ];

@@ -11,8 +11,6 @@ import { store } from "./app/store/store.js";
 
 import { UserAuthWrapper } from "./app/context/user.auth.context.jsx";
 
-
-
 import AuthProvider from "./app/providers/AuthProvides.jsx";
 import ToastProvider from "./shared/ui/Toast/ToastProvider";
 
@@ -20,16 +18,13 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
       <AuthProvider>
-        <UserAuthWrapper>
-        
+        <UserAuthWrapper>        
             <BrowserRouter>
               <ScrollToTop />
               <ToastProvider>
                 <App />
               </ToastProvider>
-            </BrowserRouter>
-
-         
+            </BrowserRouter>  
         </UserAuthWrapper>
       </AuthProvider>
     </Provider>
