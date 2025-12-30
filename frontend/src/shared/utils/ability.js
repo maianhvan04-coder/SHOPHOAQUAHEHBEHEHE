@@ -115,3 +115,19 @@ export function firstAccessibleScreen(groups = [], screens = [], userPermissions
 
   return uiRoute ? normalizePattern(uiRoute) : null;
 }
+
+
+/**
+ * Quyền theo action trong screen.actions:
+ * - không có actionKey hoặc action không khai báo => cho phép
+ * - có action => chỉ cần 1 permission match (OR)
+ */
+export function canAccessAction(userPermissions = [], screen, actionKey) {
+  const perms = Array.isArray(userPermissions) ? userPermissions : [];
+  const need = screen?.actions?.[actionKey];
+
+  if (!actionKey) return true;
+  if (!Array.isArray(need) || need.length === 0) return true;
+
+  return need.some((p) => perms.includes(p));
+}

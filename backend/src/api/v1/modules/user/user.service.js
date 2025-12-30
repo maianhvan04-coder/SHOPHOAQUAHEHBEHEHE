@@ -4,6 +4,9 @@ const httpStatus = require("../../../../core/httpStatus");
 const { uploadAvatarBuffer, destroyByPublicId } = require("../../../../helpers/cloudinary.helper")
 const { ROLES } = require("../../../../constants/roles");
 const { mongoose } = require("mongoose");
+const Role = require("../rbac/model/role.model")
+
+const { hashPassword, comparePassword } = require("../../../../helpers/password.auth")
 
 function normalizeIds(ids) {
   const unique = Array.from(new Set(ids || []))
@@ -51,6 +54,62 @@ exports.getUsers = async (query) => {
     },
   };
 }
+
+
+exports.getAssignableRoles = async () => {
+  // chỉ trả role active, và thường không cho UI gán ADMIN
+  const roles = await Role.find({ isActive: true, code: { $ne: "ADMIN" } })
+    .select("_id code name type priority")
+    .sort({ priority: -1 })
+    .lean();
+
+  return roles;
+};
+
+
+exports.setUserRoles = async (userId, roleCodes, actorId = null) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "UserId không hợp lệ");
+  }
+
+  const clean = Array.from(new Set((roleCodes || []).map((x) => String(x).trim().toUpperCase())));
+  if (!clean.length) throw new ApiError(httpStatus.BAD_REQUEST, "roleCodes không được rỗng");
+  if (clean.includes("ADMIN")) throw new ApiError(httpStatus.FORBIDDEN, "Không cho gán ADMIN qua API");
+
+  const user = await userRepo.findById(userId);
+  if (!user || user.isDeleted) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const roles = await userRepo.replaceUserRolesByCodes(
+      { userId, roleCodes: clean },
+      { session }
+    );
+
+
+    await userRepo.bumpAuthzVersion(userId, { session });
+
+    await session.commitTransaction();
+
+    return {
+      userId,
+      roleCodes: roles.map((r) => r.code),
+      roles: roles.map((r) => ({
+        _id: r._id,
+        code: r.code,
+        name: r.name,
+        type: r.type,
+        priority: r.priority,
+      })),
+    };
+  } catch (e) {
+    await session.abortTransaction();
+    throw e;
+  } finally {
+    session.endSession();
+  }
+};
 
 exports.deleteUser = async (id) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -199,6 +258,176 @@ exports.updateMyAvatar = async (userId, file) => {
   return updated.image;
 };
 
+const normEmail = (email = "") => String(email).trim().toLowerCase();
+
+exports.createUserAdmin = async (payload) => {
+  console.log(payload)
+  const fullName = String(payload.fullName || "").trim();
+  const email = String(payload.email || "").trim().toLowerCase();
+  const phone = payload.phone ? String(payload.phone).replace(/\D/g, "").slice(0, 10) : "";
+  const isActive = payload.isActive !== undefined ? !!payload.isActive : true;
+
+  const roleCodes = Array.isArray(payload.roleCodes) ? payload.roleCodes : [];
+  const password = String(payload.password || "");
+
+  if (!fullName) throw new Error("fullName is required");
+  if (!email) throw new Error("email is required");
+  if (!password || password.length < 6) throw new Error("password min 6 chars");
+  if (roleCodes.includes("ADMIN")) throw new Error("Không cho gán ADMIN qua API");
+
+  const finalRoleCodes = roleCodes.length ? roleCodes : ["USER"];
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const exists = await userRepo.findByEmail(email, { session });
+    if (exists) throw new Error("Email already exists");
+
+    const passwordHash = await hashPassword(password, 10);
+
+    const user = await userRepo.createOne(
+      {
+        fullName,
+        email,
+        phone,
+        passwordHash,
+        isActive,
+        isDeleted: false,
+      },
+      { session }
+    );
+
+    const roles = await userRepo.replaceUserRolesByCodes(
+      { userId: user._id, roleCodes: finalRoleCodes },
+      { session }
+    );
+
+    await session.commitTransaction();
+
+    return {
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      roles: roles.map((r) => ({
+        _id: r._id,
+        code: r.code,
+        name: r.name,
+        type: r.type,
+        priority: r.priority,
+      })),
+    };
+  } catch (e) {
+    await session.abortTransaction();
+    throw e;
+  } finally {
+    session.endSession();
+  }
+};
+
+exports.updateUserAdmin = async (userId, payload) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "UserId không hợp lệ");
+  }
+
+  // lấy user + roles để check ADMIN
+  const current = await userRepo.findUserWithRolesById(userId);
+  if (!current || current.isDeleted) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
+  }
+
+  const currentRoleCodes = (current.roles || []).map(r => r.code).filter(Boolean);
+  if (currentRoleCodes.includes("ADMIN")) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Không thể cập nhật tài khoản ADMIN");
+  }
+
+  // normalize
+  const fullName = payload.fullName !== undefined ? String(payload.fullName || "").trim() : undefined;
+  const email = payload.email !== undefined ? String(payload.email || "").trim().toLowerCase() : undefined;
+  const phone = payload.phone !== undefined ? String(payload.phone || "").replace(/\D/g, "").slice(0, 10) : undefined;
+  const isActive = payload.isActive !== undefined ? !!payload.isActive : undefined;
+
+  const roleCodes = Array.isArray(payload.roleCodes) ? payload.roleCodes.filter(Boolean) : undefined;
+  const password = payload.password !== undefined ? String(payload.password || "") : undefined;
+
+  // validate nhẹ
+  if (fullName !== undefined && !fullName) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "fullName không hợp lệ");
+  }
+  if (email !== undefined && !email) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "email không hợp lệ");
+  }
+  if (password !== undefined && password && password.length < 6) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "password min 6 chars");
+  }
+  if (roleCodes && roleCodes.includes("ADMIN")) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Không cho gán ADMIN qua API");
+  }
+
+  // build update doc
+  const updateDoc = {};
+  if (fullName !== undefined) updateDoc.fullName = fullName;
+  if (email !== undefined) updateDoc.email = email;
+  if (phone !== undefined) updateDoc.phone = phone; // bạn muốn cho xoá phone thì cho phép ""
+  if (isActive !== undefined) updateDoc.isActive = isActive;
+
+  if (password) {
+    updateDoc.passwordHash = await hashPassword(password, 10);
+    updateDoc.authzVersion = (current.authzVersion || 0) + 1;
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // check unique email
+    if (email !== undefined && email !== current.email) {
+      const existed = await userRepo.findByEmail(email, { session });
+      if (existed && String(existed._id) !== String(userId)) {
+        throw new ApiError(httpStatus.CONFLICT, "Email already exists");
+      }
+    }
+
+    // check unique phone (skip nếu phone = "" và bạn cho phép xoá phone)
+    if (phone !== undefined && phone !== (current.phone || "")) {
+      if (phone) {
+        const existedPhone = await userRepo.findByPhone(phone, { session });
+        if (existedPhone && String(existedPhone._id) !== String(userId)) {
+          throw new ApiError(httpStatus.CONFLICT, "Phone already exists");
+        }
+      }
+    }
+
+    // update user info
+    if (Object.keys(updateDoc).length) {
+      await userRepo.updateById(userId, updateDoc, { session });
+    }
+
+    // replace roles nếu truyền roleCodes
+    if (roleCodes) {
+      const finalRoleCodes = roleCodes.length ? roleCodes : ["USER"];
+      await userRepo.replaceUserRolesByCodes(
+        { userId, roleCodes: finalRoleCodes },
+        { session }
+      );
+    }
+
+    await session.commitTransaction();
+
+    // trả về user + roles đúng format FE
+    const updated = await userRepo.findUserWithRolesById(userId);
+    return updated;
+  } catch (e) {
+    await session.abortTransaction();
+    throw e;
+  } finally {
+    session.endSession();
+  }
+};
 
 
 

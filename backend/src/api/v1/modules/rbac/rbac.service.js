@@ -14,27 +14,29 @@ exports.buildAuthz = async (userId) => {
     const roleIds = urLinks.map((x) => x.roleId);
 
     const roles = roleIds.length ? await rbacRepo.findRolesByIds(roleIds) : [];
-    const activeRoleIds = roles.map((r) => r._id);
+    const activeRoles = (roles || []).filter((r) => r?.isActive !== false);
+    const activeRoleIds = activeRoles.map((r) => r._id);
 
     const rpLinks = activeRoleIds.length
         ? await rbacRepo.findRolePermissionLinksByRoleIds(activeRoleIds)
         : [];
 
-    const permIds = Array.from(new Set(rpLinks.map((x) => x.permissionId.toString()))).map(
-        (id) => new mongoose.Types.ObjectId(id)
-    );
+    const permIds = Array.from(
+        new Set(rpLinks.map((x) => x.permissionId.toString()))
+    ).map((id) => new mongoose.Types.ObjectId(id));
 
     const permsFromRoles = permIds.length ? await rbacRepo.findPermissionsByIds(permIds) : [];
     const set = new Set(permsFromRoles.map((p) => p.key));
 
-    const primaryRole = roles.reduce((best, r) => {
+    // primaryRole by priority (only activeRoles)
+    const primaryRole = activeRoles.reduce((best, r) => {
         if (!best) return r;
         return (r.priority || 0) > (best.priority || 0) ? r : best;
     }, null);
 
     const type = primaryRole?.type || "user";
 
-    // overrides ALLOW/DENY
+    // overrides allow/deny
     const overrides = await rbacRepo.findOverridesByUserId(userId);
     if (overrides.length) {
         const ovIds = overrides.map((x) => x.permissionId);
@@ -52,11 +54,12 @@ exports.buildAuthz = async (userId) => {
     return {
         userId: user._id.toString(),
         authzVersion: user.authzVersion || 0,
-        roles: roles.map((r) => r.code),
+        roles: activeRoles.map((r) => r.code),
         type,
         permissions: Array.from(set),
     };
 };
+
 
 // ===== Admin RBAC APIs =====
 
@@ -91,8 +94,11 @@ exports.getRolePermissions = async (roleCode) => {
     // lọc theo isActive (repo findPermissionsByIds đã lọc isActive:true)
     const perms = permIds.length ? await rbacRepo.findPermissionsByIds(permIds) : [];
 
+
+    const usersCount = await rbacRepo.countUsersByRoleId(role._id)
     return {
         role: role.code,
+        usersCount,
         permissionKeys: perms.map((p) => p.key),
     };
 };
@@ -101,13 +107,13 @@ exports.getRolePermissions = async (roleCode) => {
 exports.setRolePermissions = async (roleCode, permissionKeys) => {
     if (!roleCode) throw new ApiError(httpStatus.BAD_REQUEST, "Thiếu roleCode");
 
-    // khóa ADMIN: chỉ cho chỉnh trong DB
-    if (roleCode.trim().toUpperCase() === "ADMIN") {
-        throw new ApiError(
-            httpStatus.FORBIDDEN,
-            "Tuổi tí được chỉnh quyền này nhé con"
-        );
-    }
+    // // khóa ADMIN: chỉ cho chỉnh trong DB
+    // if (roleCode.trim().toUpperCase() === "ADMIN") {
+    //     throw new ApiError(
+    //         httpStatus.FORBIDDEN,
+    //         "Tuổi tí được chỉnh quyền này nhé con"
+    //     );
+    // }
 
     const role = await rbacRepo.findRoleByCode(roleCode);
     if (!role) throw new ApiError(httpStatus.NOT_FOUND, "Role không tồn tại");

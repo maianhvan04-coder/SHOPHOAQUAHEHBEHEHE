@@ -32,17 +32,18 @@ function PageHeader({
         <Text color={textColor}>{description}</Text>
       </Box>
       
-      {buttonLabel && (
-        <Button
-          leftIcon={Icon && <Icon className="h-5 w-5" />}
-          colorScheme="vrv"
-          onClick={onButtonClick}
-          width={{ base: 'full', md: 'auto' }}
-          size={isMobile ? 'md' : 'md'}
-        >
-          {buttonLabel}
-        </Button>
-      )}
+    {buttonLabel && onButtonClick && (
+  <Button
+    leftIcon={Icon && <Icon className="h-5 w-5" />}
+    colorScheme="vrv"
+    onClick={onButtonClick}
+    width={{ base: 'full', md: 'auto' }}
+    size={isMobile ? 'md' : 'md'}
+  >
+    {buttonLabel}
+  </Button>
+)}
+
     </Stack>
   )
 }

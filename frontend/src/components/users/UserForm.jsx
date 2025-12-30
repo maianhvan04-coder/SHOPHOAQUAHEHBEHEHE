@@ -14,49 +14,47 @@ import {
   InputLeftAddon,
   Text,
 } from "@chakra-ui/react";
-import { rbacService } from "~/features/rbac/services/rbacService";
-
+import { userService } from "~/features/users/userService";
 function UserForm({ user, onSubmit, onCancel }) {
   const toast = useToast();
-
   const isEdit = !!user?._id;
+
+
+  const includeRoleCodes = true;
 
   const [roles, setRoles] = useState([]);
 
   const initialRoleCode = useMemo(() => {
-    // backend user.roles: [{code,...}]
     const codes = (user?.roles || []).map((r) => r?.code).filter(Boolean);
-    return codes?.[0] || ""; // pick first
+    return codes?.[0] || "";
   }, [user]);
 
   const [formData, setFormData] = useState({
     fullName: user?.fullName || "",
     email: user?.email || "",
     phone: user?.phone || "",
-    roleCode: initialRoleCode, // single role UI
+    roleCode: initialRoleCode,
     isActive: user?.isActive === false ? "false" : "true",
-    password: "", // create required, edit optional
+    password: "",
   });
 
   const [errors, setErrors] = useState({});
 
-  // load roles from RBAC
   useEffect(() => {
     const loadRoles = async () => {
       try {
-        const roleList = await rbacService.getRoles(); // should return [{_id,code,name,isActive,...}]
+        const roleList = await userService.getAssignableRoles();
+        console.log("Roles List",roleList)
         const active = (roleList || []).filter((r) => r?.isActive !== false);
-
         setRoles(active);
 
-        // set default role if create and none selected
+        // default role for create
         if (!isEdit && !formData.roleCode && active.length) {
-          // avoid ADMIN default
           const firstNonAdmin = active.find((r) => r.code !== "ADMIN") || active[0];
           setFormData((p) => ({ ...p, roleCode: firstNonAdmin?.code || "" }));
         }
 
-        // if edit and roleCode empty but user has roles
+        // edit: fill from user if empty
         if (isEdit && !formData.roleCode && initialRoleCode) {
           setFormData((p) => ({ ...p, roleCode: initialRoleCode }));
         }
@@ -77,14 +75,18 @@ function UserForm({ user, onSubmit, onCancel }) {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
-    else if (formData.fullName.trim().length < 2) newErrors.fullName = "Min 2 characters";
+    const fullName = String(formData.fullName || "").trim();
+    const email = String(formData.email || "").trim();
+    const phoneDigits = formData.phone ? String(formData.phone).replace(/\D/g, "") : "";
+
+    if (!fullName) newErrors.fullName = "Full name is required";
+    else if (fullName.length < 2) newErrors.fullName = "Min 2 characters";
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!emailRegex.test(formData.email.trim())) newErrors.email = "Invalid email";
+    if (!email) newErrors.email = "Email is required";
+    else if (!emailRegex.test(email)) newErrors.email = "Invalid email";
 
-    // role code required, but disallow ADMIN via UI
+    // role required (UI), and block ADMIN
     if (!formData.roleCode) newErrors.roleCode = "Please select a role";
     if (formData.roleCode === "ADMIN") newErrors.roleCode = "Không cho gán ADMIN qua UI";
 
@@ -93,20 +95,41 @@ function UserForm({ user, onSubmit, onCancel }) {
       if (!formData.password) newErrors.password = "Password is required";
       else if (formData.password.length < 6) newErrors.password = "Min 6 characters";
     } else {
-      // edit: optional
       if (formData.password && formData.password.length < 6) {
         newErrors.password = "Min 6 characters";
       }
     }
 
-    // phone optional (validate digits only, length 10)
-    if (formData.phone) {
-      const digits = formData.phone.replace(/\D/g, "");
-      if (digits.length !== 10) newErrors.phone = "Phone must be exactly 10 digits";
+    // phone optional: nếu nhập thì phải đủ 10 số
+    if (phoneDigits && phoneDigits.length !== 10) {
+      newErrors.phone = "Phone must be exactly 10 digits";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const buildPayload = () => {
+    const fullName = String(formData.fullName || "").trim();
+    const email = String(formData.email || "").trim().toLowerCase();
+
+    const phoneDigits = formData.phone ? String(formData.phone).replace(/\D/g, "").slice(0, 10) : "";
+
+    const payload = {
+      fullName,
+      email,
+      isActive: formData.isActive === "true",
+    };
+
+    if (phoneDigits) payload.phone = phoneDigits;
+
+    if (includeRoleCodes) {
+      payload.roleCodes = formData.roleCode ? [formData.roleCode] : [];
+    }
+
+    if (!isEdit || formData.password) payload.password = String(formData.password);
+
+    return payload;
   };
 
   const handleSubmit = (e) => {
@@ -122,35 +145,22 @@ function UserForm({ user, onSubmit, onCancel }) {
       return;
     }
 
-    // build payload for backend
-    const payload = {
-      fullName: formData.fullName.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone ? formData.phone.replace(/\D/g, "") : "",
-      isActive: formData.isActive === "true",
-      roleCodes: formData.roleCode ? [formData.roleCode] : [],
-    };
-
-    // include password only when set
-    if (!isEdit || formData.password) payload.password = formData.password;
-
-    onSubmit?.(payload);
+    onSubmit?.(buildPayload());
   };
 
   const handleChange = (e) => {
-    const { name, value, isTrusted } = e.target;
+    const { name, value } = e.target;
 
-    // phone: digits only + max 10
     if (name === "phone") {
       const digits = value.replace(/\D/g, "").slice(0, 10);
       setFormData((p) => ({ ...p, phone: digits }));
+    } else if (name === "email") {
+      setFormData((p) => ({ ...p, email: value.trimStart() })); // tránh space đầu
     } else {
       setFormData((p) => ({ ...p, [name]: value }));
     }
 
-    if (isTrusted && errors[name]) {
-      setErrors((p) => ({ ...p, [name]: undefined }));
-    }
+    if (errors[name]) setErrors((p) => ({ ...p, [name]: undefined }));
   };
 
   return (
@@ -186,7 +196,7 @@ function UserForm({ user, onSubmit, onCancel }) {
           <Select name="roleCode" value={formData.roleCode} onChange={handleChange}>
             <option value="">Select Role</option>
             {roles
-              .filter((r) => r.code !== "ADMIN") // ✅ chặn ADMIN trong UI
+              .filter((r) => r.code !== "ADMIN")
               .map((r) => (
                 <option key={r._id || r.code} value={r.code}>
                   {r.code} {r.name ? `- ${r.name}` : ""}
@@ -202,7 +212,8 @@ function UserForm({ user, onSubmit, onCancel }) {
         <FormControl isInvalid={!!errors.phone}>
           <FormLabel>Phone Number</FormLabel>
           <InputGroup>
-            <InputLeftAddon>+1</InputLeftAddon>
+            {/* ✅ nếu bạn VN thì +84; hoặc bỏ addon luôn */}
+            <InputLeftAddon>+84</InputLeftAddon>
             <Input
               name="phone"
               type="tel"
@@ -237,10 +248,10 @@ function UserForm({ user, onSubmit, onCancel }) {
         </FormControl>
 
         <HStack spacing={3} width="full" justify="flex-end" pt={4}>
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} fontWeight="normal">
             Cancel
           </Button>
-          <Button type="submit" colorScheme="vrv">
+          <Button type="submit" colorScheme="vrv" fontWeight="normal">
             {isEdit ? "Update" : "Create"} User
           </Button>
         </HStack>

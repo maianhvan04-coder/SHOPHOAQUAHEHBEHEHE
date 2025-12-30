@@ -14,3 +14,5 @@ exports.get = (key) => {
 exports.set = (key, data) => {
     cache.set(key, { data, exp: Date.now() + TTL_MS });
 };
+exports.del = (key) => cache.delete(key);
+exports.clear = () => cache.clear();
