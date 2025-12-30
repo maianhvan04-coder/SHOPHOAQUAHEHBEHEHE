@@ -30,24 +30,30 @@ import {
   Textarea,
   Badge,
 } from "@chakra-ui/react";
-import { EditIcon, ViewIcon } from "@chakra-ui/icons";
+import { EditIcon } from "@chakra-ui/icons";
 import { fetchAllOrdersAdmin, updateStatusAdmin } from "../order.slice";
+import Pagination from "../../../components/common/Pagination"; 
 
 export default function OrderManagementPage() {
   const dispatch = useDispatch();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const { orders, isLoading } = useSelector((state) => state.order);
+  const { orders,totalItems, isLoading } = useSelector((state) => state.order);
 
-  // State dành cho cập nhật
+ 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [statusFilter, setStatusFilter] = useState("");
+
+
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [newStatus, setNewStatus] = useState("");
   const [shopNote, setShopNote] = useState("");
 
   useEffect(() => {
-    dispatch(fetchAllOrdersAdmin({}));
-  }, [dispatch]);
+    dispatch(fetchAllOrdersAdmin({ page, limit, status: statusFilter }));
+  }, [dispatch, page, limit, statusFilter]);
 
   const openUpdateModal = (order) => {
     setSelectedOrder(order);
@@ -84,7 +90,6 @@ export default function OrderManagementPage() {
     }
   };
 
-
   const getStatusColor = (status) => {
     switch (status) {
       case "Pending": return "orange";
@@ -98,71 +103,95 @@ export default function OrderManagementPage() {
 
   return (
     <Container maxW="7xl" py={6}>
-      {/* ===== HEADER ===== */}
-      <Flex justify="space-between" align="center" mb={6}>
+      {/* ===== HEADER & FILTER ===== */}
+      <Flex 
+        justify="space-between" 
+        align={{ base: "flex-start", md: "center" }} 
+        mb={6} 
+        direction={{ base: "column", md: "row" }} 
+        gap={4}
+      >
         <Box>
-          <Heading size="lg" color="gray.800">
-            Quản lý đơn hàng
-          </Heading>
+          <Heading size="lg" color="gray.800">Quản lý đơn hàng</Heading>
           <Text mt={1} fontSize="sm" color="gray.500">
             Theo dõi và cập nhật trạng thái đơn hàng của hệ thống
           </Text>
         </Box>
+
+        <HStack spacing={3} w={{ base: "full", md: "auto" }}>
+          <Text fontWeight="bold" fontSize="sm" whiteSpace="nowrap">Trạng thái:</Text>
+          <Select 
+            w={{ base: "full", md: "200px" }}
+            bg="white" 
+            borderRadius="xl"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Tất cả đơn hàng</option>
+            <option value="Pending">Chờ xác nhận</option>
+            <option value="Confirmed">Đã xác nhận</option>
+            <option value="Shipped">Đang giao</option>
+            <option value="Delivered">Hoàn thành</option>
+            <option value="Cancelled">Đã hủy</option>
+          </Select>
+        </HStack>
       </Flex>
 
-      {/* ===== TABLE ===== */}
-      <Box bg="white" borderRadius="2xl" boxShadow="sm" borderWidth="1px">
+      {/* ===== TABLE CONTENT ===== */}
+      <Box bg="white" borderRadius="2xl" boxShadow="sm" borderWidth="1px" overflow="hidden">
         {isLoading ? (
-          <Flex p={10} justify="center" align="center" direction="column" gap={3}>
-            <Spinner color="green.500" />
+          <Flex p={20} justify="center" align="center" direction="column" gap={3}>
+            <Spinner color="green.500" size="xl" />
             <Text color="gray.500">Đang tải danh sách đơn hàng...</Text>
           </Flex>
         ) : (
-          <Box overflowX="auto">
-            <Table variant="simple">
-              <Thead bg="gray.50">
-                <Tr>
-                  <Th>Mã đơn</Th>
-                  <Th>Khách hàng</Th>
-                  <Th>Tổng tiền</Th>
-                  <Th>Thanh toán</Th>
-                  <Th>Trạng thái</Th>
-                  <Th textAlign="right">Hành động</Th>
-                </Tr>
-              </Thead>
-
-              <Tbody>
-                {orders?.length === 0 ? (
+          <>
+            <Box overflowX="auto">
+              <Table variant="simple">
+                <Thead bg="gray.50">
                   <Tr>
-                    <Td colSpan={6} textAlign="center" py={10}>
-                      Chưa có đơn hàng nào
-                    </Td>
+                    <Th>Mã đơn</Th>
+                    <Th>Khách hàng</Th>
+                    <Th>Tổng tiền</Th>
+                    <Th>Thanh toán</Th>
+                    <Th>Trạng thái</Th>
+                    <Th textAlign="right">Hành động</Th>
                   </Tr>
-                ) : (
-                  orders.map((order) => (
-                    <Tr key={order._id} _hover={{ bg: "gray.50" }}>
-                      <Td fontWeight="bold" fontSize="xs">
-                        #{order._id.slice(-8).toUpperCase()}
+                </Thead>
+                <Tbody>
+                  {orders?.length === 0 ? (
+                    <Tr>
+                      <Td colSpan={6} textAlign="center" py={10} color="gray.500">
+                        Chưa có đơn hàng nào khớp với điều kiện lọc
                       </Td>
-                      <Td>
-                        <Text fontWeight="semibold" fontSize="sm">{order.shippingAddress?.fullName}</Text>
-                        <Text fontSize="xs" color="gray.500">{order.shippingAddress?.phone}</Text>
-                      </Td>
-                      <Td fontWeight="bold" color="red.500">
-                        {order.totalPrice?.toLocaleString()}đ
-                      </Td>
-                      <Td>
-                        <Badge colorScheme={order.status?.isPaid ? "green" : "gray"}>
-                          {order.status?.isPaid ? "Đã trả" : "Chưa trả"}
-                        </Badge>
-                      </Td>
-                      <Td>
-                        <Tag size="sm" variant="solid" colorScheme={getStatusColor(order.status?.orderStatus)}>
-                          {order.status?.orderStatus}
-                        </Tag>
-                      </Td>
-                      <Td textAlign="right">
-                        <HStack justify="flex-end" spacing={2}>
+                    </Tr>
+                  ) : (
+                    orders.map((order) => (
+                      <Tr key={order._id} _hover={{ bg: "gray.50" }}>
+                        <Td fontWeight="bold" fontSize="xs">
+                          #{order._id.slice(-8).toUpperCase()}
+                        </Td>
+                        <Td>
+                          <Text fontWeight="semibold" fontSize="sm">{order.shippingAddress?.fullName}</Text>
+                          <Text fontSize="xs" color="gray.500">{order.shippingAddress?.phone}</Text>
+                        </Td>
+                        <Td fontWeight="bold" color="red.500">
+                          {order.totalPrice?.toLocaleString()}đ
+                        </Td>
+                        <Td>
+                          <Badge colorScheme={order.status?.isPaid ? "green" : "gray"}>
+                            {order.status?.isPaid ? "Đã trả" : "Chưa trả"}
+                          </Badge>
+                        </Td>
+                        <Td>
+                          <Tag size="sm" variant="solid" colorScheme={getStatusColor(order.status?.orderStatus)}>
+                            {order.status?.orderStatus}
+                          </Tag>
+                        </Td>
+                        <Td textAlign="right">
                           <IconButton
                             aria-label="Cập nhật"
                             icon={<EditIcon />}
@@ -171,14 +200,29 @@ export default function OrderManagementPage() {
                             variant="ghost"
                             onClick={() => openUpdateModal(order)}
                           />
-                        </HStack>
-                      </Td>
-                    </Tr>
-                  ))
-                )}
-              </Tbody>
-            </Table>
-          </Box>
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </Tbody>
+              </Table>
+            </Box>
+
+           
+            <Box borderTopWidth="1px" bg="gray.50">
+              <Pagination
+                page={page}
+                limit={limit}
+                totalItems={totalItems} 
+                onPageChange={(p) => setPage(p)}
+                onLimitChange={(l) => {
+                  setLimit(l);
+                  setPage(1);
+                }}
+                isDisabled={isLoading}
+              />
+            </Box>
+          </>
         )}
       </Box>
 
@@ -196,11 +240,7 @@ export default function OrderManagementPage() {
 
             <Box mb={4}>
               <Text fontSize="sm" fontWeight="bold" mb={2}>Trạng thái đơn hàng</Text>
-              <Select 
-                value={newStatus} 
-                onChange={(e) => setNewStatus(e.target.value)}
-                borderRadius="xl"
-              >
+              <Select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} borderRadius="xl">
                 <option value="Pending">Pending (Chờ xác nhận)</option>
                 <option value="Confirmed">Confirmed (Đã xác nhận)</option>
                 <option value="Shipped">Shipped (Đang giao hàng)</option>
@@ -212,7 +252,7 @@ export default function OrderManagementPage() {
             <Box>
               <Text fontSize="sm" fontWeight="bold" mb={2}>Ghi chú của Shop (Nội bộ)</Text>
               <Textarea
-                placeholder="Ví dụ: Đã gọi điện xác nhận, khách đổi sang táo xanh..."
+                placeholder="Ví dụ: Đã gọi điện xác nhận..."
                 value={shopNote}
                 onChange={(e) => setShopNote(e.target.value)}
                 borderRadius="xl"
@@ -220,14 +260,9 @@ export default function OrderManagementPage() {
               />
             </Box>
           </ModalBody>
-
           <ModalFooter borderTopWidth="1px">
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              Đóng
-            </Button>
-            <Button colorScheme="green" px={8} onClick={handleUpdateStatus}>
-              Lưu thay đổi
-            </Button>
+            <Button variant="ghost" mr={3} onClick={onClose}>Huỷ</Button>
+            <Button colorScheme="green" px={8} onClick={handleUpdateStatus}>Lưu thay đổi</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

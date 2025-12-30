@@ -19,9 +19,9 @@ export const cancelOrderAPI = (orderId) => {
   const URL_API = `/api/v1/order/me/${orderId}/cancel`;
   return apiClient.patch(URL_API);
 };
-export const getAllOrdersAPI = () => {
+export const getAllOrdersAPI = (query) => {
   const URL_API = "api/v1/admin/order/all";
-  return apiClient.get(URL_API);
+  return apiClient.get(URL_API, { params: query });
 };
 export const updateOrderStatusAPI = (orderId, data) => {
   const URL_API = `api/v1/admin/order/update-status/${orderId}`;

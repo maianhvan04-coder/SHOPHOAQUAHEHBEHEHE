@@ -137,13 +137,15 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
 };
 module.exports.getAllOrdersAdmin = async (query) => {
   const { status, limit = 10, page = 1 } = query;
-  
   const filter = {};
   if (status) filter["status.orderStatus"] = status;
 
-  return await Order.find(filter)
-    .populate("user", "fullName phone") 
+  const totalItems = await Order.countDocuments(filter);
+  const orders = await Order.find(filter)
+    .populate("user", "fullName phone")
     .sort({ createdAt: -1 })
-    .limit(limit)
-    .skip((page - 1) * limit);
+    .limit(Number(limit))
+    .skip((Number(page) - 1) * Number(limit));
+
+  return { orders, totalItems }; // Trả về object
 };

@@ -70,7 +70,9 @@ export const fetchAllOrdersAdmin = createAsyncThunk(
   "order/fetchAllOrdersAdmin",
   async (query, { rejectWithValue }) => {
     try {
+      
       const response = await getAllOrdersAPI(query);
+      console.log(response)
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
@@ -85,7 +87,7 @@ export const updateStatusAdmin = createAsyncThunk(
   async ({ orderId, statusData }, { rejectWithValue }) => {
     try {
       const response = await updateOrderStatusAPI(orderId, statusData);
- 
+
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -151,7 +153,8 @@ const orderSlice = createSlice({
       })
       .addCase(fetchAllOrdersAdmin.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.orders = action.payload;
+        state.orders = action.payload.orders;
+        state.totalItems = action.payload.totalItems;
       })
 
       .addCase(updateStatusAdmin.fulfilled, (state, action) => {
