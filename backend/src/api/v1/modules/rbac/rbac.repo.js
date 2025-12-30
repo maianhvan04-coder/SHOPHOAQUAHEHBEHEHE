@@ -11,6 +11,31 @@ const User = require("../user/user.model.js");
 exports.findUserAuthMeta = (userId) =>
     User.findById(userId).select("_id authzVersion isActive isDeleted").lean();
 
+
+exports.countUsersByRoleId = async (roleId, { onlyActive = false } = {}) => {
+    const pipeline = [
+        { $match: { roleId } },
+        {
+            $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user",
+            }
+        },
+        { $unwind: "$user" },
+        { $match: { "user.isDeleted": false } },
+    ]
+
+    if (onlyActive) pipeline.push({ $match: { "user.isActive": true } });
+    pipeline.push({ $count: "total" });
+
+    const res = await UserRole.aggregate(pipeline)
+
+    return res?.[0]?.total || 0;
+
+}
+
 exports.bumpUsersAuthzVersion = (userIds) => {
     if (!userIds?.length) return Promise.resolve({ matchedCount: 0, modifiedCount: 0 });
     return User.updateMany({ _id: { $in: userIds } }, { $inc: { authzVersion: 1 } });
@@ -23,7 +48,7 @@ exports.bumpUserAuthzVersion = (userId) =>
 exports.findRoleByCode = (code) => Role.findOne({ code, isActive: true }).lean();
 exports.findRolesByCodes = (codes) => Role.find({ code: { $in: codes }, isActive: true }).lean();
 exports.findRolesByIds = (ids) => Role.find({ _id: { $in: ids }, isActive: true }).select("_id code type priority").lean();
-exports.findAllRoles = () => Role.find({}).sort({ code: 1 }).lean();
+exports.findAllRoles = () => Role.find({ isDeleted: false }).sort({ code: 1 }).lean();
 
 // ===== Permission =====
 exports.findAllPermissions = () => Permission.find({}).sort({ group: 1, key: 1 }).lean();
@@ -70,3 +95,7 @@ exports.upsertUserOverride = (userId, permissionId, effect) =>
 
 exports.deleteUserOverride = (userId, permissionId) =>
     UserPermissionOverride.deleteOne({ userId, permissionId });
+
+
+
+

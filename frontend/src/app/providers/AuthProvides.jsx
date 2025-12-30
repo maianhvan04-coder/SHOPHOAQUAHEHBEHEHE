@@ -31,7 +31,7 @@ export default function AuthProvider({ children }) {
       setPermissions(normalized.permissions);
       authStorage.setMe(normalized);
 
-      return normalized; // ✅ return data chuẩn
+      return normalized;
     } catch (e) {
       authStorage.clear();
       setUser(null);
@@ -44,7 +44,7 @@ export default function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const token = authStorage.getToken(); // ✅
+    const token = authStorage.getToken(); 
     if (!token) {
       setLoading(false);
       return;

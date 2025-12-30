@@ -23,9 +23,20 @@ exports.requireAnyPermission = (...permissions) => (req, res, next) => {
   }
 
   const ok = permissions.some((p) => granted.includes(p));
-  if (!ok) return next(new ApiError(httpStatus.FORBIDDEN, "Forbidden"));
+
+  if (!ok) {
+    console.log("PERMISSION DENY:", {
+      need: permissions,
+      have: granted,
+      roles: req.user?.roles,
+      user: req.user?.sub,
+    });
+    return next(new ApiError(httpStatus.FORBIDDEN, "Forbidden"));
+  }
+
   return next();
 };
+
 
 // Permission AND
 exports.requireAllPermissions = (...permissions) => (req, res, next) => {

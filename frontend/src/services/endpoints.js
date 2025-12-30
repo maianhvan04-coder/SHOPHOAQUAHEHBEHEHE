@@ -15,6 +15,7 @@ export const endpoints = {
     remove: (id) => `${v1Admin}/user/${id}`,
     bulkSetStatus: `${v1Admin}/user/bulk/status`,
     bulkSoftDelete: `${v1Admin}/user/bulk/delete`,
+    getAssignableRoles: `${v1Admin}/user/assignable-roles`,
   },
 
   categories: {
@@ -41,7 +42,11 @@ export const endpoints = {
     setUserOverride: `${v1Admin}/rbac/user-override`,
     removeUserOverride: `${v1Admin}/rbac/user-override`,
     catalog: `${v1Admin}/rbac/catalog`,
-    getPermissionByRole: ({ roleCode }) => `${v1Admin}/rbac/roles/${encodeURIComponent(roleCode)}/permissions`
+    // ROLES
+    getPermissionByRole: ({ roleCode }) => `${v1Admin}/rbac/roles/${encodeURIComponent(roleCode)}/permissions`,
+
+    roleById: (id) => `${v1Admin}/rbac/roles/${encodeURIComponent(id)}`,
+    rolesStatus: ({ id }) => `${v1Admin}/rbac/roles/${id}/status`,
 
   },
 

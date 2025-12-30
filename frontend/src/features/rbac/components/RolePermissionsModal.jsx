@@ -28,30 +28,51 @@ export default function RolePermissionsModal({
   allPermissions = [],
   onSave,
   saving = false,
-  initialSelectedKeys = [], // ✅ thêm prop
+  initialSelectedKeys = [],
 }) {
   const [selected, setSelected] = useState([]);
 
-  // ✅ mở modal là set selected theo permissionKeys hiện tại của role
   useEffect(() => {
     if (!isOpen) return;
     setSelected(Array.isArray(initialSelectedKeys) ? initialSelectedKeys : []);
   }, [isOpen, initialSelectedKeys]);
 
-  const permsByGroup = useMemo(() => {
-    const map = {};
+  // ✅ group theo groupKey/groupLabel, sort theo order
+  const groups = useMemo(() => {
+    const map = new Map();
+
     (allPermissions || [])
       .filter((p) => p?.isActive !== false)
       .forEach((p) => {
-        const g = p.group || "OTHER";
-        map[g] = map[g] || [];
-        map[g].push(p);
+        const groupKey = p.groupKey || p.group || "OTHER";
+        const groupLabel = p.groupLabel || groupKey;
+
+        if (!map.has(groupKey)) {
+          map.set(groupKey, {
+            groupKey,
+            groupLabel,
+            items: [],
+          });
+        }
+        map.get(groupKey).items.push(p);
       });
 
-    Object.keys(map).forEach((g) => {
-      map[g].sort((a, b) => (a.key || "").localeCompare(b.key || ""));
+    const arr = Array.from(map.values());
+
+    // sort item theo order trước, fallback key
+    arr.forEach((g) => {
+      g.items.sort((a, b) => {
+        const ao = a.order ?? 999999;
+        const bo = b.order ?? 999999;
+        if (ao !== bo) return ao - bo;
+        return (a.key || "").localeCompare(b.key || "");
+      });
     });
-    return map;
+
+    // sort group theo groupKey (hoặc nếu bạn có group order thì gán vào DB rồi sort theo đó)
+    arr.sort((a, b) => (a.groupKey || "").localeCompare(b.groupKey || ""));
+
+    return arr;
   }, [allPermissions]);
 
   const toggle = (key) => {
@@ -60,14 +81,20 @@ export default function RolePermissionsModal({
     );
   };
 
-  const selectAllGroup = (group) => {
-    const keys = (permsByGroup[group] || []).map((p) => p.key).filter(Boolean);
-    setSelected((prev) => Array.from(new Set([...prev, ...keys])));
-  };
+  const isGroupAllSelected = (group) =>
+    group.items.length > 0 && group.items.every((p) => selected.includes(p.key));
 
-  const clearAllGroup = (group) => {
-    const keys = new Set((permsByGroup[group] || []).map((p) => p.key));
-    setSelected((prev) => prev.filter((k) => !keys.has(k)));
+  const toggleGroupAll = (group) => {
+    const keys = group.items.map((p) => p.key).filter(Boolean);
+
+    setSelected((prev) => {
+      const hasAll = keys.every((k) => prev.includes(k));
+      if (hasAll) return prev.filter((k) => !keys.includes(k)); // clear group
+
+      const set = new Set(prev);
+      keys.forEach((k) => set.add(k));
+      return Array.from(set);
+    });
   };
 
   const onSubmit = async () => {
@@ -80,7 +107,7 @@ export default function RolePermissionsModal({
       <ModalContent>
         <ModalHeader>
           <HStack spacing={3}>
-            <Heading size="md">Gán permissions</Heading>
+            <Heading size="md">Manage Permissions</Heading>
             <Tag colorScheme="vrv" variant="subtle">
               <TagLabel>{role?.code || role?.name || "ROLE"}</TagLabel>
             </Tag>
@@ -89,42 +116,40 @@ export default function RolePermissionsModal({
             Chọn permissions theo nhóm
           </Text>
         </ModalHeader>
+
         <ModalCloseButton />
 
         <ModalBody>
-          <Stack spacing={5}>
-            {Object.keys(permsByGroup).length === 0 ? (
+          <Stack spacing={6}>
+            {groups.length === 0 ? (
               <Text>Không có permission nào.</Text>
             ) : (
-              Object.entries(permsByGroup).map(([group, list]) => (
-                <Box key={group} borderWidth="1px" rounded="lg" p={4}>
+              groups.map((g) => (
+                <Box key={g.groupKey} borderWidth="1px" rounded="lg" p={4}>
                   <Flex justify="space-between" align="center">
-                    <Heading size="sm">{group}</Heading>
-                    <HStack>
-                      <Button size="xs" variant="outline" onClick={() => selectAllGroup(group)}>
-                        Select all
-                      </Button>
-                      <Button size="xs" variant="outline" onClick={() => clearAllGroup(group)}>
-                        Clear
-                      </Button>
-                    </HStack>
+                    {/* ✅ giống ảnh: User Management / Role Management... */}
+                    <Heading size="sm">{g.groupLabel}</Heading>
+
+                    <Button
+                      size="xs"
+                      variant="link"
+                      onClick={() => toggleGroupAll(g)}
+                    >
+                      {isGroupAllSelected(g) ? "Clear All" : "Select All"}
+                    </Button>
                   </Flex>
 
                   <Divider my={3} />
 
                   <Stack spacing={2}>
-                    {list.map((p) => (
+                    {g.items.map((p) => (
                       <Checkbox
                         key={p._id || p.key}
                         isChecked={selected.includes(p.key)}
                         onChange={() => toggle(p.key)}
                       >
-                        <HStack spacing={3}>
-                          <Text fontWeight="medium">{p.key}</Text>
-                          <Text fontSize="sm" opacity={0.7}>
-                            {p.name}
-                          </Text>
-                        </HStack>
+                        {/* ✅ giống ảnh: View Users / Create Users... */}
+                        <Text fontWeight="500">{p.label || p.key}</Text>
                       </Checkbox>
                     ))}
                   </Stack>
@@ -139,7 +164,12 @@ export default function RolePermissionsModal({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button colorScheme="vrv" onClick={onSubmit} isLoading={saving} isDisabled={!role}>
+            <Button
+              colorScheme="vrv"
+              onClick={onSubmit}
+              isLoading={saving}
+              isDisabled={!role}
+            >
               Save ({selected.length})
             </Button>
           </HStack>
