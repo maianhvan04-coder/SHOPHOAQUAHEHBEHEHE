@@ -1,4 +1,4 @@
-import favorite_icon from "../../../../assets/icons/favorite_icon.png";
+import favorite_icon from "~/assets/icons/favorite_icon.png";
 
 const ProductComponent = ({ img, num, title, description, showDetails }) => {
   return (

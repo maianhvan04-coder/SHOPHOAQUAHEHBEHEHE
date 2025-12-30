@@ -1,23 +1,23 @@
 import { Navigate } from "react-router-dom";
 
 // Layouts
-import PublicLayout from "../../layouts/client/index";
-import AdminLayout from "~/components/layout/Layout"; // layout admin của bạn
+import PublicLayout from "~/components/layout/client/index"; // layout user của bạn
+import AdminLayout from "~/components/layout/admin/Layout"; // layout admin của bạn
 import PrivateRoute from "../PrivateRoute"
 // Guards
 import AdminRoute from "../guards/admin.router"; // guard RBAC của bạn
 // Nếu client cần bắt login thì tạo PrivateRoute tương tự
 
 // Public pages/admin (client)
-import ProductDetails from "~/pages/public/ProductDetailsPage";
-import HomePage from "~/pages/public/HomePage";
-import CartPage from "../../../pages/client/cart/CartPage";
-import ShopPage from "~/pages/public/ShopPage";
+import ProductDetails from "~/pages/client/public/ProductDetailsPage";
+import HomePage from "~/pages/client/public/HomePage";
+import CartPage from "~/features/cart/page/CartPage";
+import ShopPage from "~/pages/client/public/ShopPage";
 
 // Auth pages (client)
-import LoginPage from "~/features/login/user/login.jsx";
-import RegisterPage from "~/features/register/user/register.jsx";
-import ProfilePage from "../../../pages/client/profile/ProfilePage";
+import LoginPage from "~/features/auth/page/login/user/login.jsx";
+import RegisterPage from "~/features/auth/page/register/user/register.jsx";
+import ProfilePage from "~/features/profile/ProfilePage";
 
 // Error pages
 import ForbiddenPage from "~/pages/admin/ForbiddenPage";
@@ -29,6 +29,7 @@ import { adminRouters } from "../admin.routerPath";
 const routes = [
   // ===== CLIENT PUBLIC =====
   {
+  path: "/",
   element: <PublicLayout />,
   children: [
     { index: true, element: <HomePage /> },
@@ -38,7 +39,7 @@ const routes = [
     {
       element: <PrivateRoute />,
       children: [
-      {path: "/profile", element: <ProfilePage /> },
+      { path: "profile", element: <ProfilePage /> },
       { path: "cart", element: <CartPage /> },
      ],      
     },

@@ -44,9 +44,9 @@ import {
 
 import { userService } from "~/features/users/userService";
 import Modal from "~/components/common/Modal";
-import UserForm from "~/components/users/UserForm";
+import UserForm from "~/features/users/page/UserForm";
 import { format, formatDistanceToNow } from "date-fns";
-import PageHeader from "~/components/layout/PageHeader";
+import PageHeader from "~/components/layout/admin/PageHeader";
 
 function Users() {
   const [users, setUsers] = useState([]);
