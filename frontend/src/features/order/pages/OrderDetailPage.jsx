@@ -143,7 +143,7 @@ const OrderDetailPage = () => {
                 )}
                 {currentOrder.shopNote && (
                   <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100 text-sm italic">
-                    Ghi chú: {currentOrder.shopNote}
+                   Tin nhắn từ shop: {currentOrder.shopNote}
                   </div>
                 )}
               </div>
