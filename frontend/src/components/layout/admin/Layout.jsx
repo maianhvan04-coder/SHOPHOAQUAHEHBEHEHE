@@ -1,3 +1,4 @@
+// src/components/layout/admin/Layout.jsx
 import { Outlet, useOutletContext } from "react-router-dom";
 import { Box, Flex, useColorModeValue } from "@chakra-ui/react";
 import { useAuth } from "../../../app/providers/AuthProvides";
@@ -17,11 +18,15 @@ function Layout() {
   );
   const scrollbarThumb = useColorModeValue("gray.200", "gray.700");
 
-  const { permissions } = useAuth();
-  const { groups, screens } = useOutletContext(); // ✅ lấy từ AdminRoute
+  const { permissions = [] } = useAuth();
+
+  // ✅ nhận context từ AdminRoute -> Outlet
+  const outletCtx = useOutletContext() || {};
+  const { groups = [], screens = [] } = outletCtx;
 
   return (
     <Flex h="100vh" bg={bgColor} position="relative" overflow="hidden">
+      {/* background effects */}
       <Box position="fixed" inset="0" opacity="0.8" bgGradient={meshGradient} pointerEvents="none" zIndex={0} />
       <Box
         position="fixed"
@@ -46,10 +51,12 @@ function Layout() {
         zIndex={0}
       />
 
+      {/* sidebar */}
       <Box position="relative" zIndex={2}>
         <Sidebar groups={groups} screens={screens} userPermissions={permissions} />
       </Box>
 
+      {/* main */}
       <Box flex="1" overflow="hidden" position="relative" zIndex={1}>
         <Box position="relative" zIndex={3}>
           <Header />
@@ -68,7 +75,11 @@ function Layout() {
           }}
         >
           <Box position="relative" zIndex={2}>
-            <Outlet />
+            {/* ✅ QUAN TRỌNG: forward context xuống page con */}
+            <Outlet context={{ groups, screens }} />
+            {/* Nếu muốn khỏi gọi useAuth trong page con thì dùng:
+                <Outlet context={{ groups, screens, permissions }} />
+            */}
           </Box>
         </Box>
       </Box>

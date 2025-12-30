@@ -378,6 +378,29 @@ const PERMISSION_META = Object.freeze({
         order: 983,
     },
 
+    // RBAC_MANAGE
+    [PERMISSIONS.RBAC_MANAGE]: {
+        key: PERMISSIONS.RBAC_MANAGE,
+        resource: "rbac",
+        action: "manage",
+        label: "Toàn quyền quản trị phân quyền (RBAC)",
+        groupKey: PERMISSION_GROUPS.SYSTEM.key,
+        groupLabel: PERMISSION_GROUPS.SYSTEM.label,
+        order: 890,
+    },
+
+    // RBAC_READ_PERMISSION
+    [PERMISSIONS.RBAC_READ_PERMISSION]: {
+        key: PERMISSIONS.RBAC_READ_PERMISSION,
+        resource: "rbac",
+        action: "permission_read",
+        label: "Xem danh sách permissions",
+        groupKey: PERMISSION_GROUPS.SYSTEM.key,
+        groupLabel: PERMISSION_GROUPS.SYSTEM.label,
+        order: 940,
+    },
+
+
 
 });
 
