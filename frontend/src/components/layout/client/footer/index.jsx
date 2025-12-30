@@ -12,14 +12,13 @@ import { Button, Input } from "antd";
 
 import { SendOutlined } from "@ant-design/icons";
 
-
 import { FaMapMarkerAlt, FaPhoneAlt } from "react-icons/fa";
 import { IoIosSend, IoMdMail } from "react-icons/io";
+import { forwardRef } from "react";
 
-const Footer = () => {
+const Footer = forwardRef((_, ref) => {
   return (
-
-    <footer className="bg-[#101828] text-white overflow-hidden">
+    <footer ref={ref} className="bg-[#101828] text-white overflow-hidden">
       <div className="mx-auto max-w-6xl px-6 py-12 md:py-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-8">
           <div className="flex flex-col -mt-7 space-y-5">
@@ -29,7 +28,6 @@ const Footer = () => {
               but the majority suffered.
             </p>
             <ul className="flex gap-3">
-
               <SocialFooter link="#" icon={twitter_white_icon} />
               <SocialFooter link="#" icon={facebook_white_icon} />
               <SocialFooter link="#" icon={printerest_white_icon} />
@@ -52,16 +50,13 @@ const Footer = () => {
               ].map((item) => (
                 <ExploreItem key={item} text={item} />
               ))}
-
             </ul>
           </div>
 
           {/* ===== NEWS ===== */}
           <div>
-
             <FooterHeader title="News" />
             <ul className="space-y-5">
-
               <NewsItem
                 title="Bringing Food Production Back To Cities"
                 date="July 5, 2022"
@@ -111,7 +106,6 @@ const Footer = () => {
                 size="large"
                 icon={<IoIosSend size={24} color="#fff" />}
                 className="!rounded-l-none !border-none !bg-[#4baf46] hover:!bg-[#43a13e] !px-6 !h-11"
-
               />
             </div>
           </div>
@@ -119,7 +113,7 @@ const Footer = () => {
       </div>
     </footer>
   );
-};
+});
 
 // Component con để tái sử dụng phần gạch chân tiêu đề
 const FooterHeader = ({ title }) => (

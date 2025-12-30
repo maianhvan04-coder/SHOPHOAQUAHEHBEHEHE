@@ -1,10 +1,10 @@
 import React, { useEffect } from "react";
-import ProductComponent from "~/features/product/components/user/ProductComponent";
+import ProductComponent from "../../../features/product/components/user/ProductComponent";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAllCategories } from "~/features/category/category.store";
-import { fetchProductsForUser } from "~/features/product/product_slice";
-import PaginationUser from "~/shared/ui/organisms/Pagination/PaginationUser"; // Import component phân trang của bạn
+import { fetchAllCategories } from "../../../features/category/category.store";
+import { fetchProductsForUser } from "../../../features/product/product_slice";
+import PaginationUser from "../../../shared/ui/organisms/Pagination/PaginationUser"; // Import component phân trang của bạn
 
 const ShopPage = () => {
   const navigate = useNavigate();
@@ -20,7 +20,9 @@ const ShopPage = () => {
 
   // 2. Lấy dữ liệu từ Redux
   const { listCategories } = useSelector((state) => state.category);
-  const { listProducts, isLoading, totalItems, totalPages } = useSelector((state) => state.product);
+  const { listProducts, isLoading, totalItems, totalPages } = useSelector(
+    (state) => state.product
+  );
 
   useEffect(() => {
     dispatch(fetchAllCategories());
@@ -56,7 +58,6 @@ const ShopPage = () => {
   return (
     <div className="bg-[#fcfcfc] min-h-screen pt-18 pb-20">
       <div className="max-w-7xl mx-auto px-4 md:px-10 flex flex-col md:flex-row gap-10">
-        
         {/* --- SIDEBAR BỘ LỌC --- */}
         <aside className="w-full md:w-64 flex-shrink-0">
           <div className="sticky top-32 space-y-8">
@@ -73,7 +74,9 @@ const ShopPage = () => {
                       : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-100"
                   }`}
                 >
-                  <span className="text-sm font-bold uppercase">Tất cả sản phẩm</span>
+                  <span className="text-sm font-bold uppercase">
+                    Tất cả sản phẩm
+                  </span>
                 </li>
 
                 {listCategories?.map((cat) => (
@@ -86,8 +89,14 @@ const ShopPage = () => {
                         : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-100"
                     }`}
                   >
-                    <span className="text-sm font-bold uppercase">{cat.name}</span>
-                    <div className={`size-2 rounded-full ${categorySlug === cat.slug ? "bg-white" : "bg-[#c4cd38]"}`} />
+                    <span className="text-sm font-bold uppercase">
+                      {cat.name}
+                    </span>
+                    <div
+                      className={`size-2 rounded-full ${
+                        categorySlug === cat.slug ? "bg-white" : "bg-[#c4cd38]"
+                      }`}
+                    />
                   </li>
                 ))}
               </ul>
@@ -102,16 +111,24 @@ const ShopPage = () => {
               <h1 className="text-4xl font-black text-gray-800 uppercase leading-none">
                 Cửa hàng <br />
                 <span className="text-sm font-medium text-gray-400 normal-case tracking-normal italic">
-                  {isLoading ? "Đang tải..." : `Kết quả: ${totalItems || 0} sản phẩm`}
+                  {isLoading
+                    ? "Đang tải..."
+                    : `Kết quả: ${totalItems || 0} sản phẩm`}
                 </span>
               </h1>
-              {keyword && <p className="mt-2 text-sm text-gray-500 italic">Tìm kiếm: "{keyword}"</p>}
+              {keyword && (
+                <p className="mt-2 text-sm text-gray-500 italic">
+                  Tìm kiếm: "{keyword}"
+                </p>
+              )}
             </div>
 
             {/* BỘ LỌC SẮP XẾP */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Sắp xếp:</span>
-              <select 
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">
+                Sắp xếp:
+              </span>
+              <select
                 value={sort}
                 onChange={(e) => handleSortChange(e.target.value)}
                 className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#49a760] cursor-pointer"
@@ -127,23 +144,24 @@ const ShopPage = () => {
 
           {/* GRID */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-12">
-            {!isLoading && listProducts?.map((item, index) => (
-              <div key={item._id} className="flex justify-center w-full">
-                <ProductComponent
-                  img={item.image.url}
-                  num={index}
-                  title={item.name}
-                  description={item.description}
-                  showDetails={() => navigate(`/details/${item.slug}`)}
-                />
-              </div>
-            ))}
+            {!isLoading &&
+              listProducts?.map((fruit, index) => (
+                <div key={fruit._id} className="flex justify-center w-full">
+                  <ProductComponent
+                    num={index}
+                    fruit={fruit}
+                    showDetails={() => navigate(`/details/${fruit.slug}`)}
+                  />
+                </div>
+              ))}
           </div>
 
           {/* HIỂN THỊ KHI TRỐNG */}
           {!isLoading && listProducts?.length === 0 && (
             <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-gray-200">
-              <p className="text-gray-400 font-medium">Rất tiếc, không tìm thấy sản phẩm nào phù hợp!</p>
+              <p className="text-gray-400 font-medium">
+                Rất tiếc, không tìm thấy sản phẩm nào phù hợp!
+              </p>
             </div>
           )}
 

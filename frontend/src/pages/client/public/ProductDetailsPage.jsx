@@ -7,14 +7,14 @@ import {
   fetchProductDetailBySlug,
   clearCurrentProduct,
 } from "~/features/product/product_slice";
-import { addToCart,fetchCart } from "~/features/cart/cart.slice";
+import { addToCart, fetchCart } from "../../../features/cart/cart.slice";
 import { useAuth } from "~/app/providers/AuthProvides";
 
 const ProductDetails = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const [quantity, setQuantity] = useState(1);
-const { isAuthed} = useAuth();
+  const { isAuthed } = useAuth();
   const { currentProduct, isLoading, error } = useSelector(
     (state) => state.product
   );
@@ -29,29 +29,28 @@ const { isAuthed} = useAuth();
   }, [slug, dispatch]);
 
   const handleAddToCart = () => {
-    if(!isAuthed){ message.error("Bạn chưa đăng nhập");}
-    else{
-       if (!currentProduct?._id) return;
-    
-    dispatch(
-      addToCart({
-        productId: currentProduct._id,
-        quantity: quantity,
-        productData: currentProduct, 
-      })
-    )
-      .unwrap()
-      .then(() => {
-        message.success(
-          `Đã thêm ${quantity} ${currentProduct.name} vào giỏ hàng!`
-        );
-      })
-      .catch((err) => {
-        message.error(err || "Không thể thêm vào giỏ hàng");
-        dispatch(fetchCart());
-      });
+    if (!isAuthed) {
+      message.error("Bạn chưa đăng nhập");
+    } else {
+      if (!currentProduct?._id) return;
+
+      dispatch(
+        addToCart({
+          product: currentProduct,
+          quantity: quantity,
+        })
+      )
+        .unwrap()
+        .then(() => {
+          message.success(
+            `Đã thêm ${quantity} ${currentProduct.name} vào giỏ hàng!`
+          );
+        })
+        .catch((err) => {
+          message.error(err || "Không thể thêm vào giỏ hàng");
+          dispatch(fetchCart());
+        });
     }
-   
   };
 
   if (isLoading) {
