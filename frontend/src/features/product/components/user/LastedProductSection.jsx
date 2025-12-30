@@ -2,12 +2,12 @@ import { forwardRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ProductComponent from "./ProductComponent";
-import SectionHeader from "../../../../pages/public/home/header_section";
+import SectionHeader from "~/pages/client/public/home/header_section";
 
 import { fetchProductsForUser } from "../../product_slice";
 import { useState } from "react";
 
-import PaginationUser from "../../../../shared/ui/organisms/Pagination/PaginationUser";
+import PaginationUser from "~/shared/ui/organisms/Pagination/PaginationUser";
 
 
 const LastedProductSection = forwardRef((_, ref) => {

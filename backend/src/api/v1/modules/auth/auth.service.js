@@ -1,4 +1,4 @@
-const ApiError = require("../../../../core/ApiError")
+const ApiError = require("../../../../core/apiError")
 const authRepo = require("./auth.repo")
 const httpStatus = require("../../../../core/httpStatus")
 const useRepo = require("../user/user.repo")
