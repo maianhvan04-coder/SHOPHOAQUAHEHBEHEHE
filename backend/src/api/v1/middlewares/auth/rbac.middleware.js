@@ -24,6 +24,11 @@ exports.requireAnyPermission = (...permissions) => (req, res, next) => {
 
   const ok = permissions.some((p) => granted.includes(p));
 
+  console.log("NEED:", permissions);
+  console.log("HAVE:", req.user?.permissions);
+  console.log("ROLES:", req.user?.roles);
+
+
   if (!ok) {
     console.log("PERMISSION DENY:", {
       need: permissions,

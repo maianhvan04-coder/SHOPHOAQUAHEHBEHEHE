@@ -21,12 +21,18 @@ exports.buildAuthz = async (userId) => {
         ? await rbacRepo.findRolePermissionLinksByRoleIds(activeRoleIds)
         : [];
 
-    const permIds = Array.from(
-        new Set(rpLinks.map((x) => x.permissionId.toString()))
-    ).map((id) => new mongoose.Types.ObjectId(id));
+    const permIds = Array.from(new Set(rpLinks.map((x) => x.permissionId.toString())))
+        .map((id) => new mongoose.Types.ObjectId(id));
 
     const permsFromRoles = permIds.length ? await rbacRepo.findPermissionsByIds(permIds) : [];
     const set = new Set(permsFromRoles.map((p) => p.key));
+
+    // ADMIN => add ALL permissions
+    const roleCodes = activeRoles.map((r) => r.code);
+    if (roleCodes.includes("ADMIN")) {
+        const allPerms = await rbacRepo.findAllActivePermissionIds(); // implement in repo
+        for (const p of allPerms) set.add(p.key);
+    }
 
     // primaryRole by priority (only activeRoles)
     const primaryRole = activeRoles.reduce((best, r) => {
@@ -34,7 +40,7 @@ exports.buildAuthz = async (userId) => {
         return (r.priority || 0) > (best.priority || 0) ? r : best;
     }, null);
 
-    const type = primaryRole?.type || "user";
+    const type = roleCodes.includes("ADMIN") ? "admin" : (primaryRole?.type || "user");
 
     // overrides allow/deny
     const overrides = await rbacRepo.findOverridesByUserId(userId);
@@ -54,11 +60,12 @@ exports.buildAuthz = async (userId) => {
     return {
         userId: user._id.toString(),
         authzVersion: user.authzVersion || 0,
-        roles: activeRoles.map((r) => r.code),
+        roles: roleCodes,
         type,
         permissions: Array.from(set),
     };
 };
+
 
 
 // ===== Admin RBAC APIs =====
