@@ -45,8 +45,8 @@ import {
 } from "@heroicons/react/24/outline";
 
 import Modal from "~/components/common/Modal";
-import UserForm from "~/components/users/UserForm";
-import PageHeader from "~/components/layout/PageHeader";
+import UserForm from "~/features/users/page/UserForm";
+import PageHeader from "~/components/layout/admin/PageHeader";
 
 function UsersView({
   users,
