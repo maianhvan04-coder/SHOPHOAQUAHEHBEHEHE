@@ -5,7 +5,7 @@ const { uploadAvatarBuffer, destroyByPublicId } = require("../../../../helpers/c
 const { ROLES } = require("../../../../constants/roles");
 const { mongoose } = require("mongoose");
 const Role = require("../rbac/model/role.model")
-
+const UserRole = require("../rbac/model/UserRole.model");
 const { hashPassword, comparePassword } = require("../../../../helpers/password.auth")
 
 function normalizeIds(ids) {
@@ -116,18 +116,53 @@ exports.deleteUser = async (id) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "UserId không hợp lệ");
   }
 
-  const user = await userRepo.findById(id)
-  if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
+  const session = await mongoose.startSession();
 
-  }
-  if (user.role === ROLES.ADMIN) {
-    throw new ApiError(httpStatus.FORBIDDEN, "Không thể xoá tài khoản ADMIN");
-  }
+  try {
+    return await session.withTransaction(async () => {
+      const userId = new mongoose.Types.ObjectId(id);
 
-  await userRepo.softDeleteById(id)
-  return true;
-}
+      // 1) Check user tồn tại
+      const user = await userRepo.findById(userId, { session });
+      console.log(user, ">>>>>>>>>>>>User")
+      if (!user) {
+        throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
+      }
+
+      // 2) Chặn ADMIN (theo Role/UserRole)
+      const adminRole = await Role.findOne({ code: "ADMIN", isDeleted: false })
+        .select("_id")
+        .lean()
+        .session(session);
+
+      if (adminRole?._id) {
+        const isAdmin = await UserRole.exists({
+          userId,
+          roleId: adminRole._id,
+          isDeleted: false,
+        }).session(session);
+
+        if (isAdmin) {
+          throw new ApiError(httpStatus.FORBIDDEN, "Không thể xoá tài khoản ADMIN");
+        }
+      }
+
+      // 3) Soft delete user
+      await userRepo.softDeleteById(userId, { session });
+
+      // 4) Soft delete userRole mappings
+      await UserRole.updateMany(
+        { userId, isDeleted: false },
+        { $set: { isDeleted: true, deletedAt: new Date() } },
+        { session }
+      );
+
+      return true;
+    });
+  } finally {
+    session.endSession();
+  }
+};
 
 
 exports.changeStatusMany = async (ids, isActive, actorId = null) => {
@@ -150,7 +185,7 @@ exports.changeStatusMany = async (ids, isActive, actorId = null) => {
       ? valid.filter((id) => id !== actorId.toString())
       : valid;
 
-  const metas = await userRepo.findMetaByIds(validWithoutSelf)
+  const metas = await userRepo.getAdminUserIdsInList(validWithoutSelf)
 
   const foundIds = new Set(metas.map((u) => u._id.toString()));
   const adminIds = metas.filter((u) => u.role === ROLES.ADMIN).map((u) => u._id.toString());
@@ -163,7 +198,8 @@ exports.changeStatusMany = async (ids, isActive, actorId = null) => {
 
   const updateRes =
     targetIds.length > 0 ? await userRepo.setActiveMany(targetIds, isActive) : { matchedCount: 0, modifiedCount: 0 };
-  console.log("vào đến đây updateRes", updateRes)
+
+
   const notFoundCount = validWithoutSelf.filter((id) => !foundIds.has(id)).length;
   const selfSkipped = actorId ? valid.length - validWithoutSelf.length : 0;
 
@@ -199,7 +235,7 @@ exports.softDeleteManyUsers = async (ids, actorId = null) => {
       ? valid.filter((id) => id !== actorId.toString())
       : valid;
 
-  const metas = await userRepo.findMetaByIds(validWithoutSelf);
+  const metas = await userRepo.getAdminUserIdsInList(validWithoutSelf);
   const foundIds = new Set(metas.map((u) => u._id.toString()));
 
   const adminIds = metas.filter((u) => u.role === ROLES.ADMIN).map((u) => u._id.toString());

@@ -32,6 +32,20 @@ function Users() {
       onRefresh={() => vm.loadUsers()}
       formatDate={vm.formatDate}
       formatLastActive={vm.formatLastActive}
+       pagination={vm.pagination}
+  onPageChange={vm.handlePageChange}
+  onLimitChange={vm.handleLimitChange}
+  selectedIds={vm.selectedIds}
+  toggleSelect={vm.toggleSelect}
+  selectAll={vm.selectAll}
+  clearSelection={vm.clearSelection}
+  toggleUserStatus={vm.toggleUserStatus}
+  bulkSetStatus={vm.bulkSetStatus}
+  openBulkDelete={vm.openBulkDelete}
+  confirmBulkDelete={vm.confirmBulkDelete}
+  isBulkDeleteOpen={vm.isBulkDeleteOpen}
+  closeBulkDelete={vm.closeBulkDelete}
+  rowBusy={vm.rowBusy}
     />
   );
 }
