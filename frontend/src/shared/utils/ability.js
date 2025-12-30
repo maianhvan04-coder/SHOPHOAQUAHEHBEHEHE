@@ -124,10 +124,19 @@ export function firstAccessibleScreen(groups = [], screens = [], userPermissions
  */
 export function canAccessAction(userPermissions = [], screen, actionKey) {
   const perms = Array.isArray(userPermissions) ? userPermissions : [];
+
+  // Không tìm thấy screen => không cho phép action
+  if (!screen) return false;
+
   const need = screen?.actions?.[actionKey];
 
+  // nếu action không khai báo thì tuỳ bạn:
+  // - an toàn: return false
+  // - dễ dãi: return true
+  // mình khuyên an toàn:
   if (!actionKey) return true;
-  if (!Array.isArray(need) || need.length === 0) return true;
+  if (!Array.isArray(need) || need.length === 0) return false;
 
   return need.some((p) => perms.includes(p));
 }
+

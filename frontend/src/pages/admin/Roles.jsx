@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react";
 import { FaPlus } from "react-icons/fa";
 
-import PageHeader from "../../components/layout/PageHeader";
+import PageHeader from "../../components/layout//admin/PageHeader";
 import RolePermissionsModal from "~/features/rbac/components/RolePermissionsModal";
 import RolesTable from "~/features/rbac/components/RolesTable";
 import { useRolesAdmin } from "~/features/rbac/hooks/useRolesAdmin";

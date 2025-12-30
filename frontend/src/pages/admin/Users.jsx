@@ -1,66 +1,17 @@
-/* eslint-disable no-unused-vars */
-import { useState, useEffect, useMemo } from "react";
-import {
-  Box,
-  Button,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  IconButton,
-  Badge,
-  HStack,
-  VStack,
-  useDisclosure,
-  Flex,
-  Text,
-  Card,
-  useToast,
-  useColorModeValue,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  Stack,
-  Select,
-  Divider,
-  useBreakpointValue,
-  Spinner,
-  Tooltip,
-  Tag,
-  TagLabel,
-} from "@chakra-ui/react";
-
-import {
-  PlusIcon,
-  PencilSquareIcon,
-  TrashIcon,
-  UserCircleIcon,
-  MagnifyingGlassIcon,
-  CalendarIcon,
-  ClockIcon,
-} from "@heroicons/react/24/outline";
-
-import { userService } from "~/features/users/userService";
-import Modal from "~/components/common/Modal";
-import UserForm from "~/components/users/UserForm";
-import { format, formatDistanceToNow } from "date-fns";
-import PageHeader from "~/components/layout/PageHeader";
+import { useOutletContext } from "react-router-dom";
+import { useAuth } from "~/app/providers/AuthProvides";
+import UsersView from "~/features/users/components/UsersView";
+import { useUsersPage } from "~/features/users/hooks/useUsersPage";
 
 function Users() {
-  const { screens = [], groups = [] } = useOutletContext() || {};
-  const { permissions = [] } = useAuth(); 
-
+  const { screens = [] } = useOutletContext() || {};
+  const { permissions = [] } = useAuth();
   const vm = useUsersPage();
-
-  
 
   return (
     <UsersView
       screens={screens}
-      groups={groups}
-      userPermissions={permissions}  
+      userPermissions={permissions}
       users={vm.users}
       filteredUsers={vm.filteredUsers}
       filters={vm.filters}
