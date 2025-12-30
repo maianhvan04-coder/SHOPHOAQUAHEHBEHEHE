@@ -5,6 +5,17 @@ const UserRole = require("../rbac/model/UserRole.model");
 
 const normEmail = (email = "") => String(email).trim().toLowerCase();
 
+
+const normalizeIds = (ids = []) => {
+  if (!Array.isArray(ids)) return [];
+  const uniq = [...new Set(ids)].filter(Boolean);
+
+  return uniq
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+};
+
+
 exports.findById = (id) => User.findById(id).lean();
 
 exports.findPublicById = (id) =>
@@ -27,8 +38,6 @@ exports.updateById = (id, data, { session } = {}) =>
     .select("-passwordHash")
     .lean();
 
-exports.softDeleteById = (id) =>
-  User.findByIdAndUpdate(id, { isDeleted: true, isActive: false }, { new: true });
 
 exports.findByPhone = (phone, { session } = {}) =>
   User.findOne({ phone, isDeleted: false })
@@ -187,3 +196,105 @@ exports.findUsers = async ({ page = 1, limit = 10, search = "", role = "", isAct
   return { users, total };
 };
 
+
+exports.getAdminUserIdsInList = async (userIds) => {
+  // userIds: ObjectId[]
+  if (!userIds?.length) return [];
+
+  const adminRole = await Role.findOne({
+    code: "ADMIN",
+    isDeleted: false,
+    // isActive: true, // nếu muốn chỉ chặn admin role đang active
+  })
+    .select("_id")
+    .lean();
+
+  if (!adminRole?._id) return []; // hệ thống không có ADMIN role => khỏi chặn
+
+  const adminUserRoles = await UserRole.find({
+    userId: { $in: userIds },
+    roleId: adminRole._id,
+  })
+    .select("userId")
+    .lean();
+
+  return adminUserRoles.map((x) => x.userId);
+};
+
+exports.setActiveMany = async (ids, isActive) => {
+  const userIds = normalizeIds(ids);
+  if (!userIds.length) return { matchedCount: 0, modifiedCount: 0 };
+
+  const session = await mongoose.startSession();
+  try {
+    return await session.withTransaction(async () => {
+      const adminUserIds = await getAdminUserIdsInList(userIds, session);
+
+      // chỉ cho phép update các user KHÔNG phải admin
+      const allowUserIds = userIds.filter(
+        (id) => !adminUserIds.some((a) => String(a) === String(id))
+      );
+
+      if (!allowUserIds.length) {
+        return { matchedCount: 0, modifiedCount: 0 };
+      }
+
+      const result = await User.updateMany(
+        { _id: { $in: allowUserIds }, isDeleted: false }, // user đã xoá mềm thì thôi
+        { $set: { isActive: !!isActive } }
+      ).session(session);
+
+      return {
+        matchedCount: result.matchedCount ?? result.n ?? 0,
+        modifiedCount: result.modifiedCount ?? result.nModified ?? 0,
+      };
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+exports.softDeleteMany = async (ids) => {
+  const userIds = normalizeIds(ids);
+  if (!userIds.length) return { matchedCount: 0, modifiedCount: 0 };
+
+  const session = await mongoose.startSession();
+  try {
+    return await session.withTransaction(async () => {
+      const adminUserIds = await getAdminUserIdsInList(userIds, session);
+
+      // chỉ xử lý các user không phải admin
+      const allowUserIds = userIds.filter(
+        (id) => !adminUserIds.some((a) => String(a) === String(id))
+      );
+
+      if (!allowUserIds.length) {
+        return { matchedCount: 0, modifiedCount: 0 };
+      }
+
+      // 1) soft delete user
+      const u = await User.updateMany(
+        { _id: { $in: allowUserIds }, isDeleted: false },
+        { $set: { isDeleted: true, isActive: false } }
+      ).session(session);
+
+      // 2) soft delete userRole mappings
+      await UserRole.updateMany(
+        { userId: { $in: allowUserIds }, isDeleted: false },
+        { $set: { isDeleted: true, deletedAt: new Date() } }
+      ).session(session);
+
+      return {
+        matchedCount: u.matchedCount ?? u.n ?? 0,
+        modifiedCount: u.modifiedCount ?? u.nModified ?? 0,
+      };
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+
+exports.softDeleteById = async (id, opts = {}) =>
+  User.updateOne({ _id: id, isDeleted: false }, { $set: { isDeleted: true, isActive: false } })
+    .session(opts.session || null);
