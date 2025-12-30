@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 // Layouts
 import PublicLayout from "~/components/layout/client/index"; // layout user của bạn
 import AdminLayout from "~/components/layout/admin/Layout"; // layout admin của bạn
-import PrivateRoute from "../PrivateRoute"
+import PrivateRoute from "../PrivateRoute";
 // Guards
 import AdminRoute from "../guards/admin.router"; // guard RBAC của bạn
 // Nếu client cần bắt login thì tạo PrivateRoute tương tự
@@ -25,28 +25,33 @@ import NotFound from "~/pages/admin/NotFound";
 
 // Admin routers list
 import { adminRouters } from "../admin.routerPath";
+import CheckoutPage from "../../../features/order/pages/CheckOutPage";
+import OrderDetailPage from "../../../features/order/pages/OrderDetailPage";
+import MyOrdersPage from "../../../features/order/pages/MyOrdersPage";
 
 const routes = [
   // ===== CLIENT PUBLIC =====
   {
-  path: "/",
-  element: <PublicLayout />,
-  children: [
-    { index: true, element: <HomePage /> },
-    { path: "details/:slug", element: <ProductDetails /> },   
-    { path: "category", element: <ShopPage /> },
-    
-    {
-      element: <PrivateRoute />,
-      children: [
-      { path: "profile", element: <ProfilePage /> },
-      { path: "cart", element: <CartPage /> },
-     ],      
-    },
-  ],
-},
+    path: "/",
+    element: <PublicLayout />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: "details/:slug", element: <ProductDetails /> },
+      { path: "category", element: <ShopPage /> },
 
- 
+      {
+        element: <PrivateRoute />,
+        children: [
+          { path: "profile", element: <ProfilePage /> },
+
+          { path: "cart", element: <CartPage /> },
+          { path: "checkout", element: <CheckoutPage /> },
+         {path: "order-detail/:id", element:<OrderDetailPage/>},
+         {path:"my-orders",element:<MyOrdersPage/>}
+        ],
+      },
+    ],
+  },
 
   // ===== CLIENT AUTH =====
   { path: "/login", element: <LoginPage /> },

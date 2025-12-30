@@ -16,7 +16,7 @@ const Navbar = ({ onScrollToSection }) => {
   const [openMix, setOpenMix] = useState(false);
   const [openShop, setOpenShop] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-const { isAuthed, user, logout } = useAuth();
+  const { isAuthed, user, logout } = useAuth();
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -28,38 +28,36 @@ const { isAuthed, user, logout } = useAuth();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
   const { listCategories, isLoading } = useSelector((state) => state.category);
-const { totalQuantity } = useSelector((state) => state.cart);
+  const { totalQuantity } = useSelector((state) => state.cart);
   useEffect(() => {
     dispatch(fetchAllCategories());
   }, [dispatch]);
-useEffect(() => {
+  useEffect(() => {
     if (isAuthed) {
       dispatch(fetchCart());
     }
-  }, [isAuthed, dispatch])
+  }, [isAuthed, dispatch]);
   const [searchParams] = useSearchParams();
   const currentSearch = searchParams.get("search") || "";
   const [searchInput, setSearchInput] = useState(currentSearch);
 
- const handleSearch = (e) => {
-  e.preventDefault();
-  const term = searchInput.trim();
-  const currentPath = window.location.pathname; 
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const term = searchInput.trim();
+    const currentPath = window.location.pathname;
 
- 
-  const targetPath = currentPath === "/category" ? "/category" : "/";
+    const targetPath = currentPath === "/category" ? "/category" : "/";
 
-  if (term) {
-    navigate(`${targetPath}?search=${encodeURIComponent(term)}`);
-  } else {
-    navigate(targetPath);
-  }
+    if (term) {
+      navigate(`${targetPath}?search=${encodeURIComponent(term)}`);
+    } else {
+      navigate(targetPath);
+    }
 
- 
-  if (targetPath === "/") {
-    onScrollToSection("menuFruit");
-  }
-};
+    if (targetPath === "/") {
+      onScrollToSection("menuFruit");
+    }
+  };
   return (
     <nav
       className={`
@@ -183,7 +181,9 @@ useEffect(() => {
                         <li
                           key={cat._id}
                           className="py-1 cursor-pointer"
-                         onClick={() => navigate(`/category?category=${cat.slug}`)}
+                          onClick={() =>
+                            navigate(`/category?category=${cat.slug}`)
+                          }
                         >
                           {cat.name}
                         </li>
@@ -224,7 +224,9 @@ useEffect(() => {
                         <li
                           key={cat._id}
                           className="py-1 cursor-pointer"
-                         onClick={() => navigate(`/category?category=${cat.slug}`)}
+                          onClick={() =>
+                            navigate(`/category?category=${cat.slug}`)
+                          }
                         >
                           {cat.name}
                         </li>
@@ -294,7 +296,7 @@ useEffect(() => {
                 .map((cat) => (
                   <li
                     key={cat._id}
-                   onClick={() => navigate(`/category?category=${cat.slug}`)}
+                    onClick={() => navigate(`/category?category=${cat.slug}`)}
                     className="px-5 py-2.5 hover:bg-green-50 hover:text-[#49a760] transition-colors cursor-pointer text-sm font-normal"
                   >
                     {cat.name}
@@ -324,7 +326,7 @@ useEffect(() => {
                 .map((cat) => (
                   <li
                     key={cat._id}
-                   onClick={() => navigate(`/category?category=${cat.slug}`)}
+                    onClick={() => navigate(`/category?category=${cat.slug}`)}
                     className="px-5 py-2.5 hover:bg-green-50 hover:text-[#49a760] transition-colors cursor-pointer text-sm font-normal"
                   >
                     {cat.name}
@@ -334,7 +336,10 @@ useEffect(() => {
           </ul>
         </li>
 
-        <li className="relative pe-6 after:absolute after:right-[-16px] after:top-0 after:bottom-0 after:w-px after:bg-gray-300">
+        <li
+          onClick={() => onScrollToSection("contact")}
+          className="relative pe-6 after:absolute after:right-[-16px] after:top-0 after:bottom-0 after:w-px after:bg-gray-300 cursor-pointer"
+        >
           Contact
         </li>
 
@@ -378,41 +383,45 @@ useEffect(() => {
           </div>
 
           {/* USER */}
-           <div className="relative group">
-      <span
-        className="inline-flex items-center gap-1 px-3 py-2 cursor-pointer"
-        onClick={() => {
-          // click vào icon/user: nếu đã login thì qua account, chưa thì qua login
-          navigate(isAuthed ? "/profile" : "/login");
-        }}
-      >
-        <FaRegUser />
-        <MdKeyboardArrowDown />
-      </span>
+          <div className="relative group">
+            <span
+              className="inline-flex items-center gap-1 px-3 py-2 cursor-pointer"
+              onClick={() => {
+                // click vào icon/user: nếu đã login thì qua account, chưa thì qua login
+                navigate(isAuthed ? "/profile" : "/login");
+              }}
+            >
+              <FaRegUser />
+              <MdKeyboardArrowDown />
+            </span>
 
-      <Dropdown align="right">
-        {!isAuthed ? (
-          <>
-            <DropdownItem text="Đăng nhập" onClick={() => navigate("/login")} />
-           
-          </>
-        ) : (
-          <>
-           
-                <div className="absolute right-0 mt-3 z-50">
-                <UserPopup
-                  user={user}
-                  onProfile={() => {
-                    setOpenUser(false);
-                    navigate("/profile");
-                  }}
-                  onLogout={logout}
-                />
-              </div>
-          </>
-        )}
-      </Dropdown>
-    </div>
+            <Dropdown align="right">
+              {!isAuthed ? (
+                <>
+                  <DropdownItem
+                    text="Đăng nhập"
+                    onClick={() => navigate("/login")}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="absolute right-0 mt-3 z-50">
+                    <UserPopup
+                      user={user}
+                      onProfile={() => {
+                        setOpenUser(false);
+                        navigate("/profile");
+                      }}
+                      onMyOrders={() => {
+                        navigate("/my-orders");
+                      }}
+                      onLogout={logout}
+                    />
+                  </div>
+                </>
+              )}
+            </Dropdown>
+          </div>
         </li>
       </ul>
     </nav>
@@ -446,4 +455,3 @@ const DropdownItem = ({ text, onClick }) => (
     {text}
   </li>
 );
-

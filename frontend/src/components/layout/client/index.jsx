@@ -33,7 +33,7 @@ const DefaultLayout = () => {
 
       </main>
 
-      <Footer />
+      <Footer ref={sectionRefs.contact} />
     </>
   );
 };

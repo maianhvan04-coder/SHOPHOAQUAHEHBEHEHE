@@ -1,18 +1,17 @@
-
 import { forwardRef } from "react";
-import backgroundBestSeller from "~/assets/BACKGROUND.png";
-import bestSellerImg from "~/assets/best_seller.png";
-import ProductComponent from "~/features/product/components/user/ProductComponent";
+import backgroundBestSeller from "../../../../../assets/BACKGROUND.png";
+import bestSellerImg from "../../../../../assets/best_seller.png"
+import ProductComponent from "../../../../../features/product/components/user/ProductComponent";
 
 import SectionHeader from "../header_section";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
-import { fetchTopNewProducts } from "~/features/product/product_slice";
+import { fetchTopNewProducts } from "../../../../../features/product/product_slice";
 import { useNavigate } from "react-router-dom";
 
 const BestSellerSection = forwardRef((_, ref) => {
   const dispatch = useDispatch();
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const { listTopNew } = useSelector((state) => state.product);
   useEffect(() => {
     dispatch(fetchTopNewProducts());
@@ -49,11 +48,9 @@ const BestSellerSection = forwardRef((_, ref) => {
             {listTopNew.map((fruit, index) => (
               <ProductComponent
                 key={fruit._id}
-                img={fruit.image.url}
+                fruit={fruit}
                 num={index}
-                title={fruit.name}
-                showDetails={()=>navigate(`/details/${fruit.slug}`)}
-                description="Trái Cây Tươi Ngon – Gọt Sẵn, Tiện Lợi Mỗi Ngày!"
+                showDetails={() => navigate(`/details/${fruit.slug}`)}
               />
             ))}
           </div>
@@ -62,7 +59,6 @@ const BestSellerSection = forwardRef((_, ref) => {
     </section>
   );
 });
-
 
 BestSellerSection.displayName = "BestSellerSection";
 export default BestSellerSection;
