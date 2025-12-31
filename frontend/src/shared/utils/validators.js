@@ -5,7 +5,10 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MIN_PASSWORD = 5;
 const MIN_NAME = 2;
-
+const phoneRegex = {
+  PHONE_VN: /^(0[3|5|7|8|9])([0-9]{8})$/,
+  MONGO_OBJECT_ID: /^[0-9a-fA-F]{24}$/,
+};
 function isEmpty(v) {
   return !v || !String(v).trim();
 }
@@ -71,7 +74,8 @@ export function validateRegister(form = {}) {
     if (form.fullName !== undefined) errors.fullName = "Vui lòng nhập họ tên";
     else errors.name = "Vui lòng nhập tên";
   } else if (nameVal.length < MIN_NAME) {
-    if (form.fullName !== undefined) errors.fullName = `Họ tên tối thiểu ${MIN_NAME} ký tự`;
+    if (form.fullName !== undefined)
+      errors.fullName = `Họ tên tối thiểu ${MIN_NAME} ký tự`;
     else errors.name = `Tên tối thiểu ${MIN_NAME} ký tự`;
   }
 
@@ -92,4 +96,4 @@ export function validateRegister(form = {}) {
   };
 }
 
-export { emailRegex };
+export { emailRegex, phoneRegex };

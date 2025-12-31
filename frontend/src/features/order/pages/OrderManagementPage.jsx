@@ -131,6 +131,7 @@ export default function OrderManagementPage() {
       title: "TỔNG TIỀN",
       dataIndex: "totalPrice",
       key: "totalPrice",
+
       render: (price) => (
         <Text className="font-bold text-red-500">
           {price?.toLocaleString()}đ
@@ -153,15 +154,27 @@ export default function OrderManagementPage() {
       title: "HÀNH ĐỘNG",
       key: "action",
       align: "right",
-      render: (_, record) => (
-        <Tooltip title="Chỉnh sửa trạng thái">
-          <Button
-            type="text"
-            icon={<EditOutlined className="text-green-600" />}
-            onClick={() => openUpdateModal(record)}
-          />
-        </Tooltip>
-      ),
+      render: (_, record) => {
+        const status = record.status?.orderStatus;
+        const canUpdate = status !== "Delivered" && status !== "Cancelled";
+
+        return (
+          <Tooltip
+            title={canUpdate ? "Chỉnh sửa trạng thái" : "Đơn hàng đã đóng"}
+          >
+            <Button
+              disabled={!canUpdate}
+              type="text"
+              icon={
+                <EditOutlined
+                  className={canUpdate ? "text-green-600" : "text-gray-300"}
+                />
+              }
+              onClick={() => openUpdateModal(record)}
+            />
+          </Tooltip>
+        );
+      },
     },
   ];
 

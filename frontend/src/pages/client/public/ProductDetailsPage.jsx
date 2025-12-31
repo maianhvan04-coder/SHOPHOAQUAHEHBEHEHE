@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { message, Rate, Spin } from "antd";
-import { FaShoppingCart, FaHeart, FaTruck, FaShieldAlt } from "react-icons/fa";
+import { message, Modal, Rate, Spin } from "antd";
+import {
+  FaShoppingCart,
+  FaHeart,
+  FaTruck,
+  FaShieldAlt,
+  FaRegHeart,
+} from "react-icons/fa";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -9,16 +15,18 @@ import {
 } from "~/features/product/product_slice";
 import { addToCart, fetchCart } from "../../../features/cart/cart.slice";
 import { useAuth } from "~/app/providers/AuthProvides";
+import { toggleWishlistLocal } from "../../../features/wishlist/wishlist.slice";
 
 const ProductDetails = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const [quantity, setQuantity] = useState(1);
   const { isAuthed } = useAuth();
+  const { items } = useSelector((state) => state.wishlist);
   const { currentProduct, isLoading, error } = useSelector(
     (state) => state.product
   );
-
+  const isFavorite = items?.includes(currentProduct?._id);
   useEffect(() => {
     if (slug) {
       dispatch(fetchProductDetailBySlug(slug));
@@ -52,7 +60,25 @@ const ProductDetails = () => {
         });
     }
   };
+  const handleFavoriteToggle = () => {
+    if (!currentProduct?._id) return;
 
+    // Nếu sản phẩm đã có trong yêu thích -> Hiện thông báo hỏi trước khi xóa
+    if (isFavorite) {
+      Modal.confirm({
+        title: "Xóa khỏi mục yêu thích?",
+        content: `Bạn có chắc chắn muốn bỏ "${currentProduct.name}" khỏi danh sách yêu thích không?`,
+        okText: "Đồng ý",
+        okType: "danger",
+        cancelText: "Hủy",
+        onOk() {
+          dispatch(toggleWishlistLocal(currentProduct._id));
+        },
+      });
+    } else {
+      dispatch(toggleWishlistLocal(currentProduct._id));
+    }
+  };
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -61,7 +87,6 @@ const ProductDetails = () => {
     );
   }
 
-  // Xử lý lỗi hoặc không tìm thấy sản phẩm
   if (error || !currentProduct) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-500">
@@ -159,8 +184,19 @@ const ProductDetails = () => {
                 <FaShoppingCart /> Thêm vào giỏ hàng
               </button>
 
-              <button className="p-4 border-2 border-gray-100 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors">
-                <FaHeart size={20} />
+              <button
+                onClick={handleFavoriteToggle}
+                className={`p-4 border-2 rounded-xl transition-all duration-300 ${
+                  isFavorite
+                    ? "border-red-500 bg-red-50 text-red-500"
+                    : "border-gray-100 hover:bg-red-50 hover:text-red-500 text-gray-400"
+                }`}
+              >
+                {isFavorite ? (
+                  <FaHeart size={20} className="text-red-500" />
+                ) : (
+                  <FaRegHeart size={20} />
+                )}
               </button>
             </div>
 
