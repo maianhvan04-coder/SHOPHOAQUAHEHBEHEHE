@@ -1,271 +1,342 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  Box,
-  Button,
-  Container,
-  Flex,
-  Heading,
-  HStack,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Spinner,
+  SearchOutlined,
+  EditOutlined,
+  FilterOutlined,
+  ShoppingOutlined,
+} from "@ant-design/icons";
+import {
   Table,
-  Tbody,
-  Td,
-  Text,
-  Th,
-  Thead,
-  Tr,
-  useDisclosure,
-  useToast,
-  IconButton,
   Tag,
+  Space,
+  Input,
+  Button,
   Select,
-  Textarea,
-  Badge,
-} from "@chakra-ui/react";
-import { EditIcon } from "@chakra-ui/icons";
+  Modal,
+  Form,
+  message,
+  Typography,
+  Card,
+  Tooltip,
+} from "antd";
 import { fetchAllOrdersAdmin, updateStatusAdmin } from "../order.slice";
-import Pagination from "../../../components/common/Pagination"; 
+import Pagination from "../../../components/common/Pagination";
+
+const { Title, Text } = Typography;
 
 export default function OrderManagementPage() {
   const dispatch = useDispatch();
-  const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { orders, totalItems, isLoading } = useSelector((state) => state.order);
 
-  const { orders,totalItems, isLoading } = useSelector((state) => state.order);
-
- 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [statusFilter, setStatusFilter] = useState("");
+  const [orderIdSearch, setOrderIdSearch] = useState("");
+  const [inputValue, setInputValue] = useState("");
 
-
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [newStatus, setNewStatus] = useState("");
-  const [shopNote, setShopNote] = useState("");
+  const [form] = Form.useForm();
 
   useEffect(() => {
-    dispatch(fetchAllOrdersAdmin({ page, limit, status: statusFilter }));
-  }, [dispatch, page, limit, statusFilter]);
+    dispatch(
+      fetchAllOrdersAdmin({
+        page,
+        limit,
+        status: statusFilter,
+        orderId: orderIdSearch.trim(),
+      })
+    );
+  }, [dispatch, page, limit, statusFilter, orderIdSearch]);
+
+  const handleSearch = () => {
+    setOrderIdSearch(inputValue);
+    setPage(1);
+  };
 
   const openUpdateModal = (order) => {
     setSelectedOrder(order);
-    setNewStatus(order.status.orderStatus);
-    setShopNote(order.shopNote || "");
-    onOpen();
+    form.setFieldsValue({
+      orderStatus: order.status.orderStatus,
+      shopNote: order.shopNote || "",
+    });
+    setIsModalOpen(true);
   };
 
-  const handleUpdateStatus = async () => {
+  const handleUpdateStatus = async (values) => {
     try {
       await dispatch(
         updateStatusAdmin({
           orderId: selectedOrder._id,
-          statusData: { orderStatus: newStatus, shopNote: shopNote },
+          statusData: values,
         })
       ).unwrap();
 
-      toast({
-        title: "Cập nhật đơn hàng thành công",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-        position: "top",
-      });
-      onClose();
+      message.success("Cập nhật đơn hàng thành công");
+      setIsModalOpen(false);
     } catch (err) {
-      toast({
-        title: "Lỗi cập nhật",
-        description: err || "Vui lòng thử lại",
-        status: "error",
-        duration: 3000,
-        position: "top",
-      });
+      message.error(err || "Vui lòng thử lại");
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Pending": return "orange";
-      case "Confirmed": return "blue";
-      case "Shipped": return "purple";
-      case "Delivered": return "green";
-      case "Cancelled": return "red";
-      default: return "gray";
-    }
+  const getStatusTag = (status) => {
+    const config = {
+      Pending: { color: "orange", label: "Chờ xác nhận" },
+      Confirmed: { color: "blue", label: "Đã xác nhận" },
+      Shipped: { color: "purple", label: "Đang giao" },
+      Delivered: { color: "green", label: "Hoàn thành" },
+      Cancelled: { color: "red", label: "Đã hủy" },
+    };
+    const { color, label } = config[status] || {
+      color: "default",
+      label: status,
+    };
+    return (
+      <Tag
+        color={color}
+        className="rounded-full px-3 uppercase text-[10px] font-bold"
+      >
+        {label}
+      </Tag>
+    );
   };
+
+  const columns = [
+    {
+      title: "MÃ ĐƠN",
+      dataIndex: "_id",
+      key: "_id",
+      render: (id) => (
+        <Text className="font-mono font-bold text-blue-600">
+          #{id.slice(-8).toUpperCase()}
+        </Text>
+      ),
+    },
+    {
+      title: "KHÁCH HÀNG",
+      key: "customer",
+      render: (_, record) => (
+        <div className="flex flex-col">
+          <Text className="font-semibold text-sm">
+            {record.shippingAddress?.fullName}
+          </Text>
+          <Text className="text-xs text-gray-400">
+            {record.shippingAddress?.phone}
+          </Text>
+        </div>
+      ),
+    },
+    {
+      title: "TỔNG TIỀN",
+      dataIndex: "totalPrice",
+      key: "totalPrice",
+      render: (price) => (
+        <Text className="font-bold text-red-500">
+          {price?.toLocaleString()}đ
+        </Text>
+      ),
+    },
+    {
+      title: "THANH TOÁN",
+      dataIndex: ["status", "isPaid"],
+      key: "isPaid",
+      render: (isPaid) => <BadgeStatus isPaid={isPaid} />,
+    },
+    {
+      title: "TRẠNG THÁI",
+      dataIndex: ["status", "orderStatus"],
+      key: "orderStatus",
+      render: (status) => getStatusTag(status),
+    },
+    {
+      title: "HÀNH ĐỘNG",
+      key: "action",
+      align: "right",
+      render: (_, record) => (
+        <Tooltip title="Chỉnh sửa trạng thái">
+          <Button
+            type="text"
+            icon={<EditOutlined className="text-green-600" />}
+            onClick={() => openUpdateModal(record)}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
 
   return (
-    <Container maxW="7xl" py={6}>
-      {/* ===== HEADER & FILTER ===== */}
-      <Flex 
-        justify="space-between" 
-        align={{ base: "flex-start", md: "center" }} 
-        mb={6} 
-        direction={{ base: "column", md: "row" }} 
-        gap={4}
-      >
-        <Box>
-          <Heading size="lg" color="gray.800">Quản lý đơn hàng</Heading>
-          <Text mt={1} fontSize="sm" color="gray.500">
-            Theo dõi và cập nhật trạng thái đơn hàng của hệ thống
+    <div className="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <Title
+            level={2}
+            className="!mb-1 !text-gray-800 flex items-center gap-2"
+          >
+            <ShoppingOutlined className="text-blue-500" /> Quản lý đơn hàng
+          </Title>
+          <Text className="text-gray-500">
+            Theo dõi, kiểm tra và cập nhật tiến độ giao hàng
           </Text>
-        </Box>
+        </div>
 
-        <HStack spacing={3} w={{ base: "full", md: "auto" }}>
-          <Text fontWeight="bold" fontSize="sm" whiteSpace="nowrap">Trạng thái:</Text>
-          <Select 
-            w={{ base: "full", md: "200px" }}
-            bg="white" 
-            borderRadius="xl"
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          {/* SEARCH BAR */}
+          <Input.Search
+            placeholder="Tìm mã đơn hàng..."
+            allowClear
+            enterButton={
+              <Button
+                type="primary"
+                className="bg-blue-600 hover:bg-blue-500 border-none px-6"
+              >
+                <SearchOutlined />
+              </Button>
+            }
+            size="middle"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onSearch={handleSearch}
+            className="w-full md:w-80 shadow-sm"
+          />
+
+          <Select
+            placeholder="Lọc trạng thái"
+            className="w-full md:w-44"
             value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
+            onChange={(val) => {
+              setStatusFilter(val);
               setPage(1);
             }}
+            options={[
+              { value: "", label: "Tất cả trạng thái" },
+              { value: "Pending", label: "Chờ xác nhận" },
+              { value: "Confirmed", label: "Đã xác nhận" },
+              { value: "Shipped", label: "Đang giao" },
+              { value: "Delivered", label: "Đã hoàn thành" },
+              { value: "Cancelled", label: "Đã hủy" },
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* TABLE SECTION */}
+      <div className="shadow-md border-none rounded-2xl overflow-hidden ">
+        <Table
+          columns={columns}
+          dataSource={orders}
+          rowKey="_id"
+          loading={isLoading}
+          pagination={false}
+          className="ant-table-custom"
+          locale={{ emptyText: "Không tìm thấy đơn hàng nào" }}
+        />
+
+        <div className="border-t bg-gray-50">
+          <Pagination
+            page={page}
+            limit={limit}
+            totalItems={totalItems}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+            isDisabled={isLoading}
+          />
+        </div>
+      </div>
+
+      {/* MODAL CẬP NHẬT */}
+      <Modal
+        title={<div className="pb-3 border-b text-lg">Cập nhật đơn hàng</div>}
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        footer={null}
+        centered
+        className="rounded-2xl"
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleUpdateStatus}
+          className="pt-4"
+        >
+          <div className="flex justify-between mb-6 bg-blue-50 p-3 rounded-xl border border-blue-100">
+            <Text className="text-gray-600">Mã đơn hàng:</Text>
+            <Text className="font-bold text-blue-700">
+              #{selectedOrder?._id.toUpperCase()}
+            </Text>
+          </div>
+
+          <Form.Item
+            name="orderStatus"
+            label={<span className="font-bold">Trạng thái đơn hàng</span>}
           >
-            <option value="">Tất cả đơn hàng</option>
-            <option value="Pending">Chờ xác nhận</option>
-            <option value="Confirmed">Đã xác nhận</option>
-            <option value="Shipped">Đang giao</option>
-            <option value="Delivered">Hoàn thành</option>
-            <option value="Cancelled">Đã hủy</option>
-          </Select>
-        </HStack>
-      </Flex>
+            <Select size="large" className="w-full">
+              <Select.Option value="Pending">
+                Pending (Chờ xác nhận)
+              </Select.Option>
+              <Select.Option value="Confirmed">
+                Confirmed (Đã xác nhận)
+              </Select.Option>
+              <Select.Option value="Shipped">
+                Shipped (Đang giao hàng)
+              </Select.Option>
+              <Select.Option value="Delivered">
+                Delivered (Đã hoàn thành)
+              </Select.Option>
+              <Select.Option value="Cancelled">
+                Cancelled (Hủy đơn)
+              </Select.Option>
+            </Select>
+          </Form.Item>
 
-      {/* ===== TABLE CONTENT ===== */}
-      <Box bg="white" borderRadius="2xl" boxShadow="sm" borderWidth="1px" overflow="hidden">
-        {isLoading ? (
-          <Flex p={20} justify="center" align="center" direction="column" gap={3}>
-            <Spinner color="green.500" size="xl" />
-            <Text color="gray.500">Đang tải danh sách đơn hàng...</Text>
-          </Flex>
-        ) : (
-          <>
-            <Box overflowX="auto">
-              <Table variant="simple">
-                <Thead bg="gray.50">
-                  <Tr>
-                    <Th>Mã đơn</Th>
-                    <Th>Khách hàng</Th>
-                    <Th>Tổng tiền</Th>
-                    <Th>Thanh toán</Th>
-                    <Th>Trạng thái</Th>
-                    <Th textAlign="right">Hành động</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {orders?.length === 0 ? (
-                    <Tr>
-                      <Td colSpan={6} textAlign="center" py={10} color="gray.500">
-                        Chưa có đơn hàng nào khớp với điều kiện lọc
-                      </Td>
-                    </Tr>
-                  ) : (
-                    orders.map((order) => (
-                      <Tr key={order._id} _hover={{ bg: "gray.50" }}>
-                        <Td fontWeight="bold" fontSize="xs">
-                          #{order._id.slice(-8).toUpperCase()}
-                        </Td>
-                        <Td>
-                          <Text fontWeight="semibold" fontSize="sm">{order.shippingAddress?.fullName}</Text>
-                          <Text fontSize="xs" color="gray.500">{order.shippingAddress?.phone}</Text>
-                        </Td>
-                        <Td fontWeight="bold" color="red.500">
-                          {order.totalPrice?.toLocaleString()}đ
-                        </Td>
-                        <Td>
-                          <Badge colorScheme={order.status?.isPaid ? "green" : "gray"}>
-                            {order.status?.isPaid ? "Đã trả" : "Chưa trả"}
-                          </Badge>
-                        </Td>
-                        <Td>
-                          <Tag size="sm" variant="solid" colorScheme={getStatusColor(order.status?.orderStatus)}>
-                            {order.status?.orderStatus}
-                          </Tag>
-                        </Td>
-                        <Td textAlign="right">
-                          <IconButton
-                            aria-label="Cập nhật"
-                            icon={<EditIcon />}
-                            size="sm"
-                            colorScheme="green"
-                            variant="ghost"
-                            onClick={() => openUpdateModal(order)}
-                          />
-                        </Td>
-                      </Tr>
-                    ))
-                  )}
-                </Tbody>
-              </Table>
-            </Box>
+          <Form.Item
+            name="shopNote"
+            label={<span className="font-bold">Ghi chú của Shop</span>}
+          >
+            <Input.TextArea
+              rows={4}
+              placeholder="Nhập ghi chú nội bộ..."
+              className="rounded-xl"
+            />
+          </Form.Item>
 
-           
-            <Box borderTopWidth="1px" bg="gray.50">
-              <Pagination
-                page={page}
-                limit={limit}
-                totalItems={totalItems} 
-                onPageChange={(p) => setPage(p)}
-                onLimitChange={(l) => {
-                  setLimit(l);
-                  setPage(1);
-                }}
-                isDisabled={isLoading}
-              />
-            </Box>
-          </>
-        )}
-      </Box>
-
-      {/* ===== MODAL CẬP NHẬT TRẠNG THÁI ===== */}
-      <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
-        <ModalOverlay bg="blackAlpha.300" />
-        <ModalContent borderRadius="2xl">
-          <ModalHeader borderBottomWidth="1px">Cập nhật đơn hàng</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody py={6}>
-            <HStack mb={4} justify="space-between">
-              <Text fontSize="sm" color="gray.500">Mã đơn:</Text>
-              <Text fontWeight="bold">#{selectedOrder?._id.toUpperCase()}</Text>
-            </HStack>
-
-            <Box mb={4}>
-              <Text fontSize="sm" fontWeight="bold" mb={2}>Trạng thái đơn hàng</Text>
-              <Select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} borderRadius="xl">
-                <option value="Pending">Pending (Chờ xác nhận)</option>
-                <option value="Confirmed">Confirmed (Đã xác nhận)</option>
-                <option value="Shipped">Shipped (Đang giao hàng)</option>
-                <option value="Delivered">Delivered (Đã hoàn thành)</option>
-                <option value="Cancelled">Cancelled (Hủy đơn)</option>
-              </Select>
-            </Box>
-
-            <Box>
-              <Text fontSize="sm" fontWeight="bold" mb={2}>Ghi chú của Shop (Nội bộ)</Text>
-              <Textarea
-                placeholder="Ví dụ: Đã gọi điện xác nhận..."
-                value={shopNote}
-                onChange={(e) => setShopNote(e.target.value)}
-                borderRadius="xl"
-                fontSize="sm"
-              />
-            </Box>
-          </ModalBody>
-          <ModalFooter borderTopWidth="1px">
-            <Button variant="ghost" mr={3} onClick={onClose}>Huỷ</Button>
-            <Button colorScheme="green" px={8} onClick={handleUpdateStatus}>Lưu thay đổi</Button>
-          </ModalFooter>
-        </ModalContent>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              onClick={() => setIsModalOpen(false)}
+              className="rounded-md"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              className="bg-green-600 hover:bg-green-500 rounded-md px-8"
+            >
+              Lưu thay đổi
+            </Button>
+          </div>
+        </Form>
       </Modal>
-    </Container>
+    </div>
   );
 }
+
+// Sub-component nhỏ cho Badge thanh toán
+const BadgeStatus = ({ isPaid }) => (
+  <span
+    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+      isPaid ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+    }`}
+  >
+    <span
+      className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+        isPaid ? "bg-green-500" : "bg-gray-400"
+      }`}
+    />
+    {isPaid ? "Đã trả" : "Chưa trả"}
+  </span>
+);

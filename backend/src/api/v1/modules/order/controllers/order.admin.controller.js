@@ -1,6 +1,7 @@
 const orderService = require("../order.service");
 module.exports.getAllOrders = async (req, res) => {
   try {
+   
     const orders = await orderService.getAllOrdersAdmin(req.query);
     return res.status(200).json({
       success: true,
