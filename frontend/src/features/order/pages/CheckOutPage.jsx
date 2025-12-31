@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
-import { message, Spin } from "antd";
+import { message, Select, Spin } from "antd";
 import { createNewOrder, resetOrderState } from "../order.slice";
 import { current } from "@reduxjs/toolkit";
+import { phoneRegex } from "../../../shared/utils/validators";
 
 const CheckoutPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-
+  const [addressData, setAddressData] = useState([]);
+  const [wards, setWards] = useState([]);
+  useEffect(() => {
+    fetch("/data/vietnam_provinces.json")
+      .then((res) => res.json())
+      .then((data) => setAddressData(data))
+      .catch(() => message.error("Không thể tải dữ liệu địa chính!"));
+  }, []);
   useEffect(() => {
     dispatch(resetOrderState());
   }, [dispatch]);
@@ -19,7 +27,7 @@ const CheckoutPage = () => {
     (state) => state.order
   );
 
-  const shippingPrice = orderItems.length > 0 ? 30000 : 0;
+  const shippingPrice = orderItems.length > 0 ? 5000 : 0;
   const itemsPrice = orderItems.reduce(
     (acc, item) => acc + item.price * item.quantity,
     0
@@ -29,6 +37,8 @@ const CheckoutPage = () => {
   const [address, setAddress] = useState({
     fullName: "",
     phone: "",
+    province: "",
+    ward: "",
     addressDetails: "",
     customerNote: "",
   });
@@ -51,27 +61,65 @@ const CheckoutPage = () => {
       dispatch(resetOrderState());
     }
   }, [isSuccess, currentOrder, errorMessage, navigate, dispatch]);
+  const handleProvinceChange = (provinceCode, option) => {
+    const selectedProvince = addressData.find((p) => p.code === provinceCode);
 
+    setWards(selectedProvince ? selectedProvince.wards : []);
+
+    setAddress({
+      ...address,
+      province: option.label,
+      ward: "",
+    });
+  };
   const handlePlaceOrder = () => {
     if (orderItems.length === 0) {
       message.warning("Giỏ hàng đang trống, hãy chọn sản phẩm trước nhé!");
       return;
     }
-
-    if (!address.fullName || !address.phone || !address.addressDetails) {
+    if (
+      !address.fullName.trim() ||
+      !address.phone.trim() ||
+      !address.province ||
+      !address.ward ||
+      !address.addressDetails.trim()
+    ) {
       message.error(
-        "Vui lòng điền đầy đủ thông tin để chúng mình giao hàng tận nơi!"
+        "Vui lòng chọn đầy đủ Tỉnh thành, Phường xã và Địa chỉ chi tiết!"
       );
+      return;
+    }
+
+    if (address.fullName.trim().length < 2 || address.fullName.length > 100) {
+      message.error("Họ tên phải từ 2 đến 100 ký tự!");
+      return;
+    }
+
+    if (!phoneRegex.PHONE_VN.test(address.phone.trim())) {
+      message.error(
+        "Số điện thoại không đúng định dạng (10 số, ví dụ: 0912...)!"
+      );
+      return;
+    }
+
+    if (address.customerNote && address.customerNote.length > 500) {
+      message.error("Ghi chú không được vượt quá 500 ký tự!");
       return;
     }
 
     const orderData = {
       orderItems: orderItems.map((item) => ({
         product: item.product,
-      
+
         quantity: item.quantity,
       })),
-      shippingAddress: { ...address },
+      shippingAddress: {
+      fullName: address.fullName.trim(),
+      phone: address.phone.trim(),
+      province: address.province,      
+      ward: address.ward,              
+      addressDetails: address.addressDetails.trim(),
+    },
       paymentMethod,
       shippingPrice,
       itemsPrice,
@@ -89,7 +137,6 @@ const CheckoutPage = () => {
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* BÊN TRÁI: THÔNG TIN NHẬN HÀNG */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold mb-6 text-gray-700 border-b pb-3">
@@ -112,14 +159,40 @@ const CheckoutPage = () => {
                   setAddress({ ...address, phone: e.target.value })
                 }
               />
-              <textarea
-                placeholder="Địa chỉ giao hàng chi tiết (Số nhà, tên đường...) *"
+
+              <Select
+                showSearch
+                placeholder="Chọn Tỉnh/Thành phố *"
+                optionFilterProp="label"
+                className="w-full h-[50px] rounded-xl"
+                onChange={handleProvinceChange}
+                options={addressData.map((p) => ({
+                  label: p.name,
+                  value: p.code,
+                }))}
+              />
+
+              <Select
+                showSearch
+                placeholder="Chọn Phường/Xã/Thị trấn *"
+                optionFilterProp="label"
+                className="w-full h-[50px] rounded-xl"
+                disabled={!address.province}
+                value={address.ward || undefined}
+                onChange={(val, opt) =>
+                  setAddress({ ...address, ward: opt.label })
+                }
+                options={wards.map((w) => ({ label: w.name, value: w.code }))}
+              />
+
+              <input
+                type="text"
+                placeholder="Số nhà, tên đường... *"
                 className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#49a760] outline-none md:col-span-2"
-                rows="3"
                 onChange={(e) =>
                   setAddress({ ...address, addressDetails: e.target.value })
                 }
-              ></textarea>
+              />
               <input
                 type="text"
                 placeholder="Ghi chú thêm về đơn hàng..."
@@ -150,17 +223,19 @@ const CheckoutPage = () => {
                 </span>
               </div>
               <div
-                className={`p-4 border-2 rounded-2xl cursor-pointer transition-all flex flex-col gap-1 ${
+                className={`p-4 border-2 rounded-2xl transition-all flex flex-col gap-1 ${
                   paymentMethod === "PayPal"
                     ? "border-blue-500 bg-blue-50"
-                    : "border-gray-100 hover:border-gray-300"
+                    : "border-gray-100 opacity-50 cursor-not-allowed bg-gray-50" // Thêm mờ và đổi chuột
                 }`}
-                onClick={() => setPaymentMethod("PayPal")}
+                onClick={() =>
+                  message.info("Tính năng thanh toán Online đang được bảo trì!")
+                }
               >
-                <span className="font-bold text-gray-800">
-                  Thanh toán Online
+                <span className="font-bold text-gray-400">
+                  Thanh toán Online (Sắp ra mắt)
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-400">
                   Chuyển khoản qua mã QR
                 </span>
               </div>

@@ -1,11 +1,18 @@
 import { useNavigate } from "react-router-dom";
 import favorite_icon from "../../../../assets/icons/favorite_icon.png";
+import { useDispatch, useSelector } from "react-redux";
+import { toggleWishlistLocal } from "../../../wishlist/wishlist.slice";
+import { HeartOutlined } from "@ant-design/icons";
+import { Modal } from "antd";
 
 const ProductComponent = ({ fruit, num, showDetails }) => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { items, isLoading } = useSelector((state) => state.wishlist);
+
   const { name, image, price, _id } = fruit;
+  const isFavorite = items.includes(_id);
   const handleBuyNow = (e) => {
-   
     e.stopPropagation();
 
     const buyNowData = [
@@ -14,11 +21,32 @@ const ProductComponent = ({ fruit, num, showDetails }) => {
         name: name,
         image: image.url,
         price: price,
-        quantity: 1, 
+        quantity: 1,
       },
     ];
 
     navigate("/checkout", { state: { orderItems: buyNowData } });
+  };
+const handleFavoriteClick = (e) => {
+    e.stopPropagation(); // Chặn việc nhảy vào xem chi tiết sản phẩm
+
+    if (isFavorite) {
+      // Nếu ĐÃ THÍCH -> Hiện bảng hỏi xác nhận xóa
+      Modal.confirm({
+        title: "Xóa khỏi mục yêu thích?",
+        content: `Bạn có chắc chắn muốn bỏ "${name}" khỏi danh sách yêu thích của mình không?`,
+        okText: "Đồng ý",
+        okType: "danger", // Nút màu đỏ để cảnh báo hành động xóa
+        cancelText: "Hủy",
+        centered: true, // Hiện ở chính giữa màn hình cho dễ chú ý
+        onOk() {
+          dispatch(toggleWishlistLocal(_id));
+        },
+      });
+    } else {
+      // Nếu CHƯA THÍCH -> Thêm thẳng luôn cho nhanh
+      dispatch(toggleWishlistLocal(_id));
+    }
   };
   return (
     <div
@@ -46,11 +74,30 @@ const ProductComponent = ({ fruit, num, showDetails }) => {
         </p>
 
         <div className="flex justify-between items-center gap-2">
-          <button onClick={handleBuyNow} className="cursor-pointer uppercase font-bold text-[10px] md:text-xs border-2 rounded-3xl border-amber-600 w-full max-w-[180px] py-2 px-1 hover:bg-amber-600 hover:text-white transition-colors">
+          <button
+            onClick={handleBuyNow}
+            className="cursor-pointer uppercase font-bold text-[10px] md:text-xs border-2 rounded-3xl border-amber-600 w-full max-w-[180px] py-2 px-1 hover:bg-amber-600 hover:text-white transition-colors"
+          >
             Mua ngay
           </button>
-          <div className="inline-flex cursor-pointer size-8 shrink-0 rounded-full border-2 border-[var(--color-green-button)] justify-center items-center hover:bg-green-50 transition-colors">
-            <img src={favorite_icon} alt="icon" className="size-4" />
+          <div
+            onClick={handleFavoriteClick}
+            className={`inline-flex cursor-pointer size-8 shrink-0 rounded-full border-2 transition-all duration-300 justify-center items-center 
+              ${
+                isFavorite
+                  ? "border-red-500 bg-red-50"
+                  : "border-[var(--color-green-button)] hover:bg-green-50"
+              }`}
+          >
+            {isFavorite ? (
+              // Icon khi ĐÃ yêu thích (Trái tim đỏ)
+           
+             <HeartOutlined  />
+            ) : (
+             
+              // Icon khi CHƯA yêu thích (Dùng ảnh icon của bạn)
+              <img src={favorite_icon} alt="icon" className="size-4" />
+            )}
           </div>
         </div>
       </div>

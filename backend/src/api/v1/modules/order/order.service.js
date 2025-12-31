@@ -2,9 +2,10 @@ const Order = require("./order.model");
 const Product = require("../product/product.model");
 
 module.exports.createOrderService = async (userId, data) => {
+ 
   const {
     orderItems,
-    shippingAddress,
+    shippingAddress, 
     paymentMethod,
     shippingPrice = 0,
     customerNote,
@@ -17,6 +18,7 @@ module.exports.createOrderService = async (userId, data) => {
   let itemsPrice = 0;
   const processedItems = [];
 
+  // Lấy thông tin sản phẩm và chốt giá tại thời điểm đặt hàng
   for (const item of orderItems) {
     const product = await Product.findById(item.product);
 
@@ -30,7 +32,7 @@ module.exports.createOrderService = async (userId, data) => {
     processedItems.push({
       product: product._id,
       name: product.name,
-      image: product.image.url,
+      image: product.image?.url || "", 
       quantity: item.quantity,
       price: currentPrice,
     });
@@ -38,10 +40,17 @@ module.exports.createOrderService = async (userId, data) => {
 
   const totalPrice = itemsPrice + shippingPrice;
 
+  // Lưu đơn hàng với cấu trúc địa chỉ mới
   const newOrder = await Order.create({
     user: userId,
     orderItems: processedItems,
-    shippingAddress,
+    shippingAddress: {
+      fullName: shippingAddress.fullName,
+      phone: shippingAddress.phone,
+      province: shippingAddress.province,   
+      ward: shippingAddress.ward,          
+      addressDetails: shippingAddress.addressDetails, 
+    },
     paymentMethod,
     itemsPrice,
     shippingPrice,
@@ -120,7 +129,18 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
   const order = await Order.findById(orderId);
   if (!order) throw new Error("Không tìm thấy đơn hàng.");
 
+
+  if (order.status.orderStatus === "Delivered") {
+    throw new Error("Đơn hàng đã hoàn thành, không thể cập nhật thêm.");
+  }
+
+  if (order.status.orderStatus === "Cancelled") {
+    throw new Error("Đơn hàng đã bị hủy, không thể cập nhật.");
+  }
+
+
   if (shopNote) order.shopNote = shopNote;
+
 
   if (orderStatus) {
     order.status.orderStatus = orderStatus;
@@ -128,6 +148,8 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
     if (orderStatus === "Delivered") {
       order.status.isDelivered = true;
       order.status.deliveredAt = Date.now();
+
+ 
       order.status.isPaid = true;
       order.status.paidAt = Date.now();
     }

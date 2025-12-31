@@ -9,7 +9,7 @@ export const fetchProductsForUser = createAsyncThunk(
   "product/fetchProductsForUser",
   async (filters, { rejectWithValue }) => {
     try {
-  
+      console.log(filters)
       const response = await getAllProductsAPI(filters);
       if (response && response.EC === 0) {
         return response.DT;
@@ -59,7 +59,7 @@ const productSlice = createSlice({
     totalItems: 0,
     currentProduct: null,
     currentPage: 1,
-    totalPages:1,
+    totalPages: 1,
     isLoading: false,
     error: null,
   },
@@ -81,12 +81,32 @@ const productSlice = createSlice({
 
       .addCase(fetchProductsForUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.listProducts = action.payload.products;
+
+        // Lấy dữ liệu từ payload (BE trả về theo đúng limit bạn truyền lên)
+        const { products, page } = action.payload;
+
+        // CHỈ SẮP XẾP Ở TRANG 1
+        if (Number(page) === 1) {
+          const savedWishlist = localStorage.getItem("joygreen_wishlist");
+          const favoriteIds = savedWishlist ? JSON.parse(savedWishlist) : [];
+
+          // Lọc ra những sản phẩm có trong wishlist
+          const favorites = products.filter((p) => favoriteIds.includes(p._id));
+          // Lọc ra những sản phẩm còn lại
+          const others = products.filter((p) => !favoriteIds.includes(p._id));
+
+          // Gộp lại: Yêu thích lên đầu trang 1
+          state.listProducts = [...favorites, ...others];
+        } else {
+          // TỪ TRANG 2 TRỞ ĐI: Giữ nguyên trật tự Backend trả về
+          // Tuyệt đối không can thiệp sắp xếp ở đây để tránh trùng lặp cảm giác
+          state.listProducts = products;
+        }
+
         state.totalItems = action.payload.totalItems;
         state.currentPage = action.payload.page;
         state.totalPages = action.payload.totalPages;
       })
-
       .addCase(fetchProductsForUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
@@ -105,11 +125,11 @@ const productSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(fetchTopNewProducts.pending, (state) => {
-        state.isLoading = true; 
+        state.isLoading = true;
       })
       .addCase(fetchTopNewProducts.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.listTopNew = action.payload; 
+        state.listTopNew = action.payload;
       })
       .addCase(fetchTopNewProducts.rejected, (state, action) => {
         state.isLoading = false;

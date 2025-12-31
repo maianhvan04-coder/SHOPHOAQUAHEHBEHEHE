@@ -58,7 +58,7 @@ const CartPage = () => {
     };
   }, [items, selectedIds]);
 
-  const shipping = totalQtySelected > 0 ? 30000 : 0;
+  const shipping = totalQtySelected > 0 ? 5000 : 0;
   const totalFinal = subTotalSelected + shipping;
 
   const toggleSelectProduct = (productId) => {

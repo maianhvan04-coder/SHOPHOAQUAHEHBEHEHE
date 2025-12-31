@@ -135,6 +135,7 @@ const OrderDetailPage = () => {
                   {currentOrder.shippingAddress?.fullName}
                 </p>
                 <p>SĐT: {currentOrder.shippingAddress?.phone}</p>
+                <p>Tỉnh/Thành phố: {currentOrder.shippingAddress?.province} - Phường/Xã: {currentOrder.shippingAddress?.ward}</p>
                 <p>Địa chỉ: {currentOrder.shippingAddress?.addressDetails}</p>
                 {currentOrder.customerNote && (
                   <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100 text-sm italic">

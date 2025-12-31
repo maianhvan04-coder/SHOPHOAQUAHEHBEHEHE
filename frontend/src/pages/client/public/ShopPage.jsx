@@ -10,15 +10,11 @@ const ShopPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  // 1. Quản lý State cho phân trang và sắp xếp
   const page = Number(searchParams.get("page")) || 1;
   const sort = searchParams.get("sort") || "createAt_desc";
   const categorySlug = searchParams.get("category") || "";
   const keyword = searchParams.get("search") || "";
   const limit = 12;
-
-  // 2. Lấy dữ liệu từ Redux
   const { listCategories } = useSelector((state) => state.category);
   const { listProducts, isLoading, totalItems, totalPages } = useSelector(
     (state) => state.product
