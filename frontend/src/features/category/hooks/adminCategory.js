@@ -1,18 +1,16 @@
+// src/features/category/hooks/adminCategory.js
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAllCategories } from "../category.store";
 import { categoryApi } from "~/api/categoryApi";
 
-const PAGE_SIZE = 5;
-
 export const useAdminCategory = () => {
   const dispatch = useDispatch();
-  const { listCategories, isLoading } = useSelector(
-    (state) => state.category
-  );
+  const { listCategories, isLoading } = useSelector((state) => state.category);
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5); // ✅ NEW
 
   // ===== LOAD DATA =====
   useEffect(() => {
@@ -37,30 +35,47 @@ export const useAdminCategory = () => {
 
   // ===== FILTER =====
   const filtered = useMemo(() => {
-    if (!search) return listCategories;
-    return listCategories.filter((c) =>
-      c.name.toLowerCase().includes(search.toLowerCase())
-    );
+    const q = search.trim().toLowerCase();
+    if (!q) return listCategories || [];
+
+    return (listCategories || []).filter((c) => {
+      const name = (c?.name || "").toLowerCase();
+      const slug = (c?.slug || "").toLowerCase();
+      return name.includes(q) || slug.includes(q);
+    });
   }, [listCategories, search]);
 
-  // ===== PAGINATION =====
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE
-  );
+  // ✅ totalItems cho Pagination
+  const totalItems = filtered.length;
 
+  // ===== PAGINATION =====
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+
+  const categories = useMemo(() => {
+    const start = (page - 1) * limit;
+    return filtered.slice(start, start + limit);
+  }, [filtered, page, limit]);
+
+  // Reset page khi search/limit đổi
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, limit]);
+
+  // Chặn page vượt totalPages (khi xóa item làm giảm trang)
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return {
-    categories: paginated,
+    categories,
     loading: isLoading,
     search,
     setSearch,
     page,
     setPage,
+    limit,      // ✅ NEW
+    setLimit,   // ✅ NEW
+    totalItems, // ✅ NEW
     totalPages,
     createCategory,
     updateCategory,

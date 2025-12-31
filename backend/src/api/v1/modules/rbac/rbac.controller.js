@@ -7,6 +7,7 @@ const { PERMISSIONS, PERMISSION_GROUPS, ADMIN_SCREENS, PERMISSION_META } = requi
 
 exports.listRoles = asyncHandler(async (req, res) => {
     const data = await rbacService.listRoles();
+    console.log(data)
     res.json({ data });
 });
 

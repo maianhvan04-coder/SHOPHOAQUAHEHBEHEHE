@@ -1,12 +1,17 @@
 import { useMemo, useState } from "react";
 import { useAdminCategory } from "../../hooks/adminCategory";
+import Pagination from "~/components/common/Pagination";
 import {
+  Badge,
   Box,
   Button,
   Container,
   Flex,
-  Heading,
+  FormControl,
+  FormLabel,
   HStack,
+  Heading,
+  IconButton,
   Input,
   Modal,
   ModalBody,
@@ -17,20 +22,22 @@ import {
   ModalOverlay,
   Spinner,
   Stack,
+  Switch,
   Table,
   Tbody,
   Td,
   Text,
+  Textarea,
   Th,
   Thead,
   Tr,
+  Select,
   useDisclosure,
   useToast,
-  IconButton,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, EditIcon } from "@chakra-ui/icons";
 
-// ✅ thêm ở đây
+// ✅ slugify để gửi slug (tránh lỗi "slug is required")
 const slugify = (str) =>
   str
     .toLowerCase()
@@ -49,6 +56,9 @@ export default function AdminCategoryPage() {
     setSearch,
     page,
     setPage,
+    limit,
+    setLimit,
+    totalItems,
     totalPages,
     createCategory,
     updateCategory,
@@ -59,34 +69,48 @@ export default function AdminCategoryPage() {
   const toast = useToast();
 
   const [editing, setEditing] = useState(null);
+
+  // ===== FORM STATE =====
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [type, setType] = useState("single"); // single | mix
+  const [isActive, setIsActive] = useState(true);
 
   const title = useMemo(
     () => (editing ? "Sửa danh mục" : "Thêm danh mục"),
     [editing]
   );
 
-  const closeModal = () => {
+  const resetForm = () => {
     setEditing(null);
     setName("");
+    setDescription("");
+    setType("single");
+    setIsActive(true);
+  };
+
+  const closeModal = () => {
+    resetForm();
     onClose();
   };
 
   const openCreate = () => {
-    setEditing(null);
-    setName("");
+    resetForm();
     onOpen();
   };
 
   const openEdit = (c) => {
     setEditing(c);
     setName(c?.name || "");
+    setDescription(c?.description || "");
+    setType(c?.type || "single");
+    setIsActive(Boolean(c?.isActive));
     onOpen();
   };
 
   const handleSave = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       toast({
         title: "Tên danh mục không được để trống",
         status: "warning",
@@ -97,11 +121,17 @@ export default function AdminCategoryPage() {
       return;
     }
 
-    // ✅ payload có slug
-    const payload = { name: trimmed, slug: slugify(trimmed) };
+    // ✅ gửi đủ field (name/slug/description/type/isActive)
+    const payload = {
+      name: trimmedName,
+      slug: slugify(trimmedName),
+      description: description?.trim() || "",
+      type,
+      isActive: Boolean(isActive),
+    };
 
     try {
-      if (editing) {
+      if (editing?._id) {
         await updateCategory(editing._id, payload);
         toast({
           title: "Cập nhật danh mục thành công",
@@ -120,7 +150,6 @@ export default function AdminCategoryPage() {
           position: "top",
         });
       }
-
       closeModal();
     } catch (err) {
       toast({
@@ -143,7 +172,7 @@ export default function AdminCategoryPage() {
       toast({
         title: "Đã xoá danh mục",
         status: "success",
-duration: 1600,
+        duration: 1600,
         isClosable: true,
         position: "top",
       });
@@ -181,7 +210,10 @@ duration: 1600,
         <HStack spacing={3}>
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             placeholder="Tìm danh mục..."
             w={{ base: "full", md: "320px" }}
             bg="white"
@@ -212,15 +244,17 @@ duration: 1600,
               <Thead bg="gray.50">
                 <Tr>
                   <Th w="80px">#</Th>
-                  <Th>Tên danh mục</Th>
+                  <Th>Tên</Th>
+                  <Th>Loại</Th>
+                  <Th>Trạng thái</Th>
                   <Th textAlign="right">Hành động</Th>
                 </Tr>
               </Thead>
 
               <Tbody>
-                {categories.length === 0 ? (
+                {categories?.length === 0 ? (
                   <Tr>
-                    <Td colSpan={3}>
+                    <Td colSpan={5}>
                       <Box py={10} textAlign="center" color="gray.500">
                         Không có danh mục
                       </Box>
@@ -230,18 +264,34 @@ duration: 1600,
                   categories.map((c, index) => (
                     <Tr key={c._id} _hover={{ bg: "gray.50" }}>
                       <Td color="gray.500" fontSize="sm">
-                        {(page - 1) * 5 + index + 1}
+                        {(page - 1) * limit + index + 1}
                       </Td>
 
                       <Td fontWeight="semibold" color="gray.800">
                         {c.name}
                       </Td>
 
+                      <Td color="gray.600" fontSize="sm">
+                        {c.type === "mix" ? "Mix" : "Single"}
+                      </Td>
+
+                      <Td>
+                        {c.isActive ? (
+                          <Badge colorScheme="green" borderRadius="md">
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge colorScheme="gray" borderRadius="md">
+                            Inactive
+                          </Badge>
+                        )}
+                      </Td>
+
                       <Td textAlign="right">
                         <HStack justify="flex-end" spacing={2}>
                           <IconButton
                             aria-label="Sửa"
-icon={<EditIcon />}
+                            icon={<EditIcon />}
                             size="sm"
                             variant="outline"
                             colorScheme="yellow"
@@ -265,28 +315,24 @@ icon={<EditIcon />}
           </Box>
         )}
 
-        {/* ===== PAGINATION ===== */}
-        {totalPages > 1 && (
-          <Flex justify="flex-end" gap={1} p={4} borderTopWidth="1px">
-            {Array.from({ length: totalPages }).map((_, i) => {
-              const p = i + 1;
-              const active = page === p;
-
-              return (
-                <Button
-                  key={p}
-                  size="sm"
-                  minW="36px"
-                  borderRadius="lg"
-                  onClick={() => setPage(p)}
-                  colorScheme={active ? "green" : "gray"}
-                  variant={active ? "solid" : "outline"}
-                >
-                  {p}
-                </Button>
-              );
-            })}
-          </Flex>
+        {!loading && (
+          <Box borderTopWidth="1px">
+            <Pagination
+              page={page}
+              limit={limit}
+              totalItems={totalItems}
+              totalPages={totalPages}
+              onPageChange={(p) => setPage(p)}
+              onLimitChange={(n) => {
+                setLimit(n);
+                setPage(1);
+              }}
+              limitOptions={[5, 10, 20, 50]}
+              siblingCount={1}
+              showJump={true}
+              isDisabled={loading}
+            />
+          </Box>
         )}
       </Box>
 
@@ -297,17 +343,55 @@ icon={<EditIcon />}
           <ModalHeader>{title}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Stack spacing={3}>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Tên danh mục"
-                borderRadius="xl"
-                focusBorderColor="green.500"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSave();
-                }}
-              />
+            <Stack spacing={4}>
+              <FormControl>
+                <FormLabel>Tên danh mục</FormLabel>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ví dụ: Trái cây nhập khẩu"
+                  borderRadius="xl"
+                  focusBorderColor="green.500"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSave();
+                  }}
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Loại</FormLabel>
+                <Select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  borderRadius="xl"
+                >
+                  <option value="single">Single</option>
+                  <option value="mix">Mix</option>
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Mô tả</FormLabel>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Mô tả ngắn về danh mục..."
+                  borderRadius="xl"
+                  focusBorderColor="green.500"
+                  rows={3}
+                />
+              </FormControl>
+
+              <FormControl>
+                <HStack justify="space-between">
+                  <FormLabel mb={0}>Kích hoạt</FormLabel>
+                  <Switch
+                    isChecked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    colorScheme="green"
+                  />
+                </HStack>
+              </FormControl>
             </Stack>
           </ModalBody>
 

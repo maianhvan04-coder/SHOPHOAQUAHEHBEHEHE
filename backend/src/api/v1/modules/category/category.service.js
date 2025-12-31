@@ -1,222 +1,208 @@
+// category.service.js
 const mongoose = require("mongoose");
-const { makeSlug } = require("../../../../helpers/makeSlug")
+const { makeSlug } = require("../../../../helpers/makeSlug.js");
 
-const ApiError = require("../../../../core/ApiError");
-const httpStatus = require("../../../../core/httpStatus");
+const ApiError = require("../../../../core/apiError.js");
+const httpStatus = require("../../../../core/httpStatus.js");
+
 const categoryRepo = require("./category.repo");
-const { parsePagination, parseBoolean } = require("../../../../helpers/query.util.js.js");
+const { parsePagination, parseBoolean } = require("../../../../helpers/query.util.js");
 
-const Category = require("./category.model.js")
+// ===== helpers =====
+const ensureObjectId = (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "CategoryId không hợp lệ");
+  }
+};
 
+const validateName = (name) => {
+  const trimmed = (name || "").trim();
+  if (!trimmed) throw new ApiError(httpStatus.BAD_REQUEST, "Name là bắt buộc");
+  if (trimmed.length < 3) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Tên danh mục phải có ít nhất 3 ký tự!");
+  }
+  return trimmed;
+};
 
+// ✅ map shop -> single, chỉ cho single|mix
+const normalizeType = (t) => {
+  const v = String(t || "").trim().toLowerCase();
+  if (!v || v === "shop") return "single";
+  if (v === "single" || v === "mix") return v;
+  return "single";
+};
 
+// ================== CREATE ==================
 exports.create = async (payload = {}) => {
+  const name = validateName(payload.name);
 
-    const {
-        name,
-        description = "",
-        isActive = true
-    } = payload;
+  const description = (payload.description || "").trim();
+  const type = normalizeType(payload.type);
+  const isActive = payload.isActive !== undefined ? !!payload.isActive : true;
 
-    if (!name) {
-        throw new ApiError(httpStatus.BAD_REQUEST, "Name là bắt buộc");
-    }
+  // ✅ check trùng NAME (name unique)
+  const existedByName = await categoryRepo.findAnyByName(name);
 
-    const slug = makeSlug(name);
-    const existed = await categoryRepo.findAnyBySlug(slug);
+  if (existedByName && !existedByName.isDeleted) {
+    throw new ApiError(httpStatus.CONFLICT, `Danh mục "${name}" đã tồn tại`);
+  }
 
-    if (existed && !existed.isDeleted) {
-        throw new ApiError(httpStatus.CONFLICT, "Category đã tồn tại");
-    }
+  // ✅ revive nếu đã soft delete
+  if (existedByName && existedByName.isDeleted) {
+    existedByName.name = name;
+    existedByName.slug = makeSlug(name);
+    existedByName.description = description;
+    existedByName.type = type;
+    existedByName.isActive = isActive;
+    existedByName.isDeleted = false;
+    await existedByName.save();
+    return existedByName;
+  }
 
-    if (existed && existed.isDeleted) {
-        existed.name = name;
-        existed.slug = slug;
-        existed.description = description;
-        existed.isActive = isActive;
-        existed.isDeleted = false;
-        await existed.save();
-        return existed;
-    }
+  const slug = makeSlug(name);
 
-    return categoryRepo.create({ name, slug, description, isActive });
+  const existedBySlug = await categoryRepo.findAnyBySlug(slug);
+  if (existedBySlug && !existedBySlug.isDeleted) {
+    throw new ApiError(httpStatus.CONFLICT, "Slug đã tồn tại");
+  }
+
+  return categoryRepo.create({
+    name,
+    slug,
+    description,
+    type,
+    isActive,
+    isDeleted: false,
+  });
 };
 
+// ================== LIST (ADMIN) ==================
+exports.adminList = async (query = {}) => {
+  const { page, limit } = parsePagination(query);
+  const search = query.search?.trim();
+  const type = query.type?.trim(); // (single|mix nếu bạn muốn filter)
+  const isActive = parseBoolean(query.isActive);
 
-exports.adminList = async (query) => {
-    const { page, limit, skip } = parsePagination(query);
-    const search = query.search?.trim();
+  const { items, total } = await categoryRepo.listAdmin({
+    page,
+    limit,
+    search,
+    type,
+    isActive,
+  });
 
-    let isActive = parseBoolean(query.isActive);
-    if (isActive === "true") isActive = true;
-    else if (isActive === "false") isActive = false;
-    else isActive = undefined;
-
-    const { items, total } = await categoryRepo.listAdmin({ page, limit, search, isActive });
-
-    return {
-        items,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    };
+  return {
+    items,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
 };
 
-exports.publicList = async (query) => {
-    const { page, limit, skip } = parsePagination(query);
-    const search = query.search?.trim();
+// ================== LIST (PUBLIC) ==================
+exports.publicList = async (query = {}) => {
+  const { page, limit } = parsePagination(query);
+  const search = query.search?.trim();
+  const type = query.type?.trim();
 
-    const { items, total } = await categoryRepo.listPublic({ page, limit, search });
+  const { items, total } = await categoryRepo.listPublic({
+    page,
+    limit,
+    search,
+    type,
+  });
 
-    return {
-        items,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    };
+  return {
+    items,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
 };
 
+// ================== GET BY ID ==================
 exports.adminGetById = async (id) => {
-    if (!mongoose.Types.ObjectId.isValid(id))
-        throw new ApiError(httpStatus.BAD_REQUEST, "CategoryId không hợp lệ");
-
-    const cat = await categoryRepo.findByIdAdmin(id);
-    if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
-    return cat;
+  ensureObjectId(id);
+  const cat = await categoryRepo.findByIdAdmin(id);
+  if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  return cat;
 };
 
 exports.publicGetById = async (id) => {
-    if (!mongoose.Types.ObjectId.isValid(id))
-        throw new ApiError(httpStatus.BAD_REQUEST, "CategoryId không hợp lệ");
-
-    const cat = await categoryRepo.findByIdPublic(id);
-    if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
-    return cat;
+  ensureObjectId(id);
+  const cat = await categoryRepo.findByIdPublic(id);
+  if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  return cat;
 };
 
-exports.update = async (id, payload) => {
-    if (!mongoose.Types.ObjectId.isValid(id))
-        throw new ApiError(httpStatus.BAD_REQUEST, "CategoryId không hợp lệ");
+// ================== UPDATE (slug auto 100%) ==================
+exports.update = async (id, payload = {}) => {
+  ensureObjectId(id);
 
-    const current = await categoryRepo.findByIdAdmin(id);
-    if (!current) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  const current = await categoryRepo.findByIdAdmin(id);
+  if (!current) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  if (current.isDeleted) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Category đã bị xóa, không thể cập nhật");
+  }
 
-    const updateData = { ...payload };
-    const newSlug = "";
-    if (payload.name && !payload.slug) {
+  const updateData = {};
 
-        newSlug = makeSlug(payload.name);
+  if (payload.name !== undefined) {
+    const newName = validateName(payload.name);
 
-        console.log(newSlug)
-        const existed = await categoryRepo.findAnyBySlug(newSlug);
-        if (existed && existed._id.toString() !== id && !existed.isDeleted) {
-            throw new ApiError(httpStatus.CONFLICT, "Slug đã tồn tại");
-        }
-
-        updateData.slug = newSlug;
+    const existedName = await categoryRepo.findAnyByNameExceptId(newName, id);
+    if (existedName && !existedName.isDeleted) {
+      throw new ApiError(httpStatus.CONFLICT, `Danh mục "${newName}" đã tồn tại`);
     }
-    updateData.slug = payload.slug;
 
-    const updated = await categoryRepo.updateById(id, updateData);
-    if (!updated) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
-    return updated;
+    const newSlug = makeSlug(newName);
+
+    const existedSlug = await categoryRepo.findAnyBySlug(newSlug);
+    if (existedSlug && existedSlug._id.toString() !== id && !existedSlug.isDeleted) {
+      throw new ApiError(httpStatus.CONFLICT, "Slug đã tồn tại");
+    }
+
+    updateData.name = newName;
+    updateData.slug = newSlug;
+  }
+
+  if (payload.description !== undefined) {
+    updateData.description = String(payload.description).trim();
+  }
+
+  if (payload.type !== undefined) {
+    updateData.type = normalizeType(payload.type); // ✅ shop -> single
+  }
+
+  if (payload.isActive !== undefined) {
+    updateData.isActive = !!payload.isActive;
+  }
+
+  const updated = await categoryRepo.updateById(id, updateData);
+  if (!updated) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  return updated;
 };
 
+// ================== CHANGE STATUS ==================
 exports.changeStatus = async (id, isActive) => {
-    if (!mongoose.Types.ObjectId.isValid(id))
-        throw new ApiError(httpStatus.BAD_REQUEST, "CategoryId không hợp lệ");
+  ensureObjectId(id);
 
-    const updated = await categoryRepo.updateById(id, { isActive });
-    if (!updated) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
-    return updated;
+  const current = await categoryRepo.findByIdAdmin(id);
+  if (!current) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  if (current.isDeleted) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Category đã bị xóa, không thể đổi trạng thái");
+  }
+
+  const updated = await categoryRepo.updateById(id, { isActive: !!isActive });
+  if (!updated) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  return updated;
 };
 
+// ================== SOFT DELETE ==================
 exports.softDelete = async (id) => {
-    if (!mongoose.Types.ObjectId.isValid(id))
-        throw new ApiError(httpStatus.BAD_REQUEST, "CategoryId không hợp lệ");
+  ensureObjectId(id);
 
-    const deleted = await categoryRepo.softDeleteById(id);
-    if (!deleted) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
-    return deleted;
-};
+  const current = await categoryRepo.findByIdAdmin(id);
+  if (!current) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  if (current.isDeleted) return current;
 
-
-
-module.exports.getAllCategoriesService = async (
-    search,
-    sort,
-    page,
-    limit,
-    extraFilter = {}
-) => {
-    try {
-        const pageNum = Number(page) || 1;
-        const limitNum = Number(limit) || 10;
-        const skip = (pageNum - 1) * limitNum;
-
-        const query = {
-            ...extraFilter,
-            isDeleted: false,
-        };
-
-        if (search) {
-            query.name = { $regex: search, $options: "i" };
-        }
-
-        const sortMap = {
-            name_asc: { name: 1 },
-            name_desc: { name: -1 },
-            createdAt_asc: { createdAt: 1 },
-            createdAt_desc: { createdAt: -1 },
-        };
-
-        const sortOptions = sortMap[sort] || { createdAt: -1 };
-
-        const [categories, totalItems] = await Promise.all([
-            Category.find(query)
-                .select("-__v")
-                .sort(sortOptions)
-                .skip(skip)
-                .limit(limitNum),
-            Category.countDocuments(query),
-        ]);
-
-        const totalPages = Math.ceil(totalItems / limitNum);
-
-        return {
-            EC: 0,
-            EM: "Lấy danh sách danh mục thành công",
-            DT: {
-                categories,
-                totalItems,
-                totalPages,
-                page: pageNum,
-                limit: limitNum,
-            },
-        };
-    } catch (error) {
-        console.error("getAllCategoriesService error:", error);
-        return {
-            EC: -1,
-            EM: "Lỗi server khi lấy danh sách danh mục: " + error.message,
-            DT: {
-                categories: [],
-                totalItems: 0,
-                totalPages: 0,
-            },
-        };
-    }
-};
-
-
-module.exports.getCategoryById = async (_id) => {
-    try {
-        const category = await Category.findOne({ _id }).select("-__v");
-        return {
-            EC: 0,
-            EM: "Lấy danh mục thành công",
-            DT: category,
-        };
-    } catch (error) {
-        return {
-            EC: -1,
-            EM: "Lỗi server khi lấy danh mục danh mục" + error.message,
-        };
-    }
+  const deleted = await categoryRepo.softDeleteById(id);
+  if (!deleted) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  return deleted;
 };
