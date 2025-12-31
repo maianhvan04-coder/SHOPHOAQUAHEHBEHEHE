@@ -1,5 +1,41 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAdminCategory } from "../../hooks/adminCategory";
+import Pagination from "~/components/common/Pagination";
+import {
+  Badge,
+  Box,
+  Button,
+  Container,
+  Flex,
+  FormControl,
+  FormLabel,
+  HStack,
+  Heading,
+  IconButton,
+  Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Spinner,
+  Stack,
+  Switch,
+  Table,
+  Tbody,
+  Td,
+  Text,
+  Textarea,
+  Th,
+  Thead,
+  Tr,
+  Select,
+  useDisclosure,
+  useToast,
+} from "@chakra-ui/react";
+import { AddIcon, DeleteIcon, EditIcon } from "@chakra-ui/icons";
 
 export default function AdminCategoryPage() {
   const {
@@ -9,213 +45,272 @@ export default function AdminCategoryPage() {
     setSearch,
     page,
     setPage,
+    limit,
+    setLimit,
+    totalItems,
     totalPages,
     createCategory,
     updateCategory,
     deleteCategory,
   } = useAdminCategory();
 
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [name, setName] = useState("");
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const toast = useToast();
 
-  const openCreate = () => {
+  const [editing, setEditing] = useState(null);
+
+  // ===== FORM STATE =====
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [type, setType] = useState("single"); // ✅ NEW: shop | mix
+  const [isActive, setIsActive] = useState(true);
+
+  const title = useMemo(() => (editing ? "Sửa danh mục" : "Thêm danh mục"), [editing]);
+
+  const resetForm = () => {
     setEditing(null);
     setName("");
-    setOpen(true);
+    setDescription("");
+    setType("single");
+    setIsActive(true);
+  };
+
+  const closeModal = () => {
+    resetForm();
+    onClose();
+  };
+
+  const openCreate = () => {
+    resetForm();
+    onOpen();
   };
 
   const openEdit = (c) => {
     setEditing(c);
-    setName(c.name);
-    setOpen(true);
+    setName(c?.name || "");
+    setDescription(c?.description || "");
+    setType(c?.type || "single");
+    setIsActive(Boolean(c?.isActive));
+    onOpen();
+  };
+
+  const handleSave = async () => {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      toast({
+        title: "Tên danh mục không được để trống",
+        status: "warning",
+        duration: 1800,
+        isClosable: true,
+        position: "top",
+      });
+      return;
+    }
+
+    // ✅ slug auto: KHÔNG gửi slug nữa
+    const payload = {
+      name: trimmedName,
+      description: description?.trim() || "",
+      type, // ✅ shop/mix để hiển thị đúng menu
+      isActive: Boolean(isActive),
+    };
+
+    try {
+      if (editing?._id) {
+        await updateCategory(editing._id, payload);
+        toast({ title: "Cập nhật danh mục thành công", status: "success", duration: 1600, isClosable: true, position: "top" });
+      } else {
+        await createCategory(payload);
+        toast({ title: "Tạo danh mục thành công", status: "success", duration: 1600, isClosable: true, position: "top" });
+      }
+      closeModal();
+    } catch (err) {
+      toast({
+        title: "Có lỗi xảy ra",
+        description: err?.message || "Vui lòng thử lại",
+        status: "error",
+        duration: 2200,
+        isClosable: true,
+        position: "top",
+      });
+    }
+  };
+
+  const handleDelete = async (id) => {
+    const ok = window.confirm("Xoá danh mục này?");
+    if (!ok) return;
+
+    try {
+      await deleteCategory(id);
+      toast({ title: "Đã xoá danh mục", status: "success", duration: 1600, isClosable: true, position: "top" });
+    } catch (err) {
+      toast({
+        title: "Xoá thất bại",
+        description: err?.message || "Vui lòng thử lại",
+        status: "error",
+        duration: 2200,
+        isClosable: true,
+        position: "top",
+      });
+    }
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <Container maxW="7xl" py={6}>
+      <Flex direction={{ base: "column", md: "row" }} gap={4} align={{ md: "center" }} justify="space-between" mb={6}>
+        <Box>
+          <Heading size="lg" color="gray.800">Quản lý danh mục</Heading>
+          <Text mt={1} fontSize="sm" color="gray.500">Quản lý các danh mục sản phẩm trong hệ thống</Text>
+        </Box>
 
-      {/* ===== HEADER + ACTION ===== */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Quản lý danh mục
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Quản lý các danh mục sản phẩm trong hệ thống
-          </p>
-        </div>
+        <HStack spacing={3}>
+          <Input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Tìm danh mục..."
+            w={{ base: "full", md: "320px" }}
+            bg="white"
+            borderRadius="xl"
+            focusBorderColor="green.500"
+          />
+          <Button onClick={openCreate} leftIcon={<AddIcon />} colorScheme="green" borderRadius="xl">
+            Thêm danh mục
+          </Button>
+        </HStack>
+      </Flex>
 
-        <div className="flex items-center gap-4">
-          {/* SEARCH (NO ICON) */}
-          <div className="relative z-30 w-72 rounded-xl bg-white shadow ring-1 ring-gray-200">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm danh mục..."
-              className="w-full rounded-xl px-4 py-2.5 text-sm outline-none
-                         focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          {/* ADD BUTTON */}
-          <button
-            onClick={openCreate}
-            className="rounded-xl bg-green-600 px-5 py-2.5
-                       text-sm font-semibold text-white shadow
-                       hover:bg-green-700 transition"
-          >
-            + Thêm danh mục
-          </button>
-        </div>
-      </div>
-
-      {/* ===== TABLE ===== */}
-      <div className="rounded-2xl bg-white shadow ring-1 ring-gray-200">
+      <Box bg="white" borderRadius="2xl" boxShadow="sm" borderWidth="1px">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500">
-            Đang tải dữ liệu...
-          </div>
+          <Flex p={6} align="center" gap={3} color="gray.500">
+            <Spinner size="sm" />
+            <Text fontSize="sm">Đang tải dữ liệu...</Text>
+          </Flex>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-gray-50 text-sm text-gray-600">
-                <th className="px-6 py-3 text-left font-medium">#</th>
-                <th className="px-6 py-3 text-left font-medium">
-                  Tên danh mục
-                </th>
-                <th className="px-6 py-3 text-right font-medium">
-                  Hành động
-                </th>
-              </tr>
-            </thead>
+          <Box overflowX="auto">
+            <Table variant="simple">
+              <Thead bg="gray.50">
+                <Tr>
+                  <Th w="80px">#</Th>
+                  <Th>Tên</Th>
+                  <Th>Loại</Th>
+                  <Th>Trạng thái</Th>
+                  <Th textAlign="right">Hành động</Th>
+                </Tr>
+              </Thead>
 
-            <tbody className="divide-y">
-              {categories.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="px-6 py-12 text-center text-sm text-gray-500"
-                  >
-                    Không có danh mục
-                  </td>
-                </tr>
-              )}
-
-              {categories.map((c, index) => (
-                <tr
-                  key={c._id}
-                  className="group hover:bg-gray-50 transition"
-                >
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {(page - 1) * 5 + index + 1}
-                  </td>
-
-                  <td className="px-6 py-4 font-medium text-gray-800">
-                    {c.name}
-                  </td>
-
-                  <td className="px-6 py-4 text-right">
-                    <div className="inline-flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                      <button
-                        onClick={() => openEdit(c)}
-                        className="rounded-lg border border-yellow-300
-                                   bg-yellow-50 px-3 py-1.5 text-sm
-                                   text-yellow-700 shadow-sm
-                                   hover:bg-yellow-100"
-                      >
-                        Sửa
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          if (window.confirm("Xoá danh mục này?")) {
-                            deleteCategory(c._id);
-                          }
-                        }}
-                        className="rounded-lg border border-red-300
-                                   bg-red-50 px-3 py-1.5 text-sm
-                                   text-red-600 shadow-sm
-                                   hover:bg-red-100"
-                      >
-                        Xoá
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              <Tbody>
+                {categories?.length === 0 ? (
+                  <Tr>
+                    <Td colSpan={5}>
+                      <Box py={10} textAlign="center" color="gray.500">Không có danh mục</Box>
+                    </Td>
+                  </Tr>
+                ) : (
+                  categories.map((c, index) => (
+                    <Tr key={c._id} _hover={{ bg: "gray.50" }}>
+                      <Td color="gray.500" fontSize="sm">{(page - 1) * limit + index + 1}</Td>
+                      <Td fontWeight="semibold" color="gray.800">{c.name}</Td>
+                      <Td color="gray.600" fontSize="sm">
+                        {c.type === "mix" ? "Mix" : "Single"}
+                      </Td>
+                      <Td>
+                        {c.isActive ? (
+                          <Badge colorScheme="green" borderRadius="md">Active</Badge>
+                        ) : (
+                          <Badge colorScheme="gray" borderRadius="md">Inactive</Badge>
+                        )}
+                      </Td>
+                      <Td textAlign="right">
+                        <HStack justify="flex-end" spacing={2}>
+                          <IconButton aria-label="Sửa" icon={<EditIcon />} size="sm" variant="outline" colorScheme="yellow" onClick={() => openEdit(c)} />
+                          <IconButton aria-label="Xoá" icon={<DeleteIcon />} size="sm" variant="outline" colorScheme="red" onClick={() => handleDelete(c._id)} />
+                        </HStack>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </Tbody>
+            </Table>
+          </Box>
         )}
 
-        {/* ===== PAGINATION ===== */}
-        {totalPages > 1 && (
-          <div className="flex justify-end gap-1 border-t p-4">
-            {Array.from({ length: totalPages }).map((_, i) => {
-              const p = i + 1;
-              return (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={`h-8 min-w-[36px] rounded-lg px-2 text-sm font-medium
-                    ${
-                      page === p
-                        ? "bg-green-600 text-white shadow"
-                        : "bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
-                    }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ===== MODAL ===== */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-lg font-semibold text-gray-800">
-              {editing ? "Sửa danh mục" : "Thêm danh mục"}
-            </h2>
-
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Tên danh mục"
-              className="mb-5 w-full rounded-xl border
-                         px-4 py-2.5 text-sm outline-none
-                         focus:ring-2 focus:ring-green-500"
+        {!loading && (
+          <Box borderTopWidth="1px">
+            <Pagination
+              page={page}
+              limit={limit}
+              totalItems={totalItems}
+              totalPages={totalPages}
+              onPageChange={(p) => setPage(p)}
+              onLimitChange={(n) => { setLimit(n); setPage(1); }}
+              limitOptions={[5, 10, 20, 50]}
+              siblingCount={1}
+              showJump={true}
+              isDisabled={loading}
             />
+          </Box>
+        )}
+      </Box>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setOpen(false)}
-                className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
-              >
-                Huỷ
-              </button>
-              <button
-                onClick={async () => {
-                  if (!name.trim()) return;
+      <Modal isOpen={isOpen} onClose={closeModal} isCentered>
+        <ModalOverlay bg="blackAlpha.400" />
+        <ModalContent borderRadius="2xl">
+          <ModalHeader>{title}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Stack spacing={4}>
+              <FormControl>
+                <FormLabel>Tên danh mục</FormLabel>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ví dụ: Trái cây nhập khẩu"
+                  borderRadius="xl"
+                  focusBorderColor="green.500"
+                />
+              </FormControl>
 
-                  if (editing) {
-                    await updateCategory(editing._id, { name });
-                  } else {
-                    await createCategory({ name });
-                  }
+              <FormControl>
+                <FormLabel>Hiển thị ở</FormLabel>
+                <Select value={type} onChange={(e) => setType(e.target.value)} borderRadius="xl">
+                  <option value="single">Single</option>
+                  <option value="mix">Mix</option>
+                </Select>
+                <Text mt={1} fontSize="xs" color="gray.500">
+                  Chọn “Single” để hiện trong menu Shop, chọn “Mix” để hiện trong menu Mix.
+                </Text>
+              </FormControl>
 
-                  setOpen(false);
-                }}
-                className="rounded-lg bg-green-600 px-4 py-2
-                           text-sm font-semibold text-white hover:bg-green-700"
-              >
-                Lưu
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+              <FormControl>
+                <FormLabel>Mô tả</FormLabel>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Mô tả ngắn về danh mục..."
+                  borderRadius="xl"
+                  focusBorderColor="green.500"
+                  rows={3}
+                />
+              </FormControl>
+
+              <FormControl>
+                <HStack justify="space-between">
+                  <FormLabel mb={0}>Kích hoạt</FormLabel>
+                  <Switch isChecked={isActive} onChange={(e) => setIsActive(e.target.checked)} colorScheme="green" />
+                </HStack>
+              </FormControl>
+            </Stack>
+          </ModalBody>
+
+          <ModalFooter>
+            <HStack spacing={2}>
+              <Button variant="ghost" onClick={closeModal}>Huỷ</Button>
+              <Button colorScheme="green" onClick={handleSave}>Lưu</Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </Container>
   );
 }

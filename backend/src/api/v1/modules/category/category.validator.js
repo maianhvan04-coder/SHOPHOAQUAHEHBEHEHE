@@ -1,29 +1,20 @@
-const Joi = require("joi")
-const { VALIDATORS: V, applyPattern } = require("../../../../constants/validators");
+// category.validator.js
+const Joi = require("joi");
+
 exports.create = Joi.object({
-    name: Joi.string().min(2).max(100).required(),
-    slug: applyPattern(
-        Joi.string().trim().allow("").optional(),
-        V.SLUG
-    ),
-    description: Joi.string().allow("").max(500).optional(),
-    isActive: Joi.boolean().optional(),
+  name: Joi.string().trim().min(3).max(100).required(),
+  description: Joi.string().allow("").max(500).optional(),
+  type: Joi.string().trim().valid("single", "mix").default("single"),
+  isActive: Joi.boolean().optional(),
 });
 
-
 exports.update = Joi.object({
-    name: Joi.string().min(2).max(100).required(),
-    slug: applyPattern(Joi.string()
-        .trim()
-        .min(6)
-        .max(30)
-
-        .required()
-        , V.SLUG),
-    description: Joi.string().allow("").max(500).optional(),
-    isActive: Joi.boolean().optional(),
-})
+  name: Joi.string().trim().min(3).max(100).optional(),
+  description: Joi.string().allow("").max(500).optional(),
+  type: Joi.string().trim().valid("single", "mix").optional(),
+  isActive: Joi.boolean().optional(),
+}).min(1);
 
 exports.changeStatus = Joi.object({
-    isActive: Joi.boolean().required(),
+  isActive: Joi.boolean().required(),
 });
