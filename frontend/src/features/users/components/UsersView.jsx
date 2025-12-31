@@ -1,13 +1,14 @@
 /* eslint-disable no-unused-vars */
 import PropTypes from "prop-types";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import Pagination from "~/components/common/Pagination";
+
 import {
   Badge,
   Box,
   Button,
   Card,
   Checkbox,
-  Divider,
   Flex,
   HStack,
   IconButton,
@@ -18,7 +19,6 @@ import {
   Skeleton,
   SkeletonCircle,
   SkeletonText,
-  Spinner,
   Stack,
   Table,
   Tbody,
@@ -30,7 +30,6 @@ import {
   Tooltip,
   Tag,
   Avatar,
-  VStack,
   useBreakpointValue,
   useColorModeValue,
   Icon,
@@ -43,222 +42,36 @@ import {
   MagnifyingGlassIcon,
   CalendarIcon,
   ArrowPathIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
+  ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 
 import { canAccessAction } from "~/shared/utils/ability";
 import Modal from "~/components/common/Modal";
 import UserForm from "~/features/users/page/UserForm";
 import PageHeader from "~/components/layout/admin/PageHeader";
-
-/** ===== helpers ===== */
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
-}
-
-function buildPageItems(page, totalPages) {
-  // returns array of numbers and "..."
-  if (!totalPages || totalPages <= 1) return [1];
-  const p = clamp(page, 1, totalPages);
-
-  const show = new Set([1, totalPages, p, p - 1, p + 1, p - 2, p + 2]);
-  const arr = [];
-  for (let i = 1; i <= totalPages; i++) {
-    if (show.has(i)) arr.push(i);
-  }
-
-  // insert ellipsis
-  const out = [];
-  for (let i = 0; i < arr.length; i++) {
-    out.push(arr[i]);
-    if (i < arr.length - 1 && arr[i + 1] - arr[i] > 1) out.push("...");
-  }
-  return out;
-}
-
-function permFallback(perms = [], key) {
-  return Array.isArray(perms) && perms.includes(key);
-}
+import UsersTabs from "~/features/users/components/UsersTabs";
 
 function computePermission({ screens, userPermissions, resourceKey, actionKey }) {
-  // Try screen.actions first
   const screen = (screens || []).find((s) => s?.key === resourceKey) || null;
-  if (screen) return canAccessAction(userPermissions, screen, actionKey);
-
-  // Fallback if screens missing (still works)
-  const map = {
-    create: `${resourceKey}:create`,
-    update: `${resourceKey}:update`,
-    delete: `${resourceKey}:delete`,
-    changeStatus: `${resourceKey}:status`,
-    bulkStatus: `${resourceKey}:bulk_status`,
-    bulkDelete: `${resourceKey}:bulk_delete`,
-  };
-  const perm = map[actionKey];
-  if (!perm) return false;
-  return permFallback(userPermissions, perm);
+  if (!screen) return false;
+  return canAccessAction(userPermissions, screen, actionKey);
 }
 
-/** ===== Reusable Pagination (Chakra) ===== */
-function Pagination({
-  page = 1,
-  limit = 10,
-  total = 0,
-  totalPages = 1,
-  pageSizeOptions = [5, 10, 20, 50],
-  onPageChange,
-  onLimitChange,
-}) {
-  const [jump, setJump] = useState(String(page));
-  const items = useMemo(() => buildPageItems(page, totalPages), [page, totalPages]);
-
-  const from = total === 0 ? 0 : (page - 1) * limit + 1;
-  const to = Math.min(page * limit, total);
-
-  return (
-    <Card
-      mt={4}
-      p={3}
-      borderRadius="xl"
-      border="1px solid"
-      borderColor={useColorModeValue("gray.100", "gray.700")}
-      bg={useColorModeValue("white", "gray.800")}
-    >
-      <Stack
-        direction={{ base: "column", md: "row" }}
-        spacing={3}
-        justify="space-between"
-        align={{ base: "stretch", md: "center" }}
-      >
-        <HStack spacing={3} flexWrap="wrap">
-          <Text fontSize="sm" color={useColorModeValue("gray.600", "gray.300")}>
-            Showing <b>{from}</b>–<b>{to}</b> of <b>{total}</b>
-          </Text>
-
-          <HStack spacing={2}>
-            <Text fontSize="sm" color={useColorModeValue("gray.600", "gray.300")}>
-              Rows
-            </Text>
-            <Select
-              size="sm"
-              w="90px"
-              value={limit}
-              onChange={(e) => onLimitChange?.(Number(e.target.value))}
-              borderRadius="full"
-            >
-              {pageSizeOptions.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </Select>
-          </HStack>
-        </HStack>
-
-        <HStack spacing={2} justify={{ base: "space-between", md: "flex-end" }} flexWrap="wrap">
-          <HStack spacing={1}>
-            <IconButton
-              size="sm"
-              variant="outline"
-              borderRadius="full"
-              aria-label="Previous"
-              icon={<ChevronLeftIcon className="h-4 w-4" />}
-              isDisabled={page <= 1}
-              onClick={() => onPageChange?.(page - 1)}
-            />
-
-            {items.map((it, idx) =>
-              it === "..." ? (
-                <Box key={`e-${idx}`} px={2} color={useColorModeValue("gray.500", "gray.400")}>
-                  …
-                </Box>
-              ) : (
-                <Button
-                  key={it}
-                  size="sm"
-                  variant={it === page ? "solid" : "ghost"}
-                  colorScheme={it === page ? "vrv" : undefined}
-                  borderRadius="full"
-                  onClick={() => onPageChange?.(it)}
-                >
-                  {it}
-                </Button>
-              )
-            )}
-
-            <IconButton
-              size="sm"
-              variant="outline"
-              borderRadius="full"
-              aria-label="Next"
-              icon={<ChevronRightIcon className="h-4 w-4" />}
-              isDisabled={page >= totalPages}
-              onClick={() => onPageChange?.(page + 1)}
-            />
-          </HStack>
-
-          <HStack spacing={2}>
-            <Text fontSize="sm" color={useColorModeValue("gray.600", "gray.300")}>
-              Jump
-            </Text>
-            <Input
-              size="sm"
-              w="88px"
-              borderRadius="full"
-              value={jump}
-              onChange={(e) => setJump(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const next = clamp(Number(jump || 1), 1, totalPages);
-                  setJump(String(next));
-                  onPageChange?.(next);
-                }
-              }}
-            />
-            <Button
-              size="sm"
-              borderRadius="full"
-              onClick={() => {
-                const next = clamp(Number(jump || 1), 1, totalPages);
-                setJump(String(next));
-                onPageChange?.(next);
-              }}
-            >
-              Go
-            </Button>
-          </HStack>
-        </HStack>
-      </Stack>
-    </Card>
-  );
-}
-
-Pagination.propTypes = {
-  page: PropTypes.number,
-  limit: PropTypes.number,
-  total: PropTypes.number,
-  totalPages: PropTypes.number,
-  pageSizeOptions: PropTypes.array,
-  onPageChange: PropTypes.func,
-  onLimitChange: PropTypes.func,
-};
-
-/** ===== UsersView ===== */
 function UsersView({
-  // data
+  tab = "active",
+  onTabChange,
+  onRestoreUser,
+
   users = [],
   filteredUsers = [],
-  pagination = null, // { page, limit, total, totalPages }
+  pagination = null,
   filters,
   allRoleCodes = [],
   isLoading = false,
 
-  // authz
   screens = [],
   userPermissions = [],
 
-  // selection + bulk
   selectedIds = [],
   toggleSelect,
   selectAll,
@@ -271,11 +84,9 @@ function UsersView({
   closeBulkDelete,
   rowBusy = {},
 
-  // paging callbacks (call API)
   onPageChange,
   onLimitChange,
 
-  // modal + actions
   selectedUser,
   userToDelete,
   isFormOpen,
@@ -290,33 +101,48 @@ function UsersView({
   onFilterChange,
   onRefresh,
 
-  // helpers
   formatDate,
-  formatLastActive,
 }) {
-  const bgColor = useColorModeValue("white", "gray.800");
-  const secondaryTextColor = useColorModeValue("gray.500", "gray.400");
-  const borderColor = useColorModeValue("gray.100", "gray.700");
-  const tableHeaderBg = useColorModeValue("gray.50/50", "gray.700/50");
-  const cardShadow = useColorModeValue("sm", "dark-lg");
+  const isDeletedTab = tab === "deleted";
+
+  // ===== Theme tokens (match sidebar/header green) =====
+  const pageBg = useColorModeValue("#F6F8F8", "#0B1211");
+  const cardBg = useColorModeValue("white", "rgba(17, 24, 39, 0.75)");
+  const cardBorder = useColorModeValue("blackAlpha.100", "whiteAlpha.200");
+  const softText = useColorModeValue("gray.600", "gray.300");
+  const mutedText = useColorModeValue("gray.500", "gray.400");
+
+  const headerBg = useColorModeValue("rgba(255,255,255,0.78)", "rgba(17, 24, 39, 0.60)");
+  const tableHeadBg = useColorModeValue("blackAlpha.50", "whiteAlpha.100");
+  const rowHoverBg = useColorModeValue("blackAlpha.50", "whiteAlpha.50");
+
+  const shadow = useColorModeValue(
+    "0 12px 30px rgba(15, 23, 42, 0.10)",
+    "0 16px 40px rgba(0,0,0,0.35)"
+  );
 
   const displayMode = useBreakpointValue({ base: "mobile", md: "desktop" });
 
-  // permissions (screen.actions or fallback)
+  // permissions
   const canCreate = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "create" });
   const canUpdate = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "update" });
   const canDelete = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "delete" });
+  const canRestore = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "restore" });
+
   const canChangeStatus = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "changeStatus" });
   const canBulkStatus = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "bulkStatus" });
   const canBulkDelete = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "bulkDelete" });
 
-  const idsOnPage = useMemo(() => (filteredUsers || []).map((u) => u?._id).filter(Boolean), [filteredUsers]);
+  const idsOnPage = useMemo(
+    () => (filteredUsers || []).map((u) => u?._id).filter(Boolean),
+    [filteredUsers]
+  );
   const allChecked = idsOnPage.length > 0 && idsOnPage.every((id) => selectedIds.includes(id));
   const someChecked = idsOnPage.some((id) => selectedIds.includes(id)) && !allChecked;
 
   const renderRoleBadges = (u) => {
     const roleCodes = (u.roles || []).map((r) => r.code).filter(Boolean);
-    if (!roleCodes.length) return <Text fontSize="xs" color="gray.400">No roles</Text>;
+    if (!roleCodes.length) return <Text fontSize="xs" color={mutedText}>No roles</Text>;
 
     return (
       <HStack spacing={1} flexWrap="wrap">
@@ -324,11 +150,13 @@ function UsersView({
           <Tag
             key={code}
             size="sm"
-            variant="subtle"
-            colorScheme="blue"
             borderRadius="full"
+            variant="subtle"
+            colorScheme="teal"
+            px={2.5}
+            py={1}
           >
-            <Text fontSize="11px" fontWeight="bold">
+            <Text fontSize="11px" fontWeight="bold" letterSpacing="0.02em">
               {code.toUpperCase()}
             </Text>
           </Tag>
@@ -338,22 +166,24 @@ function UsersView({
   };
 
   const StatusBadge = ({ u }) => {
-    const disabled = !canChangeStatus || !!rowBusy?.[u._id];
-    const label = !canChangeStatus
-      ? "Bạn không có quyền đổi status"
-      : "Click để đổi trạng thái";
+    const disabled = isDeletedTab || !canChangeStatus || !!rowBusy?.[u._id];
+    const label = isDeletedTab
+      ? "User đã bị xoá (soft-delete)"
+      : (!canChangeStatus ? "Bạn không có quyền đổi status" : "Click để đổi trạng thái");
 
     return (
-      <Tooltip label={label}>
+      <Tooltip label={label} hasArrow>
         <Box display="inline-block">
           <Badge
-            size="sm"
             px={3}
+            py={1}
             borderRadius="full"
             variant="subtle"
             colorScheme={u.isActive ? "green" : "red"}
             cursor={disabled ? "not-allowed" : "pointer"}
             opacity={disabled ? 0.6 : 1}
+            transition="all .15s ease"
+            _hover={!disabled ? { transform: "translateY(-1px)" } : undefined}
             onClick={() => {
               if (disabled) return;
               toggleUserStatus?.(u);
@@ -365,75 +195,7 @@ function UsersView({
       </Tooltip>
     );
   };
-
   StatusBadge.propTypes = { u: PropTypes.object.isRequired };
-
-  const renderMobileCard = (u) => (
-    <Card
-      key={u._id}
-      bg={bgColor}
-      boxShadow={cardShadow}
-      borderRadius="xl"
-      border="1px solid"
-      borderColor={borderColor}
-      mb={4}
-      p={4}
-    >
-      <VStack align="stretch" spacing={3}>
-        <Flex justify="space-between" align="center">
-          <HStack spacing={3}>
-            <Checkbox
-              isChecked={selectedIds.includes(u._id)}
-              onChange={() => toggleSelect?.(u._id)}
-            />
-            <Avatar size="sm" name={u.fullName} src={u.avatar} />
-            <Box>
-              <Text fontWeight="bold" fontSize="sm">
-                {u.fullName || "Unknown"}
-              </Text>
-              <Text fontSize="xs" color={secondaryTextColor}>
-                {u.email || "-"}
-              </Text>
-            </Box>
-          </HStack>
-
-          <StatusBadge u={u} />
-        </Flex>
-
-        <HStack wrap="wrap">{renderRoleBadges(u)}</HStack>
-
-        <Divider borderColor={borderColor} />
-
-        <Flex justify="space-between" align="center">
-          <Text fontSize="xs" color={secondaryTextColor}>
-            Joined {formatDate?.(u.createdAt)}
-          </Text>
-
-          <HStack spacing={1}>
-            {canUpdate && (
-              <IconButton
-                size="sm"
-                variant="ghost"
-                icon={<PencilSquareIcon className="h-4 w-4" />}
-                onClick={() => onEditUser?.(u)}
-                aria-label="Edit"
-              />
-            )}
-            {canDelete && (
-              <IconButton
-                size="sm"
-                variant="ghost"
-                colorScheme="red"
-                icon={<TrashIcon className="h-4 w-4" />}
-                onClick={() => onDeleteClick?.(u)}
-                aria-label="Delete"
-              />
-            )}
-          </HStack>
-        </Flex>
-      </VStack>
-    </Card>
-  );
 
   const page = pagination?.page ?? 1;
   const limit = pagination?.limit ?? 10;
@@ -441,348 +203,407 @@ function UsersView({
   const totalPages = pagination?.totalPages ?? 1;
 
   return (
-    <Box p={{ base: 4, md: 8 }} maxW="1600px" mx="auto">
-      {/* Header */}
-      <Box mb={6}>
-        <PageHeader
-          title="User Management"
-          description="Create, edit and manage permissions for all system users."
-          buttonLabel={canCreate ? "New User" : undefined}
-          buttonIcon={canCreate ? PlusIcon : undefined}
-          onButtonClick={canCreate ? onAddUser : undefined}
-        />
-      </Box>
+    <Box minH="100vh" bg={pageBg} position="relative">
+      {/* subtle brand glow (match #304945) */}
+      <Box
+        pointerEvents="none"
+        position="absolute"
+        inset={0}
+        bgGradient={useColorModeValue(
+          "radial-gradient(900px 420px at 18% 6%, rgba(48, 73, 69, 0.12), transparent 60%), radial-gradient(800px 380px at 92% 0%, rgba(64, 93, 88, 0.10), transparent 55%)",
+          "radial-gradient(900px 420px at 18% 6%, rgba(48, 73, 69, 0.22), transparent 60%), radial-gradient(800px 380px at 92% 0%, rgba(64, 93, 88, 0.18), transparent 55%)"
+        )}
+      />
 
-      {/* Bulk Bar */}
-      {selectedIds.length > 0 && (canBulkStatus || canBulkDelete) && (
+      <Box p={{ base: 4, md: 8 }} maxW="1600px" mx="auto" position="relative">
+        {/* Header card */}
         <Card
-          mb={4}
-          p={3}
-          borderRadius="xl"
+          bg={headerBg}
           border="1px solid"
-          borderColor={borderColor}
-          boxShadow={cardShadow}
+          borderColor={cardBorder}
+          borderRadius="2xl"
+          boxShadow={shadow}
+          px={{ base: 4, md: 6 }}
+          py={{ base: 4, md: 5 }}
+          mb={6}
+          backdropFilter="blur(10px)"
         >
-          <HStack justify="space-between" flexWrap="wrap" spacing={3}>
-            <Text fontSize="sm" fontWeight="semibold">
-              Đã chọn {selectedIds.length} user
-            </Text>
+          <Flex direction={{ base: "column", md: "row" }} justify="space-between" gap={4} align={{ md: "center" }}>
+            <Box flex="1">
+              <PageHeader
+                title="User Management"
+                description={isDeletedTab ? "Restore soft-deleted users." : "Create, edit and manage users."}
+                buttonLabel={!isDeletedTab && canCreate ? "New User" : undefined}
+                buttonIcon={!isDeletedTab && canCreate ? PlusIcon : undefined}
+                onButtonClick={!isDeletedTab && canCreate ? onAddUser : undefined}
+              />
 
-            <HStack spacing={2} flexWrap="wrap">
-              <Button size="sm" variant="ghost" onClick={clearSelection}>
-                Bỏ chọn
-              </Button>
+              <Box mt={3}>
+                <UsersTabs tab={tab} onChangeTab={onTabChange} />
+              </Box>
+            </Box>
 
-              {canBulkStatus && (
-                <>
-                  <Button size="sm" onClick={() => bulkSetStatus?.(true)}>
-                    Set Active
-                  </Button>
-                  <Button size="sm" onClick={() => bulkSetStatus?.(false)}>
-                    Set Inactive
-                  </Button>
-                </>
-              )}
-
-              {canBulkDelete && (
-                <Button size="sm" colorScheme="red" onClick={openBulkDelete}>
-                  Xóa đã chọn
-                </Button>
-              )}
-            </HStack>
-          </HStack>
-        </Card>
-      )}
-
-      <Card
-        borderRadius="2xl"
-        boxShadow={cardShadow}
-        border="1px solid"
-        borderColor={borderColor}
-        overflow="hidden"
-      >
-        {/* Toolbar */}
-        <Box p={5} borderBottom="1px solid" borderColor={borderColor}>
-          <Stack
-            direction={{ base: "column", lg: "row" }}
-            justify="space-between"
-            spacing={4}
-          >
-            <HStack spacing={3} flex={1} flexWrap="wrap">
-              <InputGroup size="sm" maxW="320px">
-                <InputLeftElement>
-                  <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
-                </InputLeftElement>
-                <Input
-                  placeholder="Search name, email..."
-                  borderRadius="full"
-                  bg={useColorModeValue("gray.50", "gray.900")}
-                  border="none"
-                  value={filters?.search ?? ""}
-                  onChange={(e) => onFilterChange?.("search", e.target.value)}
-                />
-              </InputGroup>
-
-              <Select
-                size="sm"
-                borderRadius="full"
-                maxW="170px"
-                value={filters?.role ?? ""}
-                onChange={(e) => onFilterChange?.("role", e.target.value)}
-              >
-                <option value="">All Roles</option>
-                {allRoleCodes.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </Select>
-
-              <Select
-                size="sm"
-                borderRadius="full"
-                maxW="170px"
-                value={filters?.status ?? ""}
-                onChange={(e) => onFilterChange?.("status", e.target.value)}
-              >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </Select>
-            </HStack>
-
-            <HStack spacing={2}>
-              <IconButton
+            <HStack justify={{ base: "flex-start", md: "flex-end" }} w={{ base: "full", md: "auto" }}>
+              <Button
                 size="sm"
                 variant="outline"
-                icon={<ArrowPathIcon className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />}
-                onClick={onRefresh}
                 borderRadius="full"
-                aria-label="Refresh"
-              />
-              <Text fontSize="xs" fontWeight="medium" color={secondaryTextColor} whiteSpace="nowrap">
-                {filteredUsers.length} Users Found
-              </Text>
+                leftIcon={<ArrowPathIcon className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />}
+                onClick={onRefresh}
+              >
+                Refresh
+              </Button>
             </HStack>
-          </Stack>
-        </Box>
+          </Flex>
+        </Card>
 
-        {/* Content */}
-        <Box>
-          {displayMode === "desktop" ? (
-            <Table variant="simple" size="sm">
-              <Thead bg={tableHeaderBg}>
-                <Tr>
-                  <Th w="42px">
-                    <Checkbox
-                      isChecked={allChecked}
-                      isIndeterminate={someChecked}
-                      onChange={() => selectAll?.(idsOnPage)}
-                    />
-                  </Th>
-                  <Th py={4} color="gray.500" fontWeight="bold">User</Th>
-                  <Th py={4} color="gray.500" fontWeight="bold">Role Membership</Th>
-                  <Th py={4} color="gray.500" fontWeight="bold">Account Status</Th>
-                  <Th py={4} color="gray.500" fontWeight="bold">Created</Th>
-                  <Th py={4} textAlign="right" color="gray.500" fontWeight="bold">Actions</Th>
-                </Tr>
-              </Thead>
+        {/* Bulk Bar */}
+        {!isDeletedTab && selectedIds.length > 0 && (canBulkStatus || canBulkDelete) && (
+          <Card
+            mb={4}
+            p={3}
+            borderRadius="2xl"
+            border="1px solid"
+            borderColor={cardBorder}
+            bg={cardBg}
+            boxShadow={shadow}
+          >
+            <Flex
+              gap={3}
+              align={{ base: "stretch", md: "center" }}
+              justify="space-between"
+              direction={{ base: "column", md: "row" }}
+            >
+              <HStack spacing={3}>
+                <Badge borderRadius="full" px={3} py={1} bg="#304945" color="white">
+                  Selected {selectedIds.length}
+                </Badge>
+                <Text fontSize="sm" color={softText}>
+                  users selected
+                </Text>
+              </HStack>
 
-              <Tbody>
-                {isLoading ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <Tr key={i}>
-                      <Td><SkeletonCircle size="4" /></Td>
-                      <Td py={4}>
-                        <HStack spacing={3}>
-                          <SkeletonCircle size="8" />
-                          <Box w="260px">
-                            <Skeleton height="14px" mb="8px" />
-                            <Skeleton height="10px" />
-                          </Box>
-                        </HStack>
-                      </Td>
-                      <Td py={4}>
-                        <SkeletonText noOfLines={2} spacing="2" />
-                      </Td>
-                      <Td py={4}>
-                        <Skeleton height="18px" w="90px" borderRadius="full" />
-                      </Td>
-                      <Td py={4}>
-                        <Skeleton height="12px" w="120px" />
-                      </Td>
-                      <Td py={4} textAlign="right">
-                        <HStack justify="flex-end">
-                          <Skeleton height="28px" w="28px" borderRadius="lg" />
-                          <Skeleton height="28px" w="28px" borderRadius="lg" />
-                        </HStack>
-                      </Td>
-                    </Tr>
-                  ))
-                ) : filteredUsers.length === 0 ? (
-                  <Tr>
-                    <Td colSpan={6} py={16} textAlign="center" color="gray.400">
-                      No results found.
-                    </Td>
-                  </Tr>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <Tr key={u._id} _hover={{ bg: tableHeaderBg }} transition="0.2s">
-                      <Td>
-                        <Checkbox
-                          isChecked={selectedIds.includes(u._id)}
-                          onChange={() => toggleSelect?.(u._id)}
-                        />
-                      </Td>
+              <HStack spacing={2} flexWrap="wrap" justify={{ base: "flex-start", md: "flex-end" }}>
+                <Button size="sm" variant="ghost" onClick={clearSelection} borderRadius="full">
+                  Clear
+                </Button>
 
-                      <Td py={4}>
-                        <HStack spacing={3}>
-                          <Avatar size="sm" name={u.fullName} src={u.avatar} borderRadius="lg" />
-                          <Box>
-                            <Text fontWeight="bold" fontSize="sm">
-                              {u.fullName || "Unknown"}
-                            </Text>
-                            <Text fontSize="xs" color={secondaryTextColor}>
-                              {u.email || "-"}
-                            </Text>
-                          </Box>
-                        </HStack>
-                      </Td>
-
-                      <Td py={4}>{renderRoleBadges(u)}</Td>
-
-                      <Td py={4}>
-                        <StatusBadge u={u} />
-                      </Td>
-
-                      <Td py={4}>
-                        <HStack fontSize="xs" color={secondaryTextColor}>
-                          <Icon as={CalendarIcon} boxSize={3} />
-                          <Text>{formatDate?.(u.createdAt)}</Text>
-                        </HStack>
-                      </Td>
-
-                      <Td py={4} textAlign="right">
-                        <HStack justify="flex-end" spacing={1}>
-                          {canUpdate && (
-                            <IconButton
-                              size="sm"
-                              variant="ghost"
-                              borderRadius="lg"
-                              icon={<PencilSquareIcon className="h-4 w-4" />}
-                              onClick={() => onEditUser?.(u)}
-                              aria-label="Edit"
-                            />
-                          )}
-                          {canDelete && (
-                            <IconButton
-                              size="sm"
-                              variant="ghost"
-                              colorScheme="red"
-                              borderRadius="lg"
-                              icon={<TrashIcon className="h-4 w-4" />}
-                              onClick={() => onDeleteClick?.(u)}
-                              aria-label="Delete"
-                            />
-                          )}
-                        </HStack>
-                      </Td>
-                    </Tr>
-                  ))
+                {canBulkStatus && (
+                  <>
+                    <Button size="sm" borderRadius="full" onClick={() => bulkSetStatus?.(true)}>
+                      Set Active
+                    </Button>
+                    <Button size="sm" borderRadius="full" onClick={() => bulkSetStatus?.(false)}>
+                      Set Inactive
+                    </Button>
+                  </>
                 )}
-              </Tbody>
-            </Table>
-          ) : (
-            <Box p={4}>
-              {isLoading ? (
-                <Stack spacing={4}>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Card key={i} p={4} borderRadius="xl" border="1px solid" borderColor={borderColor}>
-                      <HStack spacing={3}>
-                        <SkeletonCircle size="8" />
-                        <Box flex="1">
-                          <Skeleton height="14px" mb="8px" />
-                          <Skeleton height="10px" w="60%" />
-                        </Box>
-                      </HStack>
-                      <SkeletonText mt="4" noOfLines={2} spacing="2" />
-                    </Card>
+
+                {canBulkDelete && (
+                  <Button size="sm" colorScheme="red" onClick={openBulkDelete} borderRadius="full">
+                    Delete selected
+                  </Button>
+                )}
+              </HStack>
+            </Flex>
+          </Card>
+        )}
+
+        {/* Table card */}
+        <Card
+          borderRadius="2xl"
+          boxShadow={shadow}
+          border="1px solid"
+          borderColor={cardBorder}
+          overflow="hidden"
+          bg={cardBg}
+          backdropFilter="blur(10px)"
+        >
+          {/* Toolbar */}
+          <Box p={5} borderBottom="1px solid" borderColor={cardBorder}>
+            <Stack direction={{ base: "column", lg: "row" }} justify="space-between" spacing={4}>
+              <HStack spacing={3} flex={1} flexWrap="wrap">
+                <InputGroup size="sm" maxW="360px">
+                  <InputLeftElement>
+                    <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
+                  </InputLeftElement>
+                  <Input
+                    placeholder="Search name, email..."
+                    borderRadius="full"
+                    bg={useColorModeValue("white", "whiteAlpha.100")}
+                    border="1px solid"
+                    borderColor={cardBorder}
+                    value={filters?.search ?? ""}
+                    onChange={(e) => onFilterChange?.("search", e.target.value)}
+                    _focus={{
+                      boxShadow: "0 0 0 3px rgba(48, 73, 69, 0.18)",
+                      borderColor: "rgba(48, 73, 69, 0.45)",
+                    }}
+                  />
+                </InputGroup>
+
+                <Select
+                  size="sm"
+                  borderRadius="full"
+                  maxW="200px"
+                  bg={useColorModeValue("white", "whiteAlpha.100")}
+                  border="1px solid"
+                  borderColor={cardBorder}
+                  value={filters?.role ?? ""}
+                  onChange={(e) => onFilterChange?.("role", e.target.value)}
+                >
+                  <option value="">All Roles</option>
+                  {allRoleCodes.map((code) => (
+                    <option key={code} value={code}>{code}</option>
                   ))}
-                </Stack>
-              ) : (
-                filteredUsers.map(renderMobileCard)
-              )}
+                </Select>
+
+                <Select
+                  size="sm"
+                  borderRadius="full"
+                  maxW="200px"
+                  bg={useColorModeValue("white", "whiteAlpha.100")}
+                  border="1px solid"
+                  borderColor={cardBorder}
+                  value={filters?.status ?? ""}
+                  onChange={(e) => onFilterChange?.("status", e.target.value)}
+                >
+                  <option value="">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </Select>
+              </HStack>
+
+              <HStack spacing={2} justify={{ base: "flex-start", lg: "flex-end" }}>
+                <Badge borderRadius="full" px={3} py={1} variant="subtle" colorScheme="gray">
+                  {filteredUsers.length} found
+                </Badge>
+              </HStack>
+            </Stack>
+          </Box>
+
+          {/* Content */}
+          <Box>
+            {displayMode === "desktop" ? (
+              <Box overflowX="auto">
+                <Table variant="simple" size="sm">
+                  <Thead bg={tableHeadBg}>
+                    <Tr>
+                      <Th w="42px" py={4}>
+                        <Checkbox
+                          isChecked={allChecked}
+                          isIndeterminate={someChecked}
+                          onChange={() => selectAll?.(idsOnPage)}
+                        />
+                      </Th>
+                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">USER</Th>
+                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">ROLES</Th>
+                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">STATUS</Th>
+                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">CREATED</Th>
+                      <Th py={4} textAlign="right" color={mutedText} fontWeight="bold" letterSpacing="0.06em">ACTIONS</Th>
+                    </Tr>
+                  </Thead>
+
+                  <Tbody>
+                    {isLoading ? (
+                      Array.from({ length: 6 }).map((_, i) => (
+                        <Tr key={i}>
+                          <Td><SkeletonCircle size="4" /></Td>
+                          <Td py={5}>
+                            <HStack spacing={3}>
+                              <SkeletonCircle size="8" />
+                              <Box w="260px">
+                                <Skeleton height="14px" mb="8px" />
+                                <Skeleton height="10px" />
+                              </Box>
+                            </HStack>
+                          </Td>
+                          <Td py={5}><SkeletonText noOfLines={2} spacing="2" /></Td>
+                          <Td py={5}><Skeleton height="18px" w="90px" borderRadius="full" /></Td>
+                          <Td py={5}><Skeleton height="12px" w="120px" /></Td>
+                          <Td py={5} textAlign="right">
+                            <HStack justify="flex-end">
+                              <Skeleton height="28px" w="28px" borderRadius="lg" />
+                              <Skeleton height="28px" w="28px" borderRadius="lg" />
+                            </HStack>
+                          </Td>
+                        </Tr>
+                      ))
+                    ) : filteredUsers.length === 0 ? (
+                      <Tr>
+                        <Td colSpan={6} py={16} textAlign="center" color={mutedText}>
+                          No results found.
+                        </Td>
+                      </Tr>
+                    ) : (
+                      filteredUsers.map((u) => (
+                        <Tr
+                          key={u._id}
+                          _hover={{ bg: rowHoverBg }}
+                          transition="background 0.15s ease"
+                        >
+                          <Td>
+                            <Checkbox
+                              isChecked={selectedIds.includes(u._id)}
+                              onChange={() => toggleSelect?.(u._id)}
+                            />
+                          </Td>
+
+                          <Td py={4}>
+                            <HStack spacing={3}>
+                              <Avatar size="sm" name={u.fullName} src={u.avatar} borderRadius="xl" />
+                              <Box minW={0}>
+                                <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
+                                  {u.fullName || "Unknown"}
+                                </Text>
+                                <Text fontSize="xs" color={softText} noOfLines={1}>
+                                  {u.email || "-"}
+                                </Text>
+                              </Box>
+                            </HStack>
+                          </Td>
+
+                          <Td py={4}>{renderRoleBadges(u)}</Td>
+
+                          <Td py={4}>
+                            <StatusBadge u={u} />
+                          </Td>
+
+                          <Td py={4}>
+                            <HStack fontSize="xs" color={softText}>
+                              <Icon as={CalendarIcon} boxSize={3} />
+                              <Text>{formatDate?.(u.createdAt)}</Text>
+                            </HStack>
+                          </Td>
+
+                          <Td py={4} textAlign="right">
+                            <HStack justify="flex-end" spacing={1}>
+                              {!isDeletedTab ? (
+                                <>
+                                  {canUpdate && (
+                                    <IconButton
+                                      size="sm"
+                                      variant="ghost"
+                                      borderRadius="lg"
+                                      aria-label="Edit"
+                                      icon={<PencilSquareIcon className="h-4 w-4" />}
+                                      onClick={() => onEditUser?.(u)}
+                                      transition="all .15s ease"
+                                      _hover={{ transform: "translateY(-1px)", bg: useColorModeValue("blackAlpha.100", "whiteAlpha.100") }}
+                                    />
+                                  )}
+                                  {canDelete && (
+                                    <IconButton
+                                      size="sm"
+                                      variant="ghost"
+                                      colorScheme="red"
+                                      borderRadius="lg"
+                                      aria-label="Delete"
+                                      icon={<TrashIcon className="h-4 w-4" />}
+                                      onClick={() => onDeleteClick?.(u)}
+                                      transition="all .15s ease"
+                                      _hover={{ transform: "translateY(-1px)" }}
+                                    />
+                                  )}
+                                </>
+                              ) : (
+                                canRestore && (
+                                  <IconButton
+                                    size="sm"
+                                    variant="ghost"
+                                    colorScheme="green"
+                                    borderRadius="lg"
+                                    aria-label="Restore"
+                                    isLoading={!!rowBusy?.[u._id]}
+                                    icon={<ArrowUturnLeftIcon className="h-4 w-4" />}
+                                    onClick={() => onRestoreUser?.(u)}
+                                    transition="all .15s ease"
+                                    _hover={{ transform: "translateY(-1px)", bg: useColorModeValue("blackAlpha.100", "whiteAlpha.100") }}
+                                  />
+                                )
+                              )}
+                            </HStack>
+                          </Td>
+                        </Tr>
+                      ))
+                    )}
+                  </Tbody>
+                </Table>
+              </Box>
+            ) : (
+              <Box p={4}>
+                <Text color={softText}>Mobile view giữ nguyên, chỉ đổi action theo tab.</Text>
+              </Box>
+            )}
+          </Box>
+
+          {!!pagination && (
+            <Box p={4} borderTop="1px solid" borderColor={cardBorder}>
+              <Pagination
+                page={page}
+                limit={limit}
+                total={total}
+                totalPages={totalPages}
+                onPageChange={onPageChange}
+                onLimitChange={onLimitChange}
+                isDisabled={isLoading}
+              />
             </Box>
           )}
-        </Box>
+        </Card>
 
-        {/* Pagination */}
-        {!!pagination && (
-          <Box p={4} borderTop="1px solid" borderColor={borderColor}>
-            <Pagination
-              page={page}
-              limit={limit}
-              total={total}
-              totalPages={totalPages}
-              onPageChange={onPageChange}
-              onLimitChange={onLimitChange}
-            />
-          </Box>
-        )}
-      </Card>
+        {/* Create / Update modal */}
+        <Modal isOpen={isFormOpen} onClose={closeForm} title={selectedUser ? "Update Profile" : "Create Account"}>
+          <UserForm user={selectedUser} onSubmit={onSubmitUser} onCancel={closeForm} />
+        </Modal>
 
-      {/* Create / Update modal */}
-      <Modal
-        isOpen={isFormOpen}
-        onClose={closeForm}
-        title={selectedUser ? "Update Profile" : "Create Account"}
-      >
-        <UserForm user={selectedUser} onSubmit={onSubmitUser} onCancel={closeForm} />
-      </Modal>
-
-      {/* Delete single modal */}
-      <Modal isOpen={isDeleteOpen} onClose={closeDelete} title="Delete Confirmation">
-        <Box p={1}>
-          <Text mb={6} color={secondaryTextColor}>
-            Are you sure you want to delete{" "}
-            <Text as="span" fontWeight="bold" color={useColorModeValue("gray.700", "gray.100")}>
-              {userToDelete?.fullName || userToDelete?.email || "this user"}
+        {/* Delete single modal */}
+        <Modal isOpen={isDeleteOpen} onClose={closeDelete} title="Delete Confirmation">
+          <Box p={1}>
+            <Text mb={6} color={softText}>
+              Are you sure you want to delete{" "}
+              <Text as="span" fontWeight="bold" color={useColorModeValue("gray.700", "gray.100")}>
+                {userToDelete?.fullName || userToDelete?.email || "this user"}
+              </Text>
+              ? This user will lose all access immediately.
             </Text>
-            ? This user will lose all access immediately.
-          </Text>
-          <HStack spacing={3} justify="flex-end">
-            <Button variant="ghost" onClick={closeDelete}>Cancel</Button>
-            <Button colorScheme="red" borderRadius="xl" onClick={onConfirmDelete}>
-              Confirm Delete
-            </Button>
-          </HStack>
-        </Box>
-      </Modal>
+            <HStack spacing={3} justify="flex-end">
+              <Button variant="ghost" onClick={closeDelete} borderRadius="xl">Cancel</Button>
+              <Button colorScheme="red" borderRadius="xl" onClick={onConfirmDelete}>
+                Confirm Delete
+              </Button>
+            </HStack>
+          </Box>
+        </Modal>
 
-      {/* Bulk delete modal */}
-      <Modal isOpen={!!isBulkDeleteOpen} onClose={closeBulkDelete} title="Xác nhận xoá nhiều">
-        <Box p={1}>
-          <Text mb={6} color={secondaryTextColor}>
-            Bạn có chắc muốn xoá{" "}
-            <Text as="span" fontWeight="bold" color={useColorModeValue("gray.700", "gray.100")}>
-              {selectedIds.length}
-            </Text>{" "}
-            user đã chọn không?
-          </Text>
-          <HStack spacing={3} justify="flex-end">
-            <Button variant="ghost" onClick={closeBulkDelete}>Cancel</Button>
-            <Button colorScheme="red" borderRadius="xl" onClick={confirmBulkDelete}>
-              Confirm Delete
-            </Button>
-          </HStack>
-        </Box>
-      </Modal>
+        {/* Bulk delete modal */}
+        <Modal isOpen={!!isBulkDeleteOpen} onClose={closeBulkDelete} title="Xác nhận xoá nhiều">
+          <Box p={1}>
+            <Text mb={6} color={softText}>
+              Bạn có chắc muốn xoá{" "}
+              <Text as="span" fontWeight="bold" color={useColorModeValue("gray.700", "gray.100")}>
+                {selectedIds.length}
+              </Text>{" "}
+              user đã chọn không?
+            </Text>
+            <HStack spacing={3} justify="flex-end">
+              <Button variant="ghost" onClick={closeBulkDelete} borderRadius="xl">Cancel</Button>
+              <Button colorScheme="red" borderRadius="xl" onClick={confirmBulkDelete}>
+                Confirm Delete
+              </Button>
+            </HStack>
+          </Box>
+        </Modal>
+      </Box>
     </Box>
   );
 }
 
 UsersView.propTypes = {
-  // data
+  tab: PropTypes.oneOf(["active", "deleted"]),
+  onTabChange: PropTypes.func,
+  onRestoreUser: PropTypes.func,
+
   users: PropTypes.array,
   filteredUsers: PropTypes.array,
   pagination: PropTypes.shape({
@@ -795,11 +616,9 @@ UsersView.propTypes = {
   allRoleCodes: PropTypes.array,
   isLoading: PropTypes.bool,
 
-  // authz
   screens: PropTypes.array,
   userPermissions: PropTypes.array,
 
-  // selection + bulk
   selectedIds: PropTypes.array,
   toggleSelect: PropTypes.func,
   selectAll: PropTypes.func,
@@ -812,11 +631,9 @@ UsersView.propTypes = {
   closeBulkDelete: PropTypes.func,
   rowBusy: PropTypes.object,
 
-  // paging callbacks
   onPageChange: PropTypes.func,
   onLimitChange: PropTypes.func,
 
-  // modal + actions
   selectedUser: PropTypes.object,
   userToDelete: PropTypes.object,
   isFormOpen: PropTypes.bool,
@@ -831,7 +648,6 @@ UsersView.propTypes = {
   onFilterChange: PropTypes.func,
   onRefresh: PropTypes.func,
 
-  // helpers
   formatDate: PropTypes.func,
   formatLastActive: PropTypes.func,
 };

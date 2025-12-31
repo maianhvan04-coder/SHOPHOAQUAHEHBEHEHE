@@ -1,9 +1,9 @@
 /* eslint-disable react/prop-types */
 import { useMemo, useState } from "react";
-import { canAccessScreen } from "~/shared/utils/ability";
-import { matchRoute } from "~/shared/utils/ability";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useDisclosure } from "@chakra-ui/react";
 import { useAuth } from "~/app/providers/AuthProvides";
+import { canAccessScreen, matchRoute } from "~/shared/utils/ability";
 
 import {
   Box,
@@ -13,16 +13,16 @@ import {
   Icon,
   Image,
   Divider,
-  useColorModeValue,
   Drawer,
   DrawerContent,
   DrawerOverlay,
   DrawerCloseButton,
   IconButton,
-  useDisclosure,
   Tooltip,
-  Center,
+  Avatar,
+  HStack,
   useBreakpointValue,
+  useColorModeValue,
 } from "@chakra-ui/react";
 
 import {
@@ -38,11 +38,16 @@ import {
   CalendarIcon,
   BuildingOfficeIcon,
   UserIcon,
+   ShoppingBagIcon,
+  TagIcon,
+  ReceiptPercentIcon,
+  ShieldCheckIcon,
+  LockClosedIcon,
 } from "@heroicons/react/24/outline";
 
 import { authService } from "../../../features/auth/authService";
 
-// icon string -> component (tùy data bạn)
+// icon string -> component
 const ICON = {
   home: HomeIcon,
   users: UserGroupIcon,
@@ -53,8 +58,27 @@ const ICON = {
   calendar: CalendarIcon,
   departments: BuildingOfficeIcon,
   profile: UserIcon,
-};
 
+  //  category
+  category: TagIcon,
+  tags: TagIcon,
+
+  //  product
+  product: ShoppingBagIcon,
+  package: ShoppingBagIcon,
+  box: ShoppingBagIcon,
+
+  //  orders
+  order: ReceiptPercentIcon,
+  orders: ReceiptPercentIcon,
+  receipt: ReceiptPercentIcon,
+
+  // rbac
+  shield: ShieldCheckIcon,
+  rbac: ShieldCheckIcon,
+  permission: LockClosedIcon,
+  permissions: LockClosedIcon,
+};
 
 
 export default function Sidebar({ groups, screens, userPermissions = [] }) {
@@ -63,33 +87,30 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
   const { user } = useAuth();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [isCollapsed, setIsCollapsed] = useState(false);
-
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  const bgColor = useColorModeValue("#304945", "#243634");
-  const borderColor = useColorModeValue("white", "gray.700");
-  const activeItemBg = useColorModeValue("#405d58", "#3d5b56");
-  const hoverBg = useColorModeValue("#405d58", "#3d5b56");
-  const secondaryTextColor = useColorModeValue("gray.100", "gray.400");
+  // ===== Modernize-like theme =====
+  const sidebarBg = useColorModeValue("#0B1220", "#0B1220");
+  const sidebarBorder = useColorModeValue("rgba(255,255,255,0.08)", "rgba(255,255,255,0.08)");
+  const muted = useColorModeValue("rgba(255,255,255,0.60)", "rgba(255,255,255,0.60)");
+  const muted2 = useColorModeValue("rgba(255,255,255,0.40)", "rgba(255,255,255,0.40)");
+
+  const itemHoverBg = useColorModeValue("rgba(255,255,255,0.06)", "rgba(255,255,255,0.06)");
+  const itemActiveBg = useColorModeValue("rgba(79,124,255,0.95)", "rgba(79,124,255,0.95)"); // pill xanh
+  const itemActiveShadow = useColorModeValue(
+    "0 10px 30px rgba(79,124,255,0.25)",
+    "0 10px 30px rgba(79,124,255,0.25)"
+  );
 
   const byGroup = useMemo(() => {
-    const allowedScreens = (screens || []).filter((s) =>
-      canAccessScreen(userPermissions, s)
-    );
-
-    
+    const allowedScreens = (screens || []).filter((s) => canAccessScreen(userPermissions, s));
     const map = {};
     allowedScreens.forEach((s) => {
-      const gkey = s.group; // expect: screen.group = group.key
+      const gkey = s.group;
       map[gkey] = map[gkey] || [];
       map[gkey].push(s);
     });
-
-    // optional sort nếu có field order
-    Object.keys(map).forEach((k) => {
-      map[k].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    });
-
+    Object.keys(map).forEach((k) => map[k].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
     return map;
   }, [screens, userPermissions]);
 
@@ -102,44 +123,55 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
     const active = to ? matchRoute(to, pathname) : false;
     const IconComp = (iconKey && ICON[iconKey]) || UserIcon;
 
-    const content = (
+    const pill = (
       <Flex
+        role="group"
         align="center"
-        px="4"
-        py="3"
-        m={isCollapsed ? "3" : "0"}
+        gap="12px"
+        px={isCollapsed ? 3 : 4}
+        py="10px"
+        mx={isCollapsed ? 2 : 3}
         rounded="xl"
-        transition="all 0.2s ease-in-out"
-        bg={active ? activeItemBg : "transparent"}
-        _hover={{ bg: hoverBg }}
-        position="relative"
-        w="full"
+        transition="all 180ms ease"
+        bg={active ? itemActiveBg : "transparent"}
+        boxShadow={active ? itemActiveShadow : "none"}
+        _hover={{
+          bg: active ? itemActiveBg : itemHoverBg,
+          transform: "translateY(-1px)",
+        }}
+        _active={{ transform: "translateY(0px)" }}
       >
-        {active && (
-          <Box
-            position="absolute"
-            left="0"
-            top="50%"
-            transform="translateY(-50%)"
-            width="4px"
-            height="70%"
-            bg="white"
-            borderRadius="full"
-          />
-        )}
+        <Box
+          w="36px"
+          h="36px"
+          rounded="lg"
+          display="grid"
+          placeItems="center"
+          bg={active ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.04)"}
+          transition="all 180ms ease"
+          _groupHover={{ bg: active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)" }}
+        >
+          <Icon as={IconComp} boxSize="5" color="white" opacity={active ? 1 : 0.92} />
+        </Box>
 
-        <Icon as={IconComp} boxSize="5" color="white" />
         {!isCollapsed && (
-          <Text ml="3" fontSize="sm" fontWeight="medium" color="white">
+          <Text
+            fontSize="sm"
+            fontWeight={active ? 700 : 600}
+            color="white"
+            letterSpacing="0.2px"
+            noOfLines={1}
+          >
             {label}
           </Text>
         )}
       </Flex>
     );
 
+    // click-only item (logout)
     if (onClick) {
       return (
-        <Tooltip label={isCollapsed ? label : ""} placement="right">
+        <Tooltip label={isCollapsed ? label : ""} placement="right" hasArrow>
           <Box
             as="button"
             w="full"
@@ -149,14 +181,14 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
               onItemClose?.();
             }}
           >
-            {content}
+            {pill}
           </Box>
         </Tooltip>
       );
     }
 
     return (
-      <Tooltip label={isCollapsed ? label : ""} placement="right">
+      <Tooltip label={isCollapsed ? label : ""} placement="right" hasArrow>
         <Box
           as={NavLink}
           to={to || "#"}
@@ -164,91 +196,110 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
           onClick={() => onItemClose?.()}
           style={{ textDecoration: "none" }}
         >
-          {content}
+          {pill}
         </Box>
       </Tooltip>
     );
   };
 
+  const SectionTitle = ({ children }) =>
+    isCollapsed ? null : (
+      <Text
+        px="6"
+        pt="14px"
+        pb="8px"
+        fontSize="xs"
+        fontWeight="800"
+        letterSpacing="0.12em"
+        textTransform="uppercase"
+        color={muted2}
+      >
+        {children}
+      </Text>
+    );
+
   const SidebarContent = ({ onDrawerClose }) => (
     <Box
-      bg={bgColor}
-      color="white"
-      h="full"
-      py="5"
-      position="relative"
-      transition="all 0.3s ease-in-out"
-      w={isCollapsed ? "20" : "64"}
-    >
-      {/* Collapse Toggle (desktop only) */}
-      <IconButton
-        icon={
-          isCollapsed ? (
-            <ChevronRightIcon className="h-5 w-5" />
-          ) : (
-            <ChevronLeftIcon className="h-5 w-5" />
-          )
-        }
-        position="absolute"
-        right="-5"
-        top="50%"
-        transform="translateY(-50%)"
-        size="md"
-        rounded="full"
-        border="1px solid"
-        borderColor={bgColor}
-        display={{ base: "none", md: "flex" }}
-        onClick={() => setIsCollapsed((v) => !v)}
-        aria-label={isCollapsed ? "Expand" : "Collapse"}
-        zIndex="10"
-        _hover={{ transform: "translateY(-50%) scale(1.08)", boxShadow: "lg" }}
-      />
+       bg={sidebarBg}
+    h="100vh"
+    position="sticky"
+    top="0"
+    borderRight="1px solid"
+    borderColor={sidebarBorder}
+    w={isCollapsed ? "84px" : "290px"}
+    transition="width 220ms ease"
 
-      <Flex direction="column" h="full">
-        {/* Logo */}
-        <Flex align="center" px="6" mb="6" overflow="hidden">
-          <Image
-            h="12"
-            w="auto"
-            src="/vite.svg"
-            alt="Logo"
-            fallbackSrc="https://via.placeholder.com/36"
-          />
+    // ✅ quan trọng
+    display="flex"
+    flexDirection="column"
+    overflowX="hidden"
+    overflowY="auto"
+    sx={{
+      "&::-webkit-scrollbar": { width: "6px" },
+      "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.18)", borderRadius: "999px" },
+      "&::-webkit-scrollbar-track": { background: "transparent" },
+    }}
+    >
+      {/* Top bar */}
+      <Flex align="center" justify="space-between" px={isCollapsed ? 4 : 6} pt="18px" pb="14px">
+        <HStack spacing="12px" overflow="hidden">
+          <Box
+            w="36px"
+            h="36px"
+            rounded="xl"
+            bg="rgba(79,124,255,0.18)"
+            display="grid"
+            placeItems="center"
+          >
+            <Image
+              src="/vite.svg"
+              alt="Logo"
+              w="18px"
+              h="18px"
+              draggable={false}
+              fallbackSrc="https://via.placeholder.com/18"
+            />
+          </Box>
+
           {!isCollapsed && (
-            <Box ml="3">
-              <Text fontSize="lg" fontWeight="bold" letterSpacing="tight">
-                JOYGREEN 
+            <Box lineHeight="1.1">
+              <Text fontSize="lg" fontWeight="800" color="white">
+                JOYGREEN
               </Text>
-              <Text fontSize="xs" opacity="0.7">
+              <Text fontSize="xs" color={muted} mt="2px">
                 Role Management System
               </Text>
             </Box>
           )}
-        </Flex>
+        </HStack>
 
-        {/* Groups + Screens */}
-        <VStack spacing="2" align="stretch" flex="1" px={isCollapsed ? 0 : 2}>
+        {/* Collapse toggle (desktop) */}
+        <IconButton
+          aria-label={isCollapsed ? "Expand" : "Collapse"}
+          icon={isCollapsed ? <ChevronRightIcon className="h-5 w-5" /> : <ChevronLeftIcon className="h-5 w-5" />}
+          size="sm"
+          variant="ghost"
+          display={{ base: "none", md: "inline-flex" }}
+          color="white"
+          _hover={{ bg: "rgba(255,255,255,0.06)" }}
+          onClick={() => setIsCollapsed((v) => !v)}
+        />
+      </Flex>
+
+      <Divider borderColor={sidebarBorder} />
+
+      {/* Menu */}
+      <Box py="10px" pb="0">
+        <VStack align="stretch" spacing="0">
           {(groups || []).map((g) => {
             const list = byGroup[g.key] || [];
             if (!list.length) return null;
 
             return (
               <Box key={g.key}>
-                {!isCollapsed && (
-                  <Text
-                    px="4"
-                    fontSize="xs"
-                    color={secondaryTextColor}
-                    textTransform="uppercase"
-                    letterSpacing="wider"
-                    mb="2"
-                    mt="2"
-                  >
-                    {g.label || g.name || g.key}
-                  </Text>
-                )}
+                <SectionTitle>{g.label || g.name || g.key}</SectionTitle>
 
-                <VStack spacing="1" align="stretch">
+                <VStack spacing="4px" align="stretch" pb="10px">
                   {list.map((s) => {
                     const to = (s.routes && s.routes[0]) || s.href || "#";
                     return (
@@ -265,48 +316,49 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
               </Box>
             );
           })}
+        </VStack>
+      </Box>
 
-          {/* System */}
-          <Box mt="auto">
-            <Divider
-              my="4"
-              borderColor={borderColor}
-              opacity="0.3"
-              display={{ base: "none", md: "block" }}
-            />
+      {/* Bottom actions + user */}
+      <Box mt="auto" pb="18px">
+        <Divider borderColor={sidebarBorder} my="10px" />
 
-            {!isCollapsed && (
-              <Text
-                px="4"
-                fontSize="xs"
-                color={secondaryTextColor}
-                textTransform="uppercase"
-                letterSpacing="wider"
-                mb="2"
-              >
-                System
-              </Text>
-            )}
-
-            <NavItem label="Settings" to="/settings" iconKey="settings" onItemClose={onDrawerClose} />
-            <NavItem label="Logout" iconKey="logout" onClick={handleLogout} onItemClose={onDrawerClose} />
-          </Box>
+        <SectionTitle>System</SectionTitle>
+        <VStack spacing="4px" align="stretch" pb="12px">
+          <NavItem label="Settings" to="/settings" iconKey="settings" onItemClose={onDrawerClose} />
+          <NavItem label="Logout" iconKey="logout" onClick={handleLogout} onItemClose={onDrawerClose} />
         </VStack>
 
-        {/* User Section */}
-        <Box px="4" mt="4">
-          <Tooltip label={isCollapsed ? `${user?.name || "Unknown User"}` : ""} placement="right">
-            <Flex p="3" rounded="xl" bg={activeItemBg} align="center" _hover={{ bg: hoverBg }}>
-              <Center w="8" h="8" rounded="lg" bg={hoverBg} fontSize="sm" fontWeight="bold">
-                {user?.name?.charAt(0) || "?"}
-              </Center>
-
+        {/* User card */}
+        <Box px={isCollapsed ? 2 : 4}>
+          <Tooltip
+            label={isCollapsed ? `${user?.fullName || user?.name || "Unknown"}\n${user?.email || ""}` : ""}
+            placement="right"
+            hasArrow
+            whiteSpace="pre-line"
+          >
+            <Flex
+              align="center"
+              gap="12px"
+              p="12px"
+              rounded="2xl"
+              bg="rgba(255,255,255,0.05)"
+              border="1px solid"
+              borderColor="rgba(255,255,255,0.08)"
+              _hover={{ bg: "rgba(255,255,255,0.07)" }}
+              transition="all 180ms ease"
+            >
+              <Avatar
+                size="sm"
+                name={user?.fullName || user?.name || "U"}
+                src={user?.avatar}
+              />
               {!isCollapsed && (
-                <Box ml="3" flex="1">
-                  <Text fontSize="sm" fontWeight="medium">
-                    {user?.name || "Unknown"}
+                <Box minW={0}>
+                  <Text fontSize="sm" fontWeight="700" color="white" noOfLines={1}>
+                    {user?.fullName || user?.name || "Unknown"}
                   </Text>
-                  <Text fontSize="xs" opacity="0.7">
+                  <Text fontSize="xs" color={muted} noOfLines={1}>
                     {user?.email || "no@email.com"}
                   </Text>
                 </Box>
@@ -314,23 +366,23 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
             </Flex>
           </Tooltip>
         </Box>
-      </Flex>
+      </Box>
     </Box>
   );
 
   const MobileMenuButton = () => (
     <IconButton
-      display={{ base: "flex", md: "none" }}
+      display={{ base: "inline-flex", md: "none" }}
       onClick={onOpen}
       variant="ghost"
       position="fixed"
-      top="4"
-      left="4"
-      zIndex={10}
+      top="14px"
+      left="14px"
+      zIndex={1000}
       icon={<Bars3Icon className="h-6 w-6" />}
       aria-label="Open menu"
       color="white"
-      _hover={{ bg: "whiteAlpha.200" }}
+      _hover={{ bg: "rgba(255,255,255,0.08)" }}
     />
   );
 
@@ -339,12 +391,7 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
       <MobileMenuButton />
 
       {/* Desktop */}
-      <Box
-        as="aside"
-        transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-        w={isCollapsed ? "20" : "64"}
-        display={{ base: "none", md: "block" }}
-      >
+      <Box as="aside" display={{ base: "none", md: "block" }}>
         <SidebarContent />
       </Box>
 
@@ -352,7 +399,7 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
       <Box display={{ base: "block", md: "none" }}>
         <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
           <DrawerOverlay />
-          <DrawerContent bg={bgColor} w="80vw" maxW="80vw">
+          <DrawerContent bg={sidebarBg} maxW="86vw">
             <DrawerCloseButton color="white" />
             <SidebarContent onDrawerClose={onClose} />
           </DrawerContent>

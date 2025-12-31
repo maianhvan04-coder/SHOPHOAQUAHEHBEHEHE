@@ -16,7 +16,39 @@ const normalizeIds = (ids = []) => {
 };
 
 
-exports.findById = (id) => User.findById(id).lean();
+exports.findById = (id, opts = {}) => {
+  const q = User.findById(id);
+  if (opts.session) q.session(opts.session);
+  return q;
+};
+exports.findManyByIds = (ids, opts = {}) => {
+  const q = User.find({ _id: { $in: ids } });
+  if (opts.session) q.session(opts.session);
+  return q;
+};
+
+exports.restoreById = (id, opts = {}) => {
+  const update = {
+    $set: {
+      isDeleted: false,
+      isActive: true, // restore thường bật lại
+    },
+  };
+
+  return User.updateOne({ _id: id }, update, { session: opts.session });
+};
+
+exports.restoreManyByIds = (ids, opts = {}) => {
+  const update = {
+    $set: {
+      isDeleted: false,
+      isActive: true,
+    },
+  };
+
+  return User.updateMany({ _id: { $in: ids } }, update, { session: opts.session });
+};
+
 
 exports.findPublicById = (id) =>
   User.findById(id)
@@ -122,12 +154,102 @@ exports.findUserWithRolesById = async (userId) => {
  * List users + filter search, isActive, roleCode
  * Trả về { items, pagination }
  */
-exports.findUsers = async ({ page = 1, limit = 10, search = "", role = "", isActive }) => {
+exports.findUsers = async ({ page = 1, limit = 10, search = "", role = "", isActive, isDeleted }) => {
   page = Number(page) || 1;
   limit = Number(limit) || 10;
   const skip = (page - 1) * limit;
 
-  const match = { isDeleted: false };
+
+
+  const parseBool = (v) => {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "string") {
+      const s = v.trim().toLowerCase();
+      if (s === "true") return true;
+      if (s === "false") return false;
+    }
+    return undefined;
+  };
+
+  const deletedBool = parseBool(isDeleted);
+  const activeBool = parseBool(isActive);
+
+  // ✅ default: chỉ lấy chưa deleted nếu client không truyền
+  const match = { isDeleted: deletedBool ?? false };
+
+  if (activeBool !== undefined) match.isActive = activeBool;
+  if (search) {
+    match.$or = [
+      { fullName: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { phone: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  // pipeline chung: match + lookup roles
+  const base = [
+    { $match: match },
+    {
+      $lookup: {
+        from: "userroles",
+        localField: "_id",
+        foreignField: "userId",
+        as: "userRoles",
+      },
+    },
+    {
+      $lookup: {
+        from: "roles",
+        localField: "userRoles.roleId",
+        foreignField: "_id",
+        as: "roles",
+      },
+    },
+    ...(role ? [{ $match: { "roles.code": role } }] : []),
+  ];
+
+  const dataPipeline = [
+    ...base,
+    { $sort: { createdAt: -1 } },
+    {
+      $project: {
+        passwordHash: 0,
+        userRoles: 0,
+      },
+    },
+    { $skip: skip },
+    { $limit: limit },
+  ];
+
+  const countPipeline = [...base, { $count: "total" }];
+
+  const [items, totalRows] = await Promise.all([
+    User.aggregate(dataPipeline),
+    User.aggregate(countPipeline),
+  ]);
+
+  const total = totalRows?.[0]?.total || 0;
+
+  const users = (items || []).map((u) => ({
+    ...u,
+    roles: (u.roles || []).map((r) => ({
+      _id: r._id,
+      code: r.code,
+      name: r.name,
+      type: r.type,
+      priority: r.priority,
+    })),
+  }));
+
+  return { users, total };
+};
+
+exports.findUsersDeleted = async ({ page = 1, limit = 10, search = "", role = "", isActive }) => {
+  page = Number(page) || 1;
+  limit = Number(limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const match = { isDeleted: true };
   if (typeof isActive !== "undefined") match.isActive = !!isActive;
 
   if (search) {
@@ -195,8 +317,6 @@ exports.findUsers = async ({ page = 1, limit = 10, search = "", role = "", isAct
 
   return { users, total };
 };
-
-
 exports.getAdminUserIdsInList = async (userIds) => {
   // userIds: ObjectId[]
   if (!userIds?.length) return [];

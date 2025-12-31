@@ -7,15 +7,21 @@ import Sidebar from "./Sidebar";
 
 function Layout() {
   const bgColor = useColorModeValue("gray.50", "gray.900");
-  const glowColor = useColorModeValue("rgba(48, 73, 69, 0.3)", "rgba(48, 73, 69, 0.3)");
+  const glowColor = useColorModeValue(
+    "rgba(48, 73, 69, 0.3)",
+    "rgba(48, 73, 69, 0.3)"
+  );
+
   const meshGradient = useColorModeValue(
     "radial-gradient(at 100% 0%, rgba(48, 73, 69, 0.05) 0%, transparent 50%), radial-gradient(at 0% 100%, rgba(48, 73, 69, 0.03) 0%, transparent 50%)",
     "radial-gradient(at 100% 0%, rgba(48, 73, 69, 0.15) 0%, transparent 50%), radial-gradient(at 0% 100%, rgba(48, 73, 69, 0.1) 0%, transparent 50%)"
   );
+
   const ambientLight = useColorModeValue(
     "radial-gradient(circle, rgba(48, 73, 69, 0.03) 0%, transparent 70%)",
     "radial-gradient(circle, rgba(48, 73, 69, 0.07) 0%, transparent 70%)"
   );
+
   const scrollbarThumb = useColorModeValue("gray.200", "gray.700");
 
   const { permissions = [] } = useAuth();
@@ -25,13 +31,26 @@ function Layout() {
   const { groups = [], screens = [] } = outletCtx;
 
   return (
-    <Flex h="100vh" bg={bgColor} position="relative" overflow="hidden">
-      {/* background effects */}
-      <Box position="fixed" inset="0" opacity="0.8" bgGradient={meshGradient} pointerEvents="none" zIndex={0} />
+    <Flex
+      h="100vh"
+      bg={bgColor}
+      position="relative"
+      overflowX="hidden"
+      overflowY="hidden"
+    >
+      {/* ===== Background effects (fixed, không chặn click) ===== */}
       <Box
         position="fixed"
         inset="0"
-        opacity="0.4"
+        opacity="0.85"
+        bgGradient={meshGradient}
+        pointerEvents="none"
+        zIndex={0}
+      />
+      <Box
+        position="fixed"
+        inset="0"
+        opacity="0.35"
         backgroundImage={`linear-gradient(${glowColor} 1px, transparent 1px), linear-gradient(to right, ${glowColor} 1px, transparent 1px)`}
         backgroundSize="64px 64px"
         mask="linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)"
@@ -51,38 +70,61 @@ function Layout() {
         zIndex={0}
       />
 
-      {/* sidebar */}
-      <Box position="relative" zIndex={2}>
-        <Sidebar groups={groups} screens={screens} userPermissions={permissions} />
+      {/* ===== Sidebar ===== */}
+      <Box position="relative" zIndex={2} flexShrink={0}>
+        <Sidebar
+          groups={groups}
+          screens={screens}
+          userPermissions={permissions}
+        />
       </Box>
 
-      {/* main */}
-      <Box flex="1" overflow="hidden" position="relative" zIndex={1}>
-        <Box position="relative" zIndex={3}>
+      {/* ===== Main area (column) ===== */}
+      <Flex
+        flex="1"
+        direction="column"
+        minW={0}
+        position="relative"
+        zIndex={1}
+        overflow="visible" // ✅ quan trọng: để dropdown/menu không bị cắt
+      >
+        {/* Header: sticky + zIndex cao */}
+        <Box
+          position="sticky"
+          top={0}
+          zIndex={50}
+          overflow="visible"
+        >
           <Header />
         </Box>
 
+        {/* Content scroll */}
         <Box
           as="main"
-          h="calc(100vh - 4rem)"
-          overflow="auto"
+          flex="1"
+          minH={0}              // ✅ cực quan trọng để flex child scroll đúng
+          overflowY="auto"
+          overflowX="hidden"
           position="relative"
           zIndex={1}
           css={{
             "&::-webkit-scrollbar": { width: "4px" },
             "&::-webkit-scrollbar-track": { width: "6px" },
-            "&::-webkit-scrollbar-thumb": { background: scrollbarThumb, borderRadius: "24px" },
+            "&::-webkit-scrollbar-thumb": {
+              background: scrollbarThumb,
+              borderRadius: "24px",
+            },
           }}
         >
           <Box position="relative" zIndex={2}>
-            {/* ✅ QUAN TRỌNG: forward context xuống page con */}
+            {/* ✅ forward context xuống page con */}
             <Outlet context={{ groups, screens }} />
-            {/* Nếu muốn khỏi gọi useAuth trong page con thì dùng:
+            {/* Nếu muốn khỏi gọi useAuth trong page con:
                 <Outlet context={{ groups, screens, permissions }} />
             */}
           </Box>
         </Box>
-      </Box>
+      </Flex>
     </Flex>
   );
 }

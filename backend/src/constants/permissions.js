@@ -445,6 +445,8 @@ const ADMIN_SCREENS = Object.freeze({
             bulkDelete: [PERMISSIONS.USER_BULK_DELETE],
             uploadAvatar: [PERMISSIONS.USER_UPLOAD_AVATAR],
             setRoles: [PERMISSIONS.USER_SET_ROLES],
+            restore: [PERMISSIONS.USER_UPDATE],
+
         },
     },
 

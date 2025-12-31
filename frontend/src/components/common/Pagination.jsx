@@ -1,187 +1,181 @@
-// src/components/common/Pagination.jsx
+/* eslint-disable react/prop-types */
 import PropTypes from "prop-types";
-import { useMemo, useState } from "react";
-import { HStack, Button, IconButton, Text, Select, Box, Input, InputGroup, InputRightAddon } from "@chakra-ui/react";
+import { useMemo, useState, useEffect } from "react";
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronDoubleLeftIcon,
-  ChevronDoubleRightIcon,
-} from "@heroicons/react/24/outline";
+  Box,
+  Button,
+  Card,
+  HStack,
+  Input,
+  Select,
+  Stack,
+  Text,
+  IconButton,
+  useColorModeValue,
+} from "@chakra-ui/react";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
+/** helpers */
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-function buildPageItems(page, totalPages, siblingCount = 1) {
-  if (totalPages <= 1) return [1];
-  const first = 1;
-  const last = totalPages;
+function buildPageItems(page, totalPages) {
+  if (!totalPages || totalPages <= 1) return [1];
+  const p = clamp(page, 1, totalPages);
 
-  const start = Math.max(first + 1, page - siblingCount);
-  const end = Math.min(last - 1, page + siblingCount);
+  const show = new Set([1, totalPages, p, p - 1, p + 1, p - 2, p + 2]);
+  const arr = [];
+  for (let i = 1; i <= totalPages; i++) if (show.has(i)) arr.push(i);
 
-  const items = [first];
-  if (start > first + 1) items.push("…");
-  for (let p = start; p <= end; p++) items.push(p);
-  if (end < last - 1) items.push("…");
-  items.push(last);
-
-  return items;
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    out.push(arr[i]);
+    if (i < arr.length - 1 && arr[i + 1] - arr[i] > 1) out.push("...");
+  }
+  return out;
 }
 
+/** Component */
 export default function Pagination({
   page = 1,
   limit = 10,
-  totalItems = 0,
-  totalPages,
+  total = 0,
+  totalPages = 1,
+  pageSizeOptions = [5, 10, 20, 50],
   onPageChange,
   onLimitChange,
-  limitOptions = [10, 20, 50, 100],
   isDisabled = false,
-  siblingCount = 1,
-  showJump = true,               // ✅ new
 }) {
-  const safeTotalPages =
-    totalPages ?? Math.max(1, Math.ceil((totalItems || 0) / (limit || 10)));
+  const [jump, setJump] = useState(String(page));
+  const items = useMemo(() => buildPageItems(page, totalPages), [page, totalPages]);
 
-  const current = clamp(page, 1, safeTotalPages);
+  // sync jump input when page changes from outside
+  useEffect(() => {
+    setJump(String(page));
+  }, [page]);
 
-  const from = totalItems === 0 ? 0 : (current - 1) * limit + 1;
-  const to = totalItems === 0 ? 0 : Math.min(current * limit, totalItems);
+  const from = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to = Math.min(page * limit, total);
 
-  const items = useMemo(
-    () => buildPageItems(current, safeTotalPages, siblingCount),
-    [current, safeTotalPages, siblingCount]
-  );
+  const cardBorder = useColorModeValue("gray.100", "gray.700");
+  const cardBg = useColorModeValue("white", "gray.800");
+  const muted = useColorModeValue("gray.600", "gray.300");
+  const dots = useColorModeValue("gray.500", "gray.400");
 
-  const [jump, setJump] = useState(String(current));
-
-  const go = (p) => onPageChange?.(clamp(p, 1, safeTotalPages));
-
-  const doJump = () => {
-    const n = Number(jump);
-    if (!Number.isFinite(n)) return;
-    go(n);
+  const goTo = (p) => {
+    const next = clamp(Number(p || 1), 1, totalPages);
+    setJump(String(next));
+    onPageChange?.(next);
   };
 
   return (
-    <HStack w="full" justify="space-between" spacing={3} py={4} px={{ base: 4, md: 6 }}>
-      {/* Left */}
-      <Box>
-        <Text fontSize="sm" opacity={0.75}>
-          Showing <b>{from}</b>–<b>{to}</b> of <b>{totalItems}</b>
-        </Text>
-      </Box>
+    <Card mt={4} p={3} borderRadius="xl" border="1px solid" borderColor={cardBorder} bg={cardBg}>
+      <Stack
+        direction={{ base: "column", md: "row" }}
+        spacing={3}
+        justify="space-between"
+        align={{ base: "stretch", md: "center" }}
+      >
+        <HStack spacing={3} flexWrap="wrap">
+          <Text fontSize="sm" color={muted}>
+            Showing <b>{from}</b>–<b>{to}</b> of <b>{total}</b>
+          </Text>
 
-      {/* Right */}
-      <HStack spacing={3}>
-        <HStack spacing={1}>
-          <IconButton
-            size="sm"
-            variant="outline"
-            borderRadius="lg"
-            aria-label="First page"
-            icon={<ChevronDoubleLeftIcon className="h-4 w-4" />}
-            onClick={() => go(1)}
-            isDisabled={isDisabled || current <= 1}
-          />
-          <IconButton
-            size="sm"
-            variant="outline"
-            borderRadius="lg"
-            aria-label="Previous page"
-            icon={<ChevronLeftIcon className="h-4 w-4" />}
-            onClick={() => go(current - 1)}
-            isDisabled={isDisabled || current <= 1}
-          />
-
-          {items.map((it, idx) => {
-            if (it === "…") return <Text key={`dots-${idx}`} px={2} opacity={0.6}>…</Text>;
-            const active = it === current;
-            return (
-              <Button
-                key={it}
-                size="sm"
-                variant={active ? "solid" : "ghost"}
-                colorScheme={active ? "vrv" : "gray"}
-                borderRadius="lg"
-                onClick={() => go(it)}
-                isDisabled={isDisabled}
-                minW="36px"
-              >
-                {it}
-              </Button>
-            );
-          })}
-
-          <IconButton
-            size="sm"
-            variant="outline"
-            borderRadius="lg"
-            aria-label="Next page"
-            icon={<ChevronRightIcon className="h-4 w-4" />}
-            onClick={() => go(current + 1)}
-            isDisabled={isDisabled || current >= safeTotalPages}
-          />
-          <IconButton
-            size="sm"
-            variant="outline"
-            borderRadius="lg"
-            aria-label="Last page"
-            icon={<ChevronDoubleRightIcon className="h-4 w-4" />}
-            onClick={() => go(safeTotalPages)}
-            isDisabled={isDisabled || current >= safeTotalPages}
-          />
+          <HStack spacing={2}>
+            <Text fontSize="sm" color={muted}>
+              Rows
+            </Text>
+            <Select
+              size="sm"
+              w="90px"
+              value={limit}
+              onChange={(e) => onLimitChange?.(Number(e.target.value))}
+              borderRadius="full"
+              isDisabled={isDisabled}
+            >
+              {pageSizeOptions.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </Select>
+          </HStack>
         </HStack>
 
-        {/* Jump to page */}
-        {showJump && safeTotalPages > 1 && (
-          <InputGroup size="sm" w="150px">
-            <Input
-              value={jump}
-              onChange={(e) => setJump(e.target.value.replace(/[^\d]/g, ""))}
-              onFocus={() => setJump(String(current))}
-              onKeyDown={(e) => e.key === "Enter" && doJump()}
-              placeholder={`1-${safeTotalPages}`}
-              isDisabled={isDisabled}
+        <HStack spacing={2} justify={{ base: "space-between", md: "flex-end" }} flexWrap="wrap">
+          <HStack spacing={1}>
+            <IconButton
+              size="sm"
+              variant="outline"
+              borderRadius="full"
+              aria-label="Previous"
+              icon={<ChevronLeftIcon className="h-4 w-4" />}
+              isDisabled={isDisabled || page <= 1}
+              onClick={() => onPageChange?.(page - 1)}
             />
-            <InputRightAddon p={0}>
-              <Button size="sm" borderRadius="0" onClick={doJump} isDisabled={isDisabled}>
-                Go
-              </Button>
-            </InputRightAddon>
-          </InputGroup>
-        )}
 
-        <Select
-          size="sm"
-          borderRadius="lg"
-          w="110px"
-          value={limit}
-          onChange={(e) => onLimitChange?.(Number(e.target.value))}
-          isDisabled={isDisabled}
-        >
-          {limitOptions.map((n) => (
-            <option key={n} value={n}>
-              {n}/page
-            </option>
-          ))}
-        </Select>
-      </HStack>
-    </HStack>
+            {items.map((it, idx) =>
+              it === "..." ? (
+                <Box key={`e-${idx}`} px={2} color={dots}>
+                  …
+                </Box>
+              ) : (
+                <Button
+                  key={it}
+                  size="sm"
+                  variant={it === page ? "solid" : "ghost"}
+                  colorScheme={it === page ? "vrv" : undefined}
+                  borderRadius="full"
+                  isDisabled={isDisabled}
+                  onClick={() => onPageChange?.(it)}
+                >
+                  {it}
+                </Button>
+              )
+            )}
+
+            <IconButton
+              size="sm"
+              variant="outline"
+              borderRadius="full"
+              aria-label="Next"
+              icon={<ChevronRightIcon className="h-4 w-4" />}
+              isDisabled={isDisabled || page >= totalPages}
+              onClick={() => onPageChange?.(page + 1)}
+            />
+          </HStack>
+
+          <HStack spacing={2}>
+            <Text fontSize="sm" color={muted}>
+              Jump
+            </Text>
+            <Input
+              size="sm"
+              w="88px"
+              borderRadius="full"
+              value={jump}
+              isDisabled={isDisabled}
+              onChange={(e) => setJump(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && goTo(jump)}
+            />
+            <Button size="sm" borderRadius="full" isDisabled={isDisabled} onClick={() => goTo(jump)}>
+              Go
+            </Button>
+          </HStack>
+        </HStack>
+      </Stack>
+    </Card>
   );
 }
 
 Pagination.propTypes = {
   page: PropTypes.number,
   limit: PropTypes.number,
-  totalItems: PropTypes.number,
+  total: PropTypes.number,
   totalPages: PropTypes.number,
+  pageSizeOptions: PropTypes.array,
   onPageChange: PropTypes.func,
   onLimitChange: PropTypes.func,
-  limitOptions: PropTypes.arrayOf(PropTypes.number),
   isDisabled: PropTypes.bool,
-  siblingCount: PropTypes.number,
-  showJump: PropTypes.bool,
 };

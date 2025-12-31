@@ -8,6 +8,12 @@ const Role = require("../rbac/model/role.model")
 const UserRole = require("../rbac/model/UserRole.model");
 const { hashPassword, comparePassword } = require("../../../../helpers/password.auth")
 
+const roleRepo = require("../rbac/repo/role.repo");
+const userRoleRepo = require("../rbac/repo/userRole.repo");
+
+
+
+
 function normalizeIds(ids) {
   const unique = Array.from(new Set(ids || []))
   const valid = unique.filter((id) => mongoose.Types.ObjectId.isValid(id))
@@ -15,7 +21,7 @@ function normalizeIds(ids) {
 }
 
 exports.getUsers = async (query) => {
-  let { page = 1, limit = 5, search, role, isActive } = query;
+  let { page = 1, limit = 5, search, role, isActive, isDeleted } = query;
 
   page = parseInt(page);
   limit = parseInt(limit);
@@ -42,6 +48,7 @@ exports.getUsers = async (query) => {
     search,
     role,
     isActive,
+    isDeleted
   });
 
   return {
@@ -55,6 +62,47 @@ exports.getUsers = async (query) => {
   };
 }
 
+
+exports.getUsersDeleted = async (query) => {
+  let { page = 1, limit = 5, search, role, isActive } = query;
+
+  page = parseInt(page);
+  limit = parseInt(limit);
+
+  if (Number.isNaN(page) || page < 1) page = 1;
+  if (Number.isNaN(limit) || limit < 1 || limit > 100) limit = 10;
+
+  // isActive là string từ query => convert
+  if (isActive === "true") isActive = true;
+  else if (isActive === "false") isActive = false;
+  else isActive = undefined;
+
+  // role nên ép đúng enum schema
+  if (role) {
+    role = role.toUpperCase();
+    if (!Object.values(ROLES).includes(role)) {
+      role = undefined; // hoặc throw lỗi nếu muốn chặt
+    }
+  } // USER/ADMIN
+
+  const { users, total } = await userRepo.findUsersDeleted({
+    page,
+    limit,
+    search,
+    role,
+    isActive,
+  });
+
+  return {
+    items: users,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
 
 exports.getAssignableRoles = async () => {
   // chỉ trả role active, và thường không cho UI gán ADMIN
@@ -542,4 +590,125 @@ exports.updateMyProfile = async (userId, body) => {
   // Không trả passwordHash
   const safe = await userRepo.findById(userId);
   return safe;
+};
+
+
+
+// restore
+
+// helper validate
+function ensureObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
+function uniqIds(ids) {
+  const s = new Set((ids || []).map(String));
+  return Array.from(s);
+}
+
+/**
+ * Restore 1 user + userRole
+ * @param {string} id
+ * @param {{ restoreInactiveRoles?: boolean }} options
+ */
+exports.restoreUser = async (id, options = {}) => {
+  const { restoreInactiveRoles = false } = options;
+
+  if (!ensureObjectId(id)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "UserId không hợp lệ");
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+
+    const user = await userRepo.findById(id, { session }).lean();
+    if (!user) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
+
+    // Nếu bạn muốn chặn restore admin thì bật đoạn này
+    // (tuỳ cấu trúc User: nếu có field role = 'ADMIN' hoặc roles[])
+    // if (user.role === "ADMIN") throw new ApiError(httpStatus.FORBIDDEN, "Không thể restore ADMIN");
+
+    const uRes = await userRepo.restoreById(id, { session });
+
+    let urRes;
+    if (restoreInactiveRoles) {
+      urRes = await userRoleRepo.restoreManyByUserIds([id], { session });
+    } else {
+      const activeRoleIds = await roleRepo.findActiveRoleIds({ session });
+      urRes = await userRoleRepo.restoreManyByUserIdsAndRoleIds([id], activeRoleIds, { session });
+    }
+
+    await session.commitTransaction();
+    return {
+      restoredUser: uRes?.modifiedCount || 0,
+      restoredUserRoles: urRes?.modifiedCount || 0,
+    };
+  } catch (e) {
+    await session.abortTransaction();
+    throw e;
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * Restore nhiều user + userRole
+ * @param {string[]} ids
+ * @param {{ restoreInactiveRoles?: boolean }} options
+ */
+exports.restoreUsersMany = async (ids, options = {}) => {
+  const { restoreInactiveRoles = false } = options;
+
+  const cleanIds = uniqIds(ids);
+  if (!cleanIds.length) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "ids phải là mảng và không được rỗng");
+  }
+
+  // validate all ids
+  const invalid = cleanIds.filter((x) => !ensureObjectId(x));
+  if (invalid.length) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `UserId không hợp lệ: ${invalid.join(", ")}`);
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+
+    const users = await userRepo.findManyByIds(cleanIds, { session }).lean();
+
+    // có thể chọn: chỉ restore những user tồn tại
+    const foundIds = users.map((u) => String(u._id));
+    if (!foundIds.length) {
+      throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user nào");
+    }
+
+    // Nếu muốn chặn ADMIN: lọc ra và báo lỗi hoặc bỏ qua
+    // const hasAdmin = users.some((u) => u.role === "ADMIN");
+    // if (hasAdmin) throw new ApiError(httpStatus.FORBIDDEN, "Danh sách có ADMIN, không được restore");
+
+    const uRes = await userRepo.restoreManyByIds(foundIds, { session });
+
+    let urRes;
+    if (restoreInactiveRoles) {
+      urRes = await userRoleRepo.restoreManyByUserIds(foundIds, { session });
+    } else {
+      const activeRoleIds = await roleRepo.findActiveRoleIds({ session });
+      urRes = await userRoleRepo.restoreManyByUserIdsAndRoleIds(foundIds, activeRoleIds, { session });
+    }
+
+    await session.commitTransaction();
+
+    return {
+      requested: cleanIds.length,
+      found: foundIds.length,
+      restoredUsers: uRes?.modifiedCount || 0,
+      restoredUserRoles: urRes?.modifiedCount || 0,
+    };
+  } catch (e) {
+    await session.abortTransaction();
+    throw e;
+  } finally {
+    session.endSession();
+  }
 };
