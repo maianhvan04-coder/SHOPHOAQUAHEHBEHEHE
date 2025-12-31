@@ -13,9 +13,11 @@ export const endpoints = {
     create: `${v1Admin}/user`,
     update: (id) => `${v1Admin}/user/${id}`,
     remove: (id) => `${v1Admin}/user/${id}`,
+    restore: (id) => `${v1Admin}/user/${id}/restore`,
     bulkSetStatus: `${v1Admin}/user/bulk/status`,
     bulkSoftDelete: `${v1Admin}/user/bulk/delete`,
     getAssignableRoles: `${v1Admin}/user/assignable-roles`,
+
   },
 
   categories: {

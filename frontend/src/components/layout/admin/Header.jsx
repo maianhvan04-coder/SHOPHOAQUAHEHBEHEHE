@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from "react";
 import {
   Box,
   Flex,
@@ -21,352 +21,374 @@ import {
   PopoverArrow,
   Stack,
   Circle,
-} from '@chakra-ui/react'
-import { BellIcon, MoonIcon, SunIcon, UserIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon } from '@heroicons/react/24/outline'
-import { useNavigate, Link } from 'react-router-dom'
-import { authService } from '../../../features/auth/authService'
+  Avatar,
+  Badge,
+  chakra,
+  Portal 
+} from "@chakra-ui/react";
+import {
+  BellIcon,
+  MoonIcon,
+  SunIcon,
+  UserIcon,
+  Cog6ToothIcon,
+  ArrowLeftOnRectangleIcon,
+} from "@heroicons/react/24/outline";
+import { useNavigate, Link } from "react-router-dom";
+import { authService } from "../../../features/auth/authService";
 import { useAuth } from "~/app/providers/AuthProvides";
+
+const HeroIcon = chakra("span", {
+  baseStyle: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
 function Header() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const { colorMode, toggleColorMode } = useColorMode()
-  
-  // Add these color mode values
-  const bgColor = useColorModeValue('#304945', '#243634')
-  const borderColor = useColorModeValue('#3d5b56', '#243634')
-  const activeItemBg = useColorModeValue('#405d58', '#3d5b56')
-  const hoverBg = useColorModeValue('#405d58', '#3d5b56')
-  const notificationBg = useColorModeValue('white', 'gray.800')
-  
-  // Add these menu-specific colors
-  const menuBg = useColorModeValue('white', 'gray.800')
-  const menuBorderColor = useColorModeValue('gray.200', 'gray.700')
-  const menuItemBg = useColorModeValue('white', 'gray.800')
-  const menuItemHoverBg = useColorModeValue('gray.50', 'gray.700')
-  const menuTextColor = useColorModeValue('gray.700', 'gray.200')
-  const iconBg = useColorModeValue('vrv.50', 'whiteAlpha.100')
-  const iconColor = useColorModeValue('vrv.500', 'whiteAlpha.900')
+  const { colorMode, toggleColorMode } = useColorMode();
 
-  // Add handleLogout function
+  // === Modern dark header ===
+  const headerBg = useColorModeValue("#0F172A", "#0B1220"); // slate-950-ish
+  const headerBorder = useColorModeValue("whiteAlpha.200", "whiteAlpha.200");
+
+  const iconBtnHover = useColorModeValue("whiteAlpha.200", "whiteAlpha.200");
+  const iconBtnActive = useColorModeValue("whiteAlpha.300", "whiteAlpha.300");
+
+  const panelBg = useColorModeValue("rgba(17, 24, 39, 0.92)", "rgba(17, 24, 39, 0.92)");
+  const panelBorder = useColorModeValue("whiteAlpha.200", "whiteAlpha.200");
+
+  const subtleText = useColorModeValue("whiteAlpha.700", "whiteAlpha.700");
+  const strongText = useColorModeValue("whiteAlpha.900", "whiteAlpha.900");
+
+  const menuItemHover = useColorModeValue("whiteAlpha.120", "whiteAlpha.120");
+
   const handleLogout = () => {
-    authService.logout()
-    navigate('/login')
-  }
+    authService.logout();
+    navigate("/login");
+  };
 
-  // Mock notifications data
+  // Mock notifications
   const [notifications, setNotifications] = useState([
     {
       id: 1,
-      title: 'New User Added',
-      description: 'John Doe has been added to the system',
-      time: '2 min ago',
+      title: "New User Added",
+      description: "John Doe has been added to the system",
+      time: "2 min ago",
       isRead: false,
-      type: 'user'
+      type: "user",
     },
     {
       id: 2,
-      title: 'Role Updated',
-      description: 'Manager role permissions have been modified',
-      time: '1 hour ago',
+      title: "Role Updated",
+      description: "Manager role permissions have been modified",
+      time: "1 hour ago",
       isRead: false,
-      type: 'role'
+      type: "role",
     },
     {
       id: 3,
-      title: 'System Update',
-      description: 'System maintenance scheduled for tomorrow',
-      time: '2 hours ago',
+      title: "System Update",
+      description: "System maintenance scheduled for tomorrow",
+      time: "2 hours ago",
       isRead: true,
-      type: 'system'
-    }
-  ])
+      type: "system",
+    },
+  ]);
 
-  // Get unread notifications count
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // Mark notification as read
-  const handleNotificationClick = (notificationId) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === notificationId 
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    )
-  }
+  const handleNotificationClick = (id) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+  };
 
-  // Mark all notifications as read
   const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, isRead: true }))
-    )
-  }
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  };
 
-  // Clear all notifications
-  const clearNotifications = () => {
-    setNotifications([])
-  }
-
-  const hoverBgColor = useColorModeValue('gray.50', 'gray.700')
+  const clearNotifications = () => setNotifications([]);
 
   return (
-    <Box bg={bgColor} px={4} borderBottom="1px" borderColor={borderColor}>
-      <Flex h={16} alignItems="center" justifyContent="space-between">
-        <Text 
-          fontSize={{ base: "lg", md: "2xl" }} 
-          fontWeight="semibold" 
-          color="white"
-          pl={{ base: 10, md: 0 }}
-          pt={{ base: 2, md: 0 }}
-        >
-          Dashboard
-        </Text>
+    <Box
+      bg={headerBg}
+      borderBottom="1px solid"
+      borderColor={headerBorder}
+      position="sticky"
+      top={0}
+      zIndex={20}
 
-        <HStack spacing={{ base: 2, md: 4 }}>
-          <Tooltip label={`Switch to ${colorMode === 'light' ? 'dark' : 'light'} mode`}>
+      backdropFilter="blur(10px)"
+    >
+      <Flex h={16} align="center" justify="space-between" px={{ base: 3, md: 5 }}>
+        {/* Left */}
+        <Flex align="center" gap={3} minW={0}>
+          <Text
+            fontSize={{ base: "lg", md: "xl" }}
+            fontWeight="700"
+            color={strongText}
+            letterSpacing="-0.02em"
+            noOfLines={1}
+          >
+            Dashboard
+          </Text>
+          <Badge
+            display={{ base: "none", md: "inline-flex" }}
+            bg="whiteAlpha.100"
+            color="whiteAlpha.800"
+            border="1px solid"
+            borderColor="whiteAlpha.200"
+            borderRadius="full"
+            px={3}
+            py={1}
+            fontWeight="600"
+            fontSize="xs"
+          >
+            Admin
+          </Badge>
+        </Flex>
+
+        {/* Right */}
+        <HStack spacing={{ base: 1, md: 2 }}>
+          {/* Theme */}
+          <Tooltip
+            label={`Switch to ${colorMode === "light" ? "dark" : "light"} mode`}
+            hasArrow
+          >
             <IconButton
-              size={{ base: 'sm', md: 'md' }}
+              aria-label="Toggle theme"
               variant="ghost"
-              icon={colorMode === 'light' ? 
-                <MoonIcon className="h-4 w-4 md:h-5 md:w-5" /> : 
-                <SunIcon className="h-4 w-4 md:h-5 md:w-5" />
+              size="sm"
+              color="whiteAlpha.900"
+              _hover={{ bg: iconBtnHover }}
+              _active={{ bg: iconBtnActive }}
+              borderRadius="full"
+              icon={
+                colorMode === "light" ? (
+                  <MoonIcon className="h-5 w-5" />
+                ) : (
+                  <SunIcon className="h-5 w-5" />
+                )
               }
               onClick={toggleColorMode}
-              aria-label={`Switch to ${colorMode === 'light' ? 'dark' : 'light'} mode`}
-              color="white"
-              _hover={{ bg: hoverBg }}
             />
           </Tooltip>
 
-          <Box position="relative">
-            <Popover>
-              <PopoverTrigger>
-                <Box position="relative">
-                  <IconButton
-                    size={{ base: 'sm', md: 'md' }}
-                    variant="ghost"
-                    icon={<BellIcon className="h-5 w-5 md:h-6 md:w-6" />}
-                    aria-label="Notifications"
+          {/* Notifications */}
+          <Popover placement="bottom-end">
+            <PopoverTrigger>
+              <Box position="relative">
+                <IconButton
+                  aria-label="Notifications"
+                  variant="ghost"
+                  size="sm"
+                  color="whiteAlpha.900"
+                  _hover={{ bg: iconBtnHover }}
+                  _active={{ bg: iconBtnActive }}
+                  borderRadius="full"
+                  icon={<BellIcon className="h-5 w-5" />}
+                />
+                {unreadCount > 0 && (
+                  <Circle
+                    size="18px"
+                    bg="red.500"
                     color="white"
-                    _hover={{ bg: hoverBg }}
-                  />
-                  {unreadCount > 0 && (
-                    <Circle
-                      size="5"
-                      bg="red.500"
-                      color="white"
-                      position="absolute"
-                      top={0}
-                      right={0}
-                      transform="translate(25%, -25%)"
-                      fontSize="xs"
-                      fontWeight="bold"
-                    >
-                      {unreadCount}
-                    </Circle>
-                  )}
-                </Box>
-              </PopoverTrigger>
+                    position="absolute"
+                    top="-1"
+                    right="-1"
+                    fontSize="10px"
+                    fontWeight="800"
+                    border="2px solid"
+                    borderColor={headerBg}
+                  >
+                    {unreadCount}
+                  </Circle>
+                )}
+              </Box>
+            </PopoverTrigger>
+
+          <Portal>
               <PopoverContent
-                w="350px"
-                bg={notificationBg}
-                border="1px solid"
-                borderColor="#304945"
-                _focus={{ boxShadow: 'none' }}
-              >
-                <PopoverArrow />
-                <PopoverHeader borderBottomWidth="1px" py={4}>
-                  <Flex justify="space-between" align="center">
-                    <Text fontWeight="medium">Notifications</Text>
-                    <HStack spacing={2}>
-                      <Text
-                        fontSize="sm"
-                        color="vrv.500"
+             zIndex={2000}
+      w={{ base: "92vw", sm: "360px" }}
+      bg={panelBg}
+      border="1px solid"
+      borderColor={panelBorder}
+      borderRadius="16px"
+      overflow="hidden"
+      boxShadow="0 20px 60px rgba(0,0,0,0.45)"
+      _focus={{ boxShadow: "none" }}
+            >
+              <PopoverArrow bg={panelBg} />
+              <PopoverHeader borderBottom="1px solid" borderColor="whiteAlpha.200" py={4}>
+                <Flex justify="space-between" align="center">
+                  <Text fontWeight="700" color={strongText}>
+                    Notifications
+                  </Text>
+                  <HStack spacing={3}>
+                    <Text
+                      fontSize="sm"
+                      color="cyan.300"
+                      cursor="pointer"
+                      onClick={markAllAsRead}
+                      _hover={{ textDecoration: "underline" }}
+                    >
+                      Mark all
+                    </Text>
+                    <Text
+                      fontSize="sm"
+                      color="red.300"
+                      cursor="pointer"
+                      onClick={clearNotifications}
+                      _hover={{ textDecoration: "underline" }}
+                    >
+                      Clear
+                    </Text>
+                  </HStack>
+                </Flex>
+              </PopoverHeader>
+
+              <PopoverBody p={0}>
+                <Stack spacing={0} maxH="380px" overflowY="auto">
+                  {notifications.length === 0 ? (
+                    <Box p={5} textAlign="center">
+                      <Text color={subtleText}>No notifications</Text>
+                    </Box>
+                  ) : (
+                    notifications.map((n) => (
+                      <Box
+                        key={n.id}
+                        px={4}
+                        py={3}
                         cursor="pointer"
-                        onClick={markAllAsRead}
-                        _hover={{ textDecoration: 'underline' }}
+                        borderBottom="1px solid"
+                        borderColor="whiteAlpha.100"
+                        bg={n.isRead ? "transparent" : "whiteAlpha.60"}
+                        _hover={{ bg: "whiteAlpha.120" }}
+                        transition="background 160ms ease"
+                        onClick={() => handleNotificationClick(n.id)}
                       >
-                        Mark all as read
-                      </Text>
-                      <Text
-                        fontSize="sm"
-                        color="red.500"
-                        cursor="pointer"
-                        onClick={clearNotifications}
-                        _hover={{ textDecoration: 'underline' }}
-                      >
-                        Clear all
-                      </Text>
-                    </HStack>
-                  </Flex>
-                </PopoverHeader>
-                <PopoverBody p={0}>
-                  <Stack spacing={0} maxH="400px" overflowY="auto">
-                    {notifications.length === 0 ? (
-                      <Box p={4} textAlign="center">
-                        <Text color="gray.500">No notifications</Text>
+                        <Flex align="start" justify="space-between" gap={3}>
+                          <Box>
+                            <Text fontWeight="700" fontSize="sm" color={strongText}>
+                              {n.title}
+                            </Text>
+                            <Text fontSize="sm" color={subtleText} mt={0.5}>
+                              {n.description}
+                            </Text>
+                            <Text fontSize="xs" color="whiteAlpha.600" mt={1}>
+                              {n.time}
+                            </Text>
+                          </Box>
+
+                          {!n.isRead && (
+                            <Circle size="8px" bg="cyan.300" mt={1.5} />
+                          )}
+                        </Flex>
                       </Box>
-                    ) : (
-                      notifications.map((notification) => (
-                        <Box
-                          key={notification.id}
-                          p={4}
-                          bg={notification.isRead ? 'transparent' : 'vrv.50'}
-                          _hover={{ bg: hoverBgColor }}
-                          cursor="pointer"
-                          onClick={() => handleNotificationClick(notification.id)}
-                          borderBottomWidth="1px"
-                          borderColor="inherit"
-                        >
-                          <Text fontWeight="medium" fontSize="sm">
-                            {notification.title}
-                          </Text>
-                          <Text fontSize="sm" color="gray.500" mt={1}>
-                            {notification.description}
-                          </Text>
-                          <Text fontSize="xs" color="gray.400" mt={1}>
-                            {notification.time}
-                          </Text>
-                        </Box>
-                      ))
-                    )}
-                  </Stack>
-                </PopoverBody>
-              </PopoverContent>
-            </Popover>
-          </Box>
+                    ))
+                  )}
+                </Stack>
+              </PopoverBody>
+            </PopoverContent>
+          </Portal>
+          </Popover>
 
-          <Box w="1px" h="8" bg={borderColor} opacity="0.3" display={{ base: 'none', md: 'block' }} />
+          <Box w="1px" h="8" bg="whiteAlpha.200" display={{ base: "none", md: "block" }} />
 
-          <Menu>
+          {/* User Menu */}
+          <Menu placement="bottom-end">
             <MenuButton
               as={Flex}
-              bg={activeItemBg}
-              p={{ base: "1", md: "2" }}
-              rounded="lg"
               align="center"
+              gap={3}
               cursor="pointer"
-              transition="all 0.2s"
-              _hover={{ bg: hoverBg }}
+              px={2}
+              py={1.5}
+              borderRadius="14px"
+              bg="whiteAlpha.80"
+              _hover={{ bg: "whiteAlpha.120" }}
+              transition="all 180ms ease"
             >
-              <Flex align="center" minW={{ base: "auto", md: "200px" }}>
-                <Box
-                  w={{ base: "7", md: "8" }}
-                  h={{ base: "7", md: "8" }}
-                  rounded="lg"
-                  bg={hoverBg}
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  fontSize={{ base: "xs", md: "sm" }}
-                  fontWeight="bold"
-                  color="white"
-                >
-                  {user?.name?.charAt(0) || 'A'}
-                </Box>
-                <Box ml="3" flex="1" display={{ base: 'none', md: 'block' }}>
-                  <Text fontSize="sm" fontWeight="medium" color="white" noOfLines={1}>
-                    {user?.name || 'Admin'}
-                  </Text>
-                  <Text fontSize="xs" color="whiteAlpha.800" noOfLines={1}>
-                    {user?.email || 'admin@vrv.com'}
-                  </Text>
-                </Box>
-              </Flex>
+              <Avatar
+                size="sm"
+                name={user?.name || "Admin"}
+                src={user?.avatarUrl || ""}
+                bg="whiteAlpha.200"
+              />
+           
             </MenuButton>
+
             <MenuList
-              bg={menuBg}
-              borderColor={menuBorderColor}
-              shadow="lg"
+              bg={panelBg}
+              border="1px solid"
+              borderColor={panelBorder}
+              borderRadius="16px"
+              boxShadow="0 20px 60px rgba(0,0,0,0.45)"
               py={2}
               overflow="hidden"
+              minW="240px"
             >
               <MenuItem
-                bg={menuItemBg}
-                _hover={{ bg: menuItemHoverBg }}
-                color={menuTextColor}
-                px={{ base: 3, md: 4 }}
-                py={{ base: 2, md: 3 }}
-                fontSize="sm"
-                fontWeight="medium"
-                transition="all 0.2s"
+                as={Link}
+                to="/profile"
+                bg="transparent"
+                _hover={{ bg: menuItemHover }}
+                color={strongText}
+                py={3}
+                icon={
+                  <HeroIcon>
+                    <UserIcon className="h-5 w-5" />
+                  </HeroIcon>
+                }
               >
-                <Link to="/profile">
-                  <HStack spacing={{ base: 2, md: 3 }}>
-                    <Box
-                      p={{ base: 1.5, md: 2 }}
-                      bg={iconBg}
-                      rounded="md"
-                      color={iconColor}
-                    >
-                      <UserIcon className="h-4 w-4" />
-                    </Box>
-                    <Text>Profile</Text>
-                  </HStack>
-                </Link>
+                Profile
               </MenuItem>
 
               <MenuItem
-                bg={menuItemBg}
-                _hover={{ bg: menuItemHoverBg }}
-                color={menuTextColor}
-                px={{ base: 3, md: 4 }}
-                py={{ base: 2, md: 3 }}
-                fontSize="sm"
-                fontWeight="medium"
-                transition="all 0.2s"
+                as={Link}
+                to="/settings"
+                bg="transparent"
+                _hover={{ bg: menuItemHover }}
+                color={strongText}
+                py={3}
+                icon={
+                  <HeroIcon>
+                    <Cog6ToothIcon className="h-5 w-5" />
+                  </HeroIcon>
+                }
               >
-                <Link to="/settings">
-                  <HStack spacing={{ base: 2, md: 3 }}>
-                    <Box
-                      p={{ base: 1.5, md: 2 }}
-                      bg={iconBg}
-                      rounded="md"
-                      color={iconColor}
-                    >
-                      <Cog6ToothIcon className="h-4 w-4" />
-                    </Box>
-                    <Text>Settings</Text>
-                  </HStack>
-                </Link>
+                Settings
               </MenuItem>
 
               <Box px={3} py={2}>
-                <Divider borderColor={menuBorderColor} />
+                <Divider borderColor="whiteAlpha.200" />
               </Box>
 
               <MenuItem
-                bg={menuItemBg}
-                _hover={{ 
-                  bg: useColorModeValue('red.50', 'red.900'),
-                  color: 'red.500',
-                }}
-                color={menuTextColor}
-                px={{ base: 3, md: 4 }}
-                py={{ base: 2, md: 3 }}
-                fontSize="sm"
-                fontWeight="medium"
-                transition="all 0.2s"
+                bg="transparent"
+                _hover={{ bg: "red.500", color: "white" }}
+                color="red.300"
+                py={3}
                 onClick={handleLogout}
+                icon={
+                  <HeroIcon>
+                    <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+                  </HeroIcon>
+                }
               >
-                <HStack spacing={{ base: 2, md: 3 }}>
-                  <Box
-                    p={{ base: 1.5, md: 2 }}
-                    bg={useColorModeValue('red.50', 'whiteAlpha.100')}
-                    rounded="md"
-                    color={useColorModeValue('red.500', 'red.300')}
-                  >
-                    <ArrowLeftOnRectangleIcon className="h-4 w-4" />
-                  </Box>
-                  <Text>Sign out</Text>
-                </HStack>
+                Sign out
               </MenuItem>
             </MenuList>
           </Menu>
         </HStack>
       </Flex>
     </Box>
-  )
+  );
 }
 
-export default Header 
+export default Header;

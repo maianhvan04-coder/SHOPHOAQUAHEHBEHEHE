@@ -24,3 +24,10 @@ exports.existsByCodeExceptId = async (code, id) => {
     const doc = await Role.findOne({ code, _id: { $ne: id } }).select("_id").lean();
     return !!doc;
 };
+
+exports.findActiveRoleIds = async (opts = {}) => {
+    const q = Role.find({ isDeleted: false, isActive: true }).select("_id");
+    if (opts.session) q.session(opts.session);
+    const rows = await q.lean();
+    return rows.map((r) => String(r._id));
+};

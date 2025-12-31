@@ -28,6 +28,19 @@ export const userService = {
   bulkSoftDelete(ids) {
     return apiClient.patch(endpoints.users.bulkSoftDelete, { ids });
   },
+
+   restore(id) {
+    // C1: nếu backend có route restore riêng
+    return apiClient.patch(endpoints.users.restore(id));
+
+   
+  },
+
+    bulkRestore(ids) {
+    // C1: nếu backend có route bulkRestore
+    return apiClient.patch(endpoints.users.bulkRestore, { ids });
+
+  },
    // ~/features/users/userService.jsx
 getAssignableRoles: async () => {
   const res = await apiClient.get(endpoints.users.getAssignableRoles);

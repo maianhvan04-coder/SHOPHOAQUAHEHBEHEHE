@@ -69,4 +69,16 @@ router.post(
     validate(userValidator.setUserRoles),
     controller.setUserRoles
 );
+
+
+
+// GET /api/v1/admin/user
+router.get(
+    "/alldeleted",
+    ...guard({ any: [PERMISSIONS.USER_READ] }),
+    controller.getAllUsersDeleted
+);
+
+router.patch("/bulk/restore", ...guard({ any: [PERMISSIONS.USER_UPDATE] }), controller.restoreUsersMany);
+router.patch("/:id/restore", ...guard({ any: [PERMISSIONS.USER_UPDATE] }), controller.restoreUser);
 module.exports = router;

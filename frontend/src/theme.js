@@ -5,7 +5,7 @@ const config = {
   useSystemColorMode: false,
 };
 
-const theme = extendTheme({
+const adminTheme = extendTheme({
   config,
   colors: {
     vrv: {
@@ -21,6 +21,18 @@ const theme = extendTheme({
       900: "#000000",
     },
   },
+
+  // (optional nhưng nên có) global style để tránh “cắt / scroll weird”
+  styles: {
+    global: {
+      "html, body, #root": {
+        height: "100%",
+      },
+      body: {
+        margin: 0,
+      },
+    },
+  },
 });
 
-export default theme;
+export default adminTheme;
