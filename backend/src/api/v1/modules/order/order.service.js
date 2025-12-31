@@ -136,10 +136,20 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
   return await order.save();
 };
 module.exports.getAllOrdersAdmin = async (query) => {
-  const { status, limit = 10, page = 1 } = query;
+  const { status, limit = 10, page = 1, orderId } = query;
   const filter = {};
   if (status) filter["status.orderStatus"] = status;
+  if (orderId && orderId.trim().length > 0) {
+    const searchStr = orderId.trim().toLowerCase();
+    const allOrders = await Order.find(
+      status ? { "status.orderStatus": status } : {}
+    ).select("_id");
+    const matchedIds = allOrders
+      .filter((order) => order._id.toString().toLowerCase().includes(searchStr))
+      .map((order) => order._id);
 
+    filter["_id"] = { $in: matchedIds };
+  }
   const totalItems = await Order.countDocuments(filter);
   const orders = await Order.find(filter)
     .populate("user", "fullName phone")
@@ -147,5 +157,5 @@ module.exports.getAllOrdersAdmin = async (query) => {
     .limit(Number(limit))
     .skip((Number(page) - 1) * Number(limit));
 
-  return { orders, totalItems }; // Trả về object
+  return { orders, totalItems };
 };

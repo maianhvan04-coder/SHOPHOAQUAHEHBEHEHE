@@ -70,9 +70,8 @@ export const fetchAllOrdersAdmin = createAsyncThunk(
   "order/fetchAllOrdersAdmin",
   async (query, { rejectWithValue }) => {
     try {
-      
       const response = await getAllOrdersAPI(query);
-      console.log(response)
+      
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
