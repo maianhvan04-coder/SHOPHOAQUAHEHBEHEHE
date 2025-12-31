@@ -2,6 +2,7 @@ const asyncHandler = require("../../../../core/asyncHandler");
 // Getall User
 const userService = require("./user.service");
 module.exports.getAllUsers = (asyncHandler(async (req, res) => {
+   console.log(req.query)
    const result = await userService.getUsers(req.query);
    res.json({ result })
 }))
@@ -101,4 +102,45 @@ exports.setUserRoles = asyncHandler(async (req, res, next) => {
 
    const result = await userService.setUserRoles(userId, roleCodes, req.user?.sub);
    return res.json({ result });
+});
+
+
+
+module.exports.getAllUsersDeleted = (asyncHandler(async (req, res) => {
+   const result = await userService.getUsersDeleted(req.query);
+   res.json({ result })
+}))
+
+
+exports.restoreUser = asyncHandler(async (req, res) => {
+   const { id } = req.params;
+   const { restoreInactiveRoles = false } = req.body || {};
+
+   const ok = await userService.restoreUser(id, { restoreInactiveRoles });
+
+   return res.status(200).json({
+      success: true,
+      message: "Restore user thành công",
+      result: ok,
+   });
+});
+
+/**
+ * PATCH /admin/users/bulk/restore
+ * body: { ids: string[], restoreInactiveRoles?: boolean }
+ */
+exports.restoreUsersMany = asyncHandler(async (req, res) => {
+   const { ids, restoreInactiveRoles = false } = req.body || {};
+
+   if (!Array.isArray(ids) || ids.length === 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "ids phải là mảng và không được rỗng");
+   }
+
+   const result = await userService.restoreUsersMany(ids, { restoreInactiveRoles });
+
+   return res.status(httpStatus.OK).json({
+      success: true,
+      message: "Restore nhiều user thành công",
+      result,
+   });
 });

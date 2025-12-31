@@ -37,6 +37,17 @@ import {
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, EditIcon } from "@chakra-ui/icons";
 
+// ✅ slugify để gửi slug (tránh lỗi "slug is required")
+const slugify = (str) =>
+  str
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu
+    .replace(/[^a-z0-9\s-]/g, "") // bỏ ký tự lạ
+    .replace(/\s+/g, "-") // space -> -
+    .replace(/-+/g, "-"); // gộp --
+
 export default function AdminCategoryPage() {
   const {
     categories,
@@ -62,10 +73,13 @@ export default function AdminCategoryPage() {
   // ===== FORM STATE =====
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState("single"); // ✅ NEW: shop | mix
+  const [type, setType] = useState("single"); // single | mix
   const [isActive, setIsActive] = useState(true);
 
-  const title = useMemo(() => (editing ? "Sửa danh mục" : "Thêm danh mục"), [editing]);
+  const title = useMemo(
+    () => (editing ? "Sửa danh mục" : "Thêm danh mục"),
+    [editing]
+  );
 
   const resetForm = () => {
     setEditing(null);
@@ -96,7 +110,6 @@ export default function AdminCategoryPage() {
 
   const handleSave = async () => {
     const trimmedName = name.trim();
-
     if (!trimmedName) {
       toast({
         title: "Tên danh mục không được để trống",
@@ -108,21 +121,34 @@ export default function AdminCategoryPage() {
       return;
     }
 
-    // ✅ slug auto: KHÔNG gửi slug nữa
+    // ✅ gửi đủ field (name/slug/description/type/isActive)
     const payload = {
       name: trimmedName,
+      slug: slugify(trimmedName),
       description: description?.trim() || "",
-      type, // ✅ shop/mix để hiển thị đúng menu
+      type,
       isActive: Boolean(isActive),
     };
 
     try {
       if (editing?._id) {
         await updateCategory(editing._id, payload);
-        toast({ title: "Cập nhật danh mục thành công", status: "success", duration: 1600, isClosable: true, position: "top" });
+        toast({
+          title: "Cập nhật danh mục thành công",
+          status: "success",
+          duration: 1600,
+          isClosable: true,
+          position: "top",
+        });
       } else {
         await createCategory(payload);
-        toast({ title: "Tạo danh mục thành công", status: "success", duration: 1600, isClosable: true, position: "top" });
+        toast({
+          title: "Tạo danh mục thành công",
+          status: "success",
+          duration: 1600,
+          isClosable: true,
+          position: "top",
+        });
       }
       closeModal();
     } catch (err) {
@@ -143,7 +169,13 @@ export default function AdminCategoryPage() {
 
     try {
       await deleteCategory(id);
-      toast({ title: "Đã xoá danh mục", status: "success", duration: 1600, isClosable: true, position: "top" });
+      toast({
+        title: "Đã xoá danh mục",
+        status: "success",
+        duration: 1600,
+        isClosable: true,
+        position: "top",
+      });
     } catch (err) {
       toast({
         title: "Xoá thất bại",
@@ -158,28 +190,48 @@ export default function AdminCategoryPage() {
 
   return (
     <Container maxW="7xl" py={6}>
-      <Flex direction={{ base: "column", md: "row" }} gap={4} align={{ md: "center" }} justify="space-between" mb={6}>
+      {/* ===== HEADER + ACTION ===== */}
+      <Flex
+        direction={{ base: "column", md: "row" }}
+        gap={4}
+        align={{ md: "center" }}
+        justify="space-between"
+        mb={6}
+      >
         <Box>
-          <Heading size="lg" color="gray.800">Quản lý danh mục</Heading>
-          <Text mt={1} fontSize="sm" color="gray.500">Quản lý các danh mục sản phẩm trong hệ thống</Text>
+          <Heading size="lg" color="gray.800">
+            Quản lý danh mục
+          </Heading>
+          <Text mt={1} fontSize="sm" color="gray.500">
+            Quản lý các danh mục sản phẩm trong hệ thống
+          </Text>
         </Box>
 
         <HStack spacing={3}>
           <Input
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             placeholder="Tìm danh mục..."
             w={{ base: "full", md: "320px" }}
             bg="white"
             borderRadius="xl"
             focusBorderColor="green.500"
           />
-          <Button onClick={openCreate} leftIcon={<AddIcon />} colorScheme="green" borderRadius="xl">
+          <Button
+            onClick={openCreate}
+            leftIcon={<AddIcon />}
+            colorScheme="green"
+            borderRadius="xl"
+          >
             Thêm danh mục
           </Button>
         </HStack>
       </Flex>
 
+      {/* ===== TABLE ===== */}
       <Box bg="white" borderRadius="2xl" boxShadow="sm" borderWidth="1px">
         {loading ? (
           <Flex p={6} align="center" gap={3} color="gray.500">
@@ -203,28 +255,56 @@ export default function AdminCategoryPage() {
                 {categories?.length === 0 ? (
                   <Tr>
                     <Td colSpan={5}>
-                      <Box py={10} textAlign="center" color="gray.500">Không có danh mục</Box>
+                      <Box py={10} textAlign="center" color="gray.500">
+                        Không có danh mục
+                      </Box>
                     </Td>
                   </Tr>
                 ) : (
                   categories.map((c, index) => (
                     <Tr key={c._id} _hover={{ bg: "gray.50" }}>
-                      <Td color="gray.500" fontSize="sm">{(page - 1) * limit + index + 1}</Td>
-                      <Td fontWeight="semibold" color="gray.800">{c.name}</Td>
+                      <Td color="gray.500" fontSize="sm">
+                        {(page - 1) * limit + index + 1}
+                      </Td>
+
+                      <Td fontWeight="semibold" color="gray.800">
+                        {c.name}
+                      </Td>
+
                       <Td color="gray.600" fontSize="sm">
                         {c.type === "mix" ? "Mix" : "Single"}
                       </Td>
+
                       <Td>
                         {c.isActive ? (
-                          <Badge colorScheme="green" borderRadius="md">Active</Badge>
+                          <Badge colorScheme="green" borderRadius="md">
+                            Active
+                          </Badge>
                         ) : (
-                          <Badge colorScheme="gray" borderRadius="md">Inactive</Badge>
+                          <Badge colorScheme="gray" borderRadius="md">
+                            Inactive
+                          </Badge>
                         )}
                       </Td>
+
                       <Td textAlign="right">
                         <HStack justify="flex-end" spacing={2}>
-                          <IconButton aria-label="Sửa" icon={<EditIcon />} size="sm" variant="outline" colorScheme="yellow" onClick={() => openEdit(c)} />
-                          <IconButton aria-label="Xoá" icon={<DeleteIcon />} size="sm" variant="outline" colorScheme="red" onClick={() => handleDelete(c._id)} />
+                          <IconButton
+                            aria-label="Sửa"
+                            icon={<EditIcon />}
+                            size="sm"
+                            variant="outline"
+                            colorScheme="yellow"
+                            onClick={() => openEdit(c)}
+                          />
+                          <IconButton
+                            aria-label="Xoá"
+                            icon={<DeleteIcon />}
+                            size="sm"
+                            variant="outline"
+                            colorScheme="red"
+                            onClick={() => handleDelete(c._id)}
+                          />
                         </HStack>
                       </Td>
                     </Tr>
@@ -243,7 +323,10 @@ export default function AdminCategoryPage() {
               totalItems={totalItems}
               totalPages={totalPages}
               onPageChange={(p) => setPage(p)}
-              onLimitChange={(n) => { setLimit(n); setPage(1); }}
+              onLimitChange={(n) => {
+                setLimit(n);
+                setPage(1);
+              }}
               limitOptions={[5, 10, 20, 50]}
               siblingCount={1}
               showJump={true}
@@ -253,6 +336,7 @@ export default function AdminCategoryPage() {
         )}
       </Box>
 
+      {/* ===== MODAL ===== */}
       <Modal isOpen={isOpen} onClose={closeModal} isCentered>
         <ModalOverlay bg="blackAlpha.400" />
         <ModalContent borderRadius="2xl">
@@ -268,18 +352,22 @@ export default function AdminCategoryPage() {
                   placeholder="Ví dụ: Trái cây nhập khẩu"
                   borderRadius="xl"
                   focusBorderColor="green.500"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSave();
+                  }}
                 />
               </FormControl>
 
               <FormControl>
-                <FormLabel>Hiển thị ở</FormLabel>
-                <Select value={type} onChange={(e) => setType(e.target.value)} borderRadius="xl">
+                <FormLabel>Loại</FormLabel>
+                <Select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  borderRadius="xl"
+                >
                   <option value="single">Single</option>
                   <option value="mix">Mix</option>
                 </Select>
-                <Text mt={1} fontSize="xs" color="gray.500">
-                  Chọn “Single” để hiện trong menu Shop, chọn “Mix” để hiện trong menu Mix.
-                </Text>
               </FormControl>
 
               <FormControl>
@@ -297,7 +385,11 @@ export default function AdminCategoryPage() {
               <FormControl>
                 <HStack justify="space-between">
                   <FormLabel mb={0}>Kích hoạt</FormLabel>
-                  <Switch isChecked={isActive} onChange={(e) => setIsActive(e.target.checked)} colorScheme="green" />
+                  <Switch
+                    isChecked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    colorScheme="green"
+                  />
                 </HStack>
               </FormControl>
             </Stack>
@@ -305,8 +397,12 @@ export default function AdminCategoryPage() {
 
           <ModalFooter>
             <HStack spacing={2}>
-              <Button variant="ghost" onClick={closeModal}>Huỷ</Button>
-              <Button colorScheme="green" onClick={handleSave}>Lưu</Button>
+              <Button variant="ghost" onClick={closeModal}>
+                Huỷ
+              </Button>
+              <Button colorScheme="green" onClick={handleSave}>
+                Lưu
+              </Button>
             </HStack>
           </ModalFooter>
         </ModalContent>

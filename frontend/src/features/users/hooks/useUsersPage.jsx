@@ -1,4 +1,3 @@
-// useUsersPage.js
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDisclosure, useToast } from "@chakra-ui/react";
 import { format, formatDistanceToNow } from "date-fns";
@@ -8,6 +7,8 @@ import { createUserAdmin } from "~/api/user.api";
 export function useUsersPage() {
   const toast = useToast();
 
+  const [tab, setTab] = useState("active"); // "active" | "deleted"
+
   const [users, setUsers] = useState([]);
   const [pagination, setPagination] = useState(null);
 
@@ -15,13 +16,12 @@ export function useUsersPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userToDelete, setUserToDelete] = useState(null);
 
-  // ✅ NEW: selection + row loading
   const [selectedIds, setSelectedIds] = useState([]);
-  const [rowBusy, setRowBusy] = useState({}); // { [id]: true }
+  const [rowBusy, setRowBusy] = useState({});
 
   const form = useDisclosure();
   const del = useDisclosure();
-  const bulkDel = useDisclosure(); // ✅ modal xác nhận xóa nhiều
+  const bulkDel = useDisclosure();
 
   const [filters, setFilters] = useState({
     search: "",
@@ -29,33 +29,60 @@ export function useUsersPage() {
     status: "",
   });
 
-  const loadUsers = useCallback(async (params = {}) => {
-    setIsLoading(true);
-    try {
-      const { items, pagination } = await userService.getAll(params);
-      setUsers(Array.isArray(items) ? items : []);
-      setPagination(pagination || null);
-      setSelectedIds([]); // ✅ reload list thì clear selection cho đỡ rối
-    } catch (error) {
-      toast({
-        title: "Error loading users",
-        description: error?.message || "Không tải được users",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+  const loadUsers = useCallback(
+    async (params = {}) => {
+      setIsLoading(true);
+      try {
+        const finalParams = {
+          ...params,
+          // ✅ ưu tiên params.isDeleted nếu có, còn không mới lấy theo tab
+          isDeleted:
+            typeof params.isDeleted === "boolean"
+              ? params.isDeleted
+              : tab === "deleted",
+        };
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+
+        const { items, pagination } = await userService.getAll(finalParams);
+        setUsers(Array.isArray(items) ? items : []);
+        setPagination(pagination || null);
+        setSelectedIds([]);
+      } catch (error) {
+        toast({
+          title: "Error loading users",
+          description: error?.message || "Không tải được users",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [toast, tab]
+  );
+
+  useEffect(() => {
+    loadUsers({ page: 1, isDeleted: tab === "deleted" });
+  }, [tab, loadUsers]);
+
+
+  const changeTab = useCallback(
+    (nextTab) => {
+      setTab(nextTab);
+      setSelectedIds([]);
+
+      // gọi API theo tab mới ngay (đừng đợi state)
+      loadUsers({ page: 1, isDeleted: nextTab === "deleted" });
+    },
+    [loadUsers]
+  );
 
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  // ====== Selection helpers ======
+  // ===== Selection =====
   const toggleSelect = useCallback((id) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -67,84 +94,81 @@ export function useUsersPage() {
   const selectAll = useCallback((idsOnPage) => {
     setSelectedIds((prev) => {
       const allSelected = idsOnPage.every((id) => prev.includes(id));
-      if (allSelected) {
-        // bỏ chọn tất cả trên page
-        return prev.filter((id) => !idsOnPage.includes(id));
-      }
-      // chọn tất cả trên page (merge)
+      if (allSelected) return prev.filter((id) => !idsOnPage.includes(id));
       const set = new Set(prev);
       idsOnPage.forEach((id) => set.add(id));
       return Array.from(set);
     });
   }, []);
 
-  // ====== Toggle 1 user status ======
-  const toggleUserStatus = useCallback(async (u) => {
-    if (!u?._id) return;
+  // ===== Toggle status (chỉ hợp lý ở tab active) =====
+  const toggleUserStatus = useCallback(
+    async (u) => {
+      if (!u?._id) return;
 
-    const nextActive = !u.isActive;
+      const nextActive = !u.isActive;
+      setRowBusy((p) => ({ ...p, [u._id]: true }));
 
-    setRowBusy((p) => ({ ...p, [u._id]: true }));
-    try {
-      // dùng bulkSetStatus cho đồng nhất API
-      await userService.bulkSetStatus([u._id], nextActive);
+      try {
+        await userService.bulkSetStatus([u._id], nextActive);
+        setUsers((prev) =>
+          prev.map((x) => (x._id === u._id ? { ...x, isActive: nextActive } : x))
+        );
 
-      // ✅ update local (đỡ phải reload)
-      setUsers((prev) =>
-        prev.map((x) => (x._id === u._id ? { ...x, isActive: nextActive } : x))
-      );
+        toast({
+          title: "Updated status",
+          description: `${u.fullName || u.email} → ${nextActive ? "Active" : "Inactive"}`,
+          status: "success",
+          duration: 2000,
+        });
+      } catch (e) {
+        toast({
+          title: "Update status failed",
+          description: e?.response?.data?.error?.message || e?.message || "Failed",
+          status: "error",
+          duration: 3000,
+        });
+      } finally {
+        setRowBusy((p) => {
+          const n = { ...p };
+          delete n[u._id];
+          return n;
+        });
+      }
+    },
+    [toast]
+  );
 
-      toast({
-        title: "Updated status",
-        description: `${u.fullName || u.email} → ${nextActive ? "Active" : "Inactive"}`,
-        status: "success",
-        duration: 2000,
-      });
-    } catch (e) {
-      toast({
-        title: "Update status failed",
-        description: e?.response?.data?.error?.message || e?.message || "Failed",
-        status: "error",
-        duration: 3000,
-      });
-    } finally {
-      setRowBusy((p) => {
-        const n = { ...p };
-        delete n[u._id];
-        return n;
-      });
-    }
-  }, [toast]);
+  // ===== Bulk actions (tab active) =====
+  const bulkSetStatus = useCallback(
+    async (isActive) => {
+      if (!selectedIds.length) return;
 
-  // ====== Bulk actions ======
-  const bulkSetStatus = useCallback(async (isActive) => {
-    if (!selectedIds.length) return;
+      try {
+        await userService.bulkSetStatus(selectedIds, isActive);
+        setUsers((prev) =>
+          prev.map((x) => (selectedIds.includes(x._id) ? { ...x, isActive } : x))
+        );
 
-    try {
-      await userService.bulkSetStatus(selectedIds, isActive);
+        toast({
+          title: "Bulk update status success",
+          description: `Đã cập nhật ${selectedIds.length} user`,
+          status: "success",
+          duration: 2500,
+        });
 
-      // update local
-      setUsers((prev) =>
-        prev.map((x) => (selectedIds.includes(x._id) ? { ...x, isActive } : x))
-      );
-
-      toast({
-        title: "Bulk update status success",
-        description: `Đã cập nhật ${selectedIds.length} user`,
-        status: "success",
-        duration: 2500,
-      });
-
-      clearSelection();
-    } catch (e) {
-      toast({
-        title: "Bulk update failed",
-        description: e?.response?.data?.error?.message || e?.message || "Failed",
-        status: "error",
-        duration: 3000,
-      });
-    }
-  }, [selectedIds, toast, clearSelection]);
+        clearSelection();
+      } catch (e) {
+        toast({
+          title: "Bulk update failed",
+          description: e?.response?.data?.error?.message || e?.message || "Failed",
+          status: "error",
+          duration: 3000,
+        });
+      }
+    },
+    [selectedIds, toast, clearSelection]
+  );
 
   const openBulkDelete = useCallback(() => {
     if (!selectedIds.length) return;
@@ -153,9 +177,9 @@ export function useUsersPage() {
 
   const confirmBulkDelete = useCallback(async () => {
     if (!selectedIds.length) return;
+
     try {
       await userService.bulkSoftDelete(selectedIds);
-
       setUsers((prev) => prev.filter((x) => !selectedIds.includes(x._id)));
 
       toast({
@@ -177,51 +201,97 @@ export function useUsersPage() {
     }
   }, [selectedIds, toast, clearSelection, bulkDel]);
 
-  // ====== existing create/update/delete ======
+  // ===== Restore (tab deleted) =====
+  const handleRestoreUser = useCallback(
+    async (u) => {
+      if (!u?._id) return;
+
+      setRowBusy((p) => ({ ...p, [u._id]: true }));
+      try {
+        await userService.restore(u._id);
+
+        // đang ở deleted tab -> restore xong remove khỏi list luôn
+        setUsers((prev) => prev.filter((x) => x._id !== u._id));
+
+        toast({
+          title: "Restored",
+          description: `${u.fullName || u.email} đã được khôi phục`,
+          status: "success",
+          duration: 2000,
+        });
+      } catch (e) {
+        toast({
+          title: "Restore failed",
+          description: e?.response?.data?.error?.message || e?.message || "Failed",
+          status: "error",
+          duration: 3000,
+        });
+      } finally {
+        setRowBusy((p) => {
+          const n = { ...p };
+          delete n[u._id];
+          return n;
+        });
+      }
+    },
+    [toast]
+  );
+
+  // ===== Create / Update / Delete =====
   const handleAddUser = useCallback(() => {
     setSelectedUser(null);
     form.onOpen();
   }, [form]);
 
-  const handleEditUser = useCallback((user) => {
-    setSelectedUser(user);
-    form.onOpen();
-  }, [form]);
+  const handleEditUser = useCallback(
+    (user) => {
+      setSelectedUser(user);
+      form.onOpen();
+    },
+    [form]
+  );
 
-  const handleDeleteClick = useCallback((user) => {
-    setUserToDelete(user);
-    del.onOpen();
-  }, [del]);
+  const handleDeleteClick = useCallback(
+    (user) => {
+      setUserToDelete(user);
+      del.onOpen();
+    },
+    [del]
+  );
 
-  const handleUserSubmit = useCallback(async (formData) => {
-    try {
-      if (selectedUser?._id) {
-        await userService.update(selectedUser._id, formData);
-        toast({ title: "User updated", status: "success", duration: 2500 });
-      } else {
-        await createUserAdmin(formData);
-        toast({ title: "User created", status: "success", duration: 2500 });
+  const handleUserSubmit = useCallback(
+    async (formData) => {
+      try {
+        if (selectedUser?._id) {
+          await userService.update(selectedUser._id, formData);
+          toast({ title: "User updated", status: "success", duration: 2500 });
+        } else {
+          await createUserAdmin(formData);
+          toast({ title: "User created", status: "success", duration: 2500 });
+        }
+
+        await loadUsers({ page: pagination?.page ?? 1 });
+        form.onClose();
+      } catch (error) {
+        const msg =
+          error?.response?.data?.error?.message ||
+          error?.message ||
+          "Save user failed";
+
+        toast({
+          title: "Error saving user",
+          description: msg,
+          status: "error",
+          duration: 3500,
+        });
       }
-
-      await loadUsers();
-      form.onClose();
-    } catch (error) {
-      const msg =
-        error?.response?.data?.error?.message ||
-        error?.message ||
-        "Save user failed";
-
-      toast({
-        title: "Error saving user",
-        description: msg,
-        status: "error",
-        duration: 3500,
-      });
-    }
-  }, [selectedUser, toast, loadUsers, form]);
+    },
+    [selectedUser, toast, loadUsers, form, pagination]
+  );
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!userToDelete?._id) return;
+
     try {
       await userService.remove(userToDelete._id);
 
@@ -231,7 +301,7 @@ export function useUsersPage() {
         duration: 2500,
       });
 
-      await loadUsers();
+      await loadUsers({ page: pagination?.page ?? 1 });
       del.onClose();
     } catch (error) {
       toast({
@@ -241,19 +311,41 @@ export function useUsersPage() {
         duration: 3000,
       });
     }
-  }, [userToDelete, toast, loadUsers, del]);
+  }, [userToDelete, toast, loadUsers, del, pagination]);
 
+  // ===== Pagination callbacks =====
+  const handlePageChange = useCallback(
+    (page) => loadUsers({ page }),
+    [loadUsers]
+  );
+
+  const handleLimitChange = useCallback(
+    (limit) => loadUsers({ page: 1, limit }),
+    [loadUsers]
+  );
+
+  // ===== Format helpers =====
   const formatDate = useCallback((date) => {
-    try { return format(new Date(date), "MMM dd, yyyy"); } catch { return "N/A"; }
+    try {
+      return format(new Date(date), "MMM dd, yyyy");
+    } catch {
+      return "N/A";
+    }
   }, []);
 
   const formatLastActive = useCallback((date) => {
-    try { return formatDistanceToNow(new Date(date), { addSuffix: true }); } catch { return "N/A"; }
+    try {
+      return formatDistanceToNow(new Date(date), { addSuffix: true });
+    } catch {
+      return "N/A";
+    }
   }, []);
 
   const allRoleCodes = useMemo(() => {
     const set = new Set();
-    (users || []).forEach((u) => (u.roles || []).forEach((r) => r?.code && set.add(r.code)));
+    (users || []).forEach((u) =>
+      (u.roles || []).forEach((r) => r?.code && set.add(r.code))
+    );
     return Array.from(set).sort();
   }, [users]);
 
@@ -275,6 +367,9 @@ export function useUsersPage() {
   }, [users, filters]);
 
   return {
+    tab,
+    changeTab,
+
     users,
     pagination,
     filters,
@@ -285,13 +380,11 @@ export function useUsersPage() {
     selectedUser,
     userToDelete,
 
-    // ✅ selection
     selectedIds,
     toggleSelect,
     selectAll,
     clearSelection,
 
-    // ✅ status + bulk
     rowBusy,
     toggleUserStatus,
     bulkSetStatus,
@@ -300,13 +393,13 @@ export function useUsersPage() {
     isBulkDeleteOpen: bulkDel.isOpen,
     closeBulkDelete: bulkDel.onClose,
 
-    // modals
+    handleRestoreUser,
+
     isFormOpen: form.isOpen,
     closeForm: form.onClose,
     isDeleteOpen: del.isOpen,
     closeDelete: del.onClose,
 
-    // handlers
     loadUsers,
     handleAddUser,
     handleEditUser,
@@ -314,6 +407,9 @@ export function useUsersPage() {
     handleUserSubmit,
     handleDeleteConfirm,
     handleFilterChange,
+
+    handlePageChange,
+    handleLimitChange,
 
     formatDate,
     formatLastActive,

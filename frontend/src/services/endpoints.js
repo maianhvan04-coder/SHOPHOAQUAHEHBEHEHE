@@ -1,5 +1,5 @@
-const v1 = "/api/v1"
-const v1Admin = "/api/v1/admin"
+const v1 = "/api/v1";
+const v1Admin = "/api/v1/admin";
 export const endpoints = {
   auth: {
     login: `${v1}/auth/login`,
@@ -13,14 +13,16 @@ export const endpoints = {
     create: `${v1Admin}/user`,
     update: (id) => `${v1Admin}/user/${id}`,
     remove: (id) => `${v1Admin}/user/${id}`,
+    restore: (id) => `${v1Admin}/user/${id}/restore`,
     bulkSetStatus: `${v1Admin}/user/bulk/status`,
     bulkSoftDelete: `${v1Admin}/user/bulk/delete`,
     getAssignableRoles: `${v1Admin}/user/assignable-roles`,
+
   },
 
   categories: {
-    list: `${v1Admin}/category`,           // GET (list)
-    create: `${v1Admin}/category/create`,  // POST (create)
+    list: `${v1Admin}/category`, // GET (list)
+    create: `${v1Admin}/category/create`, // POST (create)
     detail: (id) => `${v1Admin}/category/${id}`,
     update: (id) => `${v1Admin}/category/${id}`, // PATCH
     remove: (id) => `${v1Admin}/category/${id}`, // DELETE hoặc PATCH soft delete
@@ -43,13 +45,12 @@ export const endpoints = {
     removeUserOverride: `${v1Admin}/rbac/user-override`,
     catalog: `${v1Admin}/rbac/catalog`,
     // ROLES
-    getPermissionByRole: ({ roleCode }) => `${v1Admin}/rbac/roles/${encodeURIComponent(roleCode)}/permissions`,
+    getPermissionByRole: ({ roleCode }) =>
+      `${v1Admin}/rbac/roles/${encodeURIComponent(roleCode)}/permissions`,
 
     roleById: (id) => `${v1Admin}/rbac/roles/${encodeURIComponent(id)}`,
     rolesStatus: ({ id }) => `${v1Admin}/rbac/roles/${id}/status`,
-
   },
-
 
   upload: {
     signature: `${v1Admin}/upload/signature`,

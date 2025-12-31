@@ -4,6 +4,8 @@ import {
   getMyOrdersAPI,
   getOrderDetailAPI,
   cancelOrderAPI,
+  updateOrderStatusAPI,
+  getAllOrdersAPI,
 } from "../../api/order.api";
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export const createNewOrder = createAsyncThunk(
@@ -25,7 +27,6 @@ export const fetchMyOrders = createAsyncThunk(
   "order/fetchMyOrders",
   async (status, { rejectWithValue }) => {
     try {
-   
       const response = await getMyOrdersAPI(status);
 
       return response.data.data;
@@ -42,7 +43,7 @@ export const fetchOrderDetail = createAsyncThunk(
   async (orderId, { rejectWithValue }) => {
     try {
       const response = await getOrderDetailAPI(orderId);
-      
+
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -55,7 +56,6 @@ export const fetchOrderDetail = createAsyncThunk(
 export const cancelOrder = createAsyncThunk(
   "order/cancelOrder",
   async (orderId, { rejectWithValue }) => {
-   
     try {
       const response = await cancelOrderAPI(orderId);
       return response.data;
@@ -66,7 +66,35 @@ export const cancelOrder = createAsyncThunk(
     }
   }
 );
+export const fetchAllOrdersAdmin = createAsyncThunk(
+  "order/fetchAllOrdersAdmin",
+  async (query, { rejectWithValue }) => {
+    try {
+      const response = await getAllOrdersAPI(query);
+      
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Lỗi lấy toàn bộ danh sách"
+      );
+    }
+  }
+);
 
+export const updateStatusAdmin = createAsyncThunk(
+  "order/updateStatusAdmin",
+  async ({ orderId, statusData }, { rejectWithValue }) => {
+    try {
+      const response = await updateOrderStatusAPI(orderId, statusData);
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Cập nhật thất bại"
+      );
+    }
+  }
+);
 const orderSlice = createSlice({
   name: "order",
   initialState: {
@@ -112,6 +140,25 @@ const orderSlice = createSlice({
       .addCase(cancelOrder.fulfilled, (state, action) => {
         state.isLoading = false;
         const updatedOrder = action.payload;
+
+        const index = state.orders.findIndex((o) => o._id === updatedOrder._id);
+        if (index !== -1) {
+          state.orders[index] = updatedOrder;
+        }
+
+        if (state.currentOrder && state.currentOrder._id === updatedOrder._id) {
+          state.currentOrder = updatedOrder;
+        }
+      })
+      .addCase(fetchAllOrdersAdmin.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.orders = action.payload.orders;
+        state.totalItems = action.payload.totalItems;
+      })
+
+      .addCase(updateStatusAdmin.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const updatedOrder = action.payload.data;
 
         const index = state.orders.findIndex((o) => o._id === updatedOrder._id);
         if (index !== -1) {

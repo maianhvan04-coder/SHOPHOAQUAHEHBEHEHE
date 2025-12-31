@@ -1,8 +1,10 @@
 const express = require("express");
 const route = express.Router();
+const { validate } = require("../../../middlewares/validate.middleware");
+const orderValid = require("../order.validator");
 const controller = require("../controllers/order.user.controller");
 const {auth} = require("../../../middlewares/auth/auth.middleware");
-route.post("/me/create", auth, controller.createOrder);
+route.post("/me/create",auth,validate(orderValid.createOrder), controller.createOrder);
 route.get("/me/", auth, controller.getMyOrders);
 route.get("/me/:id", auth, controller.getOrderDetail);
 route.patch("/me/:id/cancel", auth, controller.cancelOrder);
