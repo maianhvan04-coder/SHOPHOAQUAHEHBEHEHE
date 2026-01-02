@@ -57,6 +57,8 @@ exports.findPublicById = (id) =>
 
 exports.findByEmail = (email, { session } = {}) =>
   User.findOne({ email: normEmail(email), isDeleted: false }).session(session || null);
+exports.findByPhone = (phone, { session } = {}) =>
+  User.findOne({ phone: phone, isDeleted: false }).session(session || null);
 
 exports.createOne = (data, { session } = {}) =>
   User.create([data], { session }).then((arr) => arr[0]);

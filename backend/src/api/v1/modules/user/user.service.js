@@ -366,7 +366,9 @@ exports.createUserAdmin = async (payload) => {
 
   try {
     const exists = await userRepo.findByEmail(email, { session });
-    if (exists) throw new Error("Email already exists");
+    if (exists) throw new Error("Email đã tồn tại");
+    const phoneExits = await userRepo.findByPhone(phone, { session })
+    if (phoneExits) throw new Error("Số điện thoại đã tồn tại");
 
     const passwordHash = await hashPassword(password, 10);
 

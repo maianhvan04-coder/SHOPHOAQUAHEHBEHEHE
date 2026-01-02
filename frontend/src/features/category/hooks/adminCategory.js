@@ -10,7 +10,7 @@ export const useAdminCategory = () => {
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5); // ✅ NEW
+  const [limit, setLimit] = useState(5);
 
   // ===== LOAD DATA =====
   useEffect(() => {

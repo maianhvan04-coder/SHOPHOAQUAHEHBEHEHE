@@ -18,19 +18,16 @@ const productSchema = new mongoose.Schema(
         // vẫn dùng slug-updater như bạn đang làm
         slug: { type: String, slug: "name", unique: true, index: true, trim: true },
 
-        // ✅ GIỮ FIELD CŨ để không vỡ data (1 ảnh)
         image: {
             type: {
                 url: { type: String, required: true },
                 publicId: { type: String, required: true },
             },
-            required: true,
+            required: false,
         },
 
-        // ✅ THÊM FIELD MỚI: nhiều ảnh
         images: { type: [imageSchema], default: [] },
 
-        // ✅ đồng bộ schema mới: categoryId (nhưng vẫn giữ category để khỏi vỡ)
         // Nếu code backend/frontend đang dùng "category" thì giữ nguyên.
         category: {
             type: mongoose.Schema.Types.ObjectId,
@@ -38,9 +35,6 @@ const productSchema = new mongoose.Schema(
             required: true,
             index: true,
         },
-        // Nếu bạn muốn đổi sang categoryId theo schema mới thì dùng field này
-        // categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true, index: true },
-
         price: { type: Number, required: true, min: 0 },
 
         // ✅ THÊM stock
