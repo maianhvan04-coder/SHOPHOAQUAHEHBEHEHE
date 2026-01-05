@@ -1,84 +1,169 @@
-// src/features/category/hooks/adminCategory.js
-import { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchAllCategories } from "../category.store";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { categoryApi } from "~/api/categoryApi";
 
-export const useAdminCategory = () => {
-  const dispatch = useDispatch();
-  const { listCategories, isLoading } = useSelector((state) => state.category);
+const DEFAULT_LIMIT = 5;
 
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
-
-  // ===== LOAD DATA =====
-  useEffect(() => {
-    dispatch(fetchAllCategories());
-  }, [dispatch]);
-
-  // ===== CRUD =====
-  const createCategory = async (data) => {
-    await categoryApi.create(data);
-    dispatch(fetchAllCategories());
-  };
-
-  const updateCategory = async (id, data) => {
-    await categoryApi.update(id, data);
-    dispatch(fetchAllCategories());
-  };
-
-  const deleteCategory = async (id) => {
-    await categoryApi.remove(id);
-    dispatch(fetchAllCategories());
-  };
-
-  // ===== FILTER =====
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return listCategories || [];
-
-    return (listCategories || []).filter((c) => {
-      const name = (c?.name || "").toLowerCase();
-      const slug = (c?.slug || "").toLowerCase();
-      return name.includes(q) || slug.includes(q);
-    });
-  }, [listCategories, search]);
-
-  // ✅ totalItems cho Pagination
-  const totalItems = filtered.length;
+export const useAdminCategory = ({ tab = "active", filters = {} } = {}) => {
+  // ===== FILTERS =====
+  const search = String(filters?.search ?? "");
+  const type = String(filters?.type ?? "");
+  const status = String(filters?.status ?? "");
 
   // ===== PAGINATION =====
-  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
 
-  const categories = useMemo(() => {
-    const start = (page - 1) * limit;
-    return filtered.slice(start, start + limit);
-  }, [filtered, page, limit]);
+  // ===== DATA =====
+  const [categories, setCategories] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: DEFAULT_LIMIT,
+    total: 0,
+    totalPages: 1,
+  });
+  const [loading, setLoading] = useState(false);
 
-  // Reset page khi search/limit đổi
+  // ===== COUNTS =====
+  const [counts, setCounts] = useState({ active: 0, deleted: 0 });
+  const [countLoading, setCountLoading] = useState(false);
+
+  // race control
+  const reqIdRef = useRef(0);
+  const countReqIdRef = useRef(0);
+
+  // ===== build params list =====
+  const listParams = useMemo(() => {
+    const q = { tab, page, limit };
+
+    const s = search.trim();
+    if (s) q.search = s;
+    if (type) q.type = type;
+
+    if (status === "active") q.isActive = true;
+    if (status === "inactive") q.isActive = false;
+
+    return q;
+  }, [tab, page, limit, search, type, status]);
+
+  // ===== build params counts =====
+  const countBaseParams = useMemo(() => {
+    const q = { page: 1, limit: 1 };
+
+    const s = search.trim();
+    if (s) q.search = s;
+    if (type) q.type = type;
+
+    if (status === "active") q.isActive = true;
+    if (status === "inactive") q.isActive = false;
+
+    return q;
+  }, [search, type, status]);
+
+  // ===== fetch list =====
+  const refetch = useCallback(async () => {
+    const myReq = ++reqIdRef.current;
+    setLoading(true);
+
+    try {
+      const res = await categoryApi.list(listParams);
+      if (myReq !== reqIdRef.current) return;
+
+      setCategories(res?.items || []);
+      setPagination(
+        res?.pagination || { page, limit, total: 0, totalPages: 1 }
+      );
+    } finally {
+      if (myReq === reqIdRef.current) setLoading(false);
+    }
+  }, [listParams, page, limit]);
+
+  // ===== fetch counts =====
+  const refetchCounts = useCallback(async () => {
+    const myReq = ++countReqIdRef.current;
+    setCountLoading(true);
+
+    try {
+      const [a, d] = await Promise.all([
+        categoryApi.list({ ...countBaseParams, tab: "active" }),
+        categoryApi.list({ ...countBaseParams, tab: "deleted" }),
+      ]);
+
+      if (myReq !== countReqIdRef.current) return;
+
+      setCounts({
+        active: Number(a?.pagination?.total || 0),
+        deleted: Number(d?.pagination?.total || 0),
+      });
+    } finally {
+      if (myReq === countReqIdRef.current) setCountLoading(false);
+    }
+  }, [countBaseParams]);
+
+  // ✅ helper reload 1 lần
+  const reloadAll = useCallback(async () => {
+    await Promise.all([refetch(), refetchCounts()]);
+  }, [refetch, refetchCounts]);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  useEffect(() => {
+    refetchCounts();
+  }, [refetchCounts]);
+
   useEffect(() => {
     setPage(1);
-  }, [search, limit]);
+  }, [tab, search, type, status, limit]);
 
-  // Chặn page vượt totalPages (khi xóa item làm giảm trang)
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  // ===== CRUD (không auto reload cho bulk) =====
+  const createCategory = useCallback(async (data) => {
+    await categoryApi.create(data);
+    await reloadAll();
+  }, [reloadAll]);
+
+  const updateCategory = useCallback(async (id, data) => {
+    await categoryApi.update(id, data);
+    await reloadAll();
+  }, [reloadAll]);
+
+  const deleteCategory = useCallback(async (id) => {
+    await categoryApi.remove(id);
+  }, []);
+
+  const restoreCategory = useCallback(async (id) => {
+    await categoryApi.restore(id);
+  }, []);
+
+  const hardDeleteCategory = useCallback(async (id) => {
+    await categoryApi.hardDelete(id);
+  }, []);
+
+  const totalItems = Number(pagination?.total || 0);
+  const totalPages = Math.max(1, Number(pagination?.totalPages || 1));
 
   return {
     categories,
-    loading: isLoading,
-    search,
-    setSearch,
+    loading,
     page,
     setPage,
-    limit,      // ✅ NEW
-    setLimit,   // ✅ NEW
-    totalItems, // ✅ NEW
+    limit,
+    setLimit,
+    totalItems,
     totalPages,
+
+    counts,
+    countLoading,
+
+    refetch,
+    refetchCounts,
+    reloadAll,
+
     createCategory,
     updateCategory,
+
     deleteCategory,
+    restoreCategory,
+    hardDeleteCategory,
   };
 };

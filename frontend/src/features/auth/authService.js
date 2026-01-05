@@ -7,24 +7,31 @@ function unwrap(res) {
 
 export const authService = {
   async login(payload) {
-    try {
-      const res = await authApi.login(payload);
-      return unwrap(res); // { accessToken, user, ... }
-    } catch (err) {
-      // 🔥 QUAN TRỌNG: ném lỗi lên cho useLogin xử lý
-      throw err;
-    }
+    const res = await authApi.login(payload);
+    const data = unwrap(res); // { accessToken, user, roles, permissions, ... }
+
+    // ✅ QUAN TRỌNG: lưu access token
+    if (data?.accessToken) authStorage.setToken(data.accessToken);
+
+    // ✅ optional: nếu backend trả luôn user/roles/permissions thì cache luôn
+    // authStorage.setMe({ user: data.user, roles: data.roles, permissions: data.permissions });
+
+    return data;
   },
 
   async me() {
     const res = await authApi.me();
-    return unwrap(res);
+    const data = unwrap(res);
+
+    // optional: cache me
+    // authStorage.setMe(data);
+
+    return data;
   },
 
   async logout() {
-    // ❌ ĐỪNG clear trước
     const res = await authApi.logout();
-    authStorage.clear(); // ✅ clear sau
+    authStorage.clear();
     return unwrap(res);
   },
 };

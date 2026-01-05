@@ -1,32 +1,49 @@
-const ApiError = require("../../../../core/apiError")
-const authRepo = require("./auth.repo")
-const httpStatus = require("../../../../core/httpStatus")
-const useRepo = require("../user/user.repo")
-const { hashPassword, comparePassword } = require("../../../../helpers/password.auth")
-const { generateAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } = require("../../../../helpers/jwt.auth")
-const rbacService = require("../rbac/rbac.service")
-exports.login = async ({ email, password }) => {
-  const user = await authRepo.findByEmailForLogin(email)
+const ApiError = require("../../../../core/apiError");
+const httpStatus = require("../../../../core/httpStatus");
 
-  if (!user) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
-  }
+const authRepo = require("./auth.repo");
+const userRepo = require("../user/user.repo");
+const rbacService = require("../rbac/rbac.service");
 
-  const result = await comparePassword(password, user.passwordHash)
+const { hashPassword, comparePassword } = require("../../../../helpers/password.auth");
+const { generateAccessToken, signRefreshToken, verifyRefreshToken } = require("../../../../helpers/jwt.auth");
+const { hashRefreshToken, safeEqualHex } = require("../../../../helpers/tokenHash");
 
-  if (!result) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
+const Session = require("./session.model");
 
-  }
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_SEC = Math.floor(SESSION_MS / 1000);
 
-  const authz = await rbacService.buildAuthz(user._id)
+const remainingSec = (expiresAt) => {
+  const sec = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+  return Math.max(1, sec);
+};
 
-
-
-
+const buildLoginResult = async (user, req) => {
+  const authz = await rbacService.buildAuthz(user._id);
 
   const accessToken = generateAccessToken(user);
-  const refreshToken = signRefreshToken(user);
+
+  // fixed 7 ngày
+  const expiresAt = new Date(Date.now() + SESSION_MS);
+
+  // tạo session trước để lấy sid
+  const session = await Session.create({
+    userId: user._id,
+    refreshTokenHash: "temp",
+    expiresAt,
+    userAgent: req.headers["user-agent"] || "",
+    ip: req.ip || "",
+  });
+
+  const refreshToken = signRefreshToken({
+    sub: user._id,
+    sid: session._id,
+    expiresIn: SESSION_SEC,
+  });
+
+  session.refreshTokenHash = hashRefreshToken(refreshToken);
+  await session.save();
 
   return {
     user: {
@@ -37,19 +54,63 @@ exports.login = async ({ email, password }) => {
       avatar: user.image?.url || "",
       avatar_hash: user.image?.publicId || "",
     },
+    roles: authz?.roles || [],
+    permissions: authz?.permissions || [],
     version: user.authzVersion || 0,
     accessToken,
-    refreshToken
+    refreshToken,
+    session,
   };
-}
+};
 
-exports.getMe = async (userId, authz) => {
-  const user = await useRepo.findPublicById(userId)
-  if (!user || user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
+// ===== LOGIN =====
+exports.login = async ({ email, password }, req) => {
+  const user = await authRepo.findByEmailForLogin(email);
+  if (!user) throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
 
-  if (user.isActive === false) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, "Tài Khoản Bị Khóa");
+  const ok = await comparePassword(password, user.passwordHash);
+  if (!ok) throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
+
+  if (user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
+  if (user.isActive === false) throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
+
+  // Nếu muốn single-session: bật dòng này
+  // await Session.updateMany({ userId: user._id, revokedAt: null }, { revokedAt: new Date() });
+
+  const result = await buildLoginResult(user, req);
+  return result;
+};
+
+// ===== REGISTER (auto-login) =====
+exports.register = async ({ fullName, email, password }, req) => {
+  const existing = await authRepo.findAnyByEmail(email);
+
+  if (existing && !existing.isDeleted) {
+    throw new ApiError(httpStatus.CONFLICT, "Email đã tồn tại");
   }
+
+  const passwordHash = await hashPassword(password);
+
+  let user;
+  if (existing && existing.isDeleted) {
+    existing.fullName = fullName;
+    existing.passwordHash = passwordHash;
+    existing.isDeleted = false;
+    existing.isActive = true;
+    user = await existing.save();
+  } else {
+    user = await authRepo.createUser({ fullName, email, passwordHash });
+  }
+
+  const result = await buildLoginResult(user, req);
+  return result;
+};
+
+// ===== GET ME =====
+exports.getMe = async (userId, authz) => {
+  const user = await userRepo.findPublicById(userId);
+  if (!user || user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
+  if (user.isActive === false) throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
 
   return {
     user: {
@@ -66,79 +127,71 @@ exports.getMe = async (userId, authz) => {
     roles: authz?.roles || [],
     permissions: authz?.permissions || [],
   };
-}
+};
 
-exports.register = async ({ fullName, email, password }) => {
-  const existing = await authRepo.findAnyByEmail(email);
+// ===== REFRESH TOKEN =====
+exports.refreshToken = async (req) => {
+  const raw = req.cookies?.refresh_token;
+  if (!raw) throw new ApiError(httpStatus.UNAUTHORIZED, "Không có refresh token");
 
-  // Trường hợp 1: user tồn tại & chưa bị xoá → không cho đăng ký lại
-  if (existing && !existing.isDeleted) {
-    throw new ApiError(httpStatus.CONFLICT, "Email đã tồn tại");
+  const payload = verifyRefreshToken(raw); // { sub, sid, type, exp... }
+
+  const session = await Session.findById(payload.sid);
+  if (!session) throw new ApiError(httpStatus.UNAUTHORIZED, "Session không tồn tại");
+  if (session.revokedAt) throw new ApiError(httpStatus.UNAUTHORIZED, "Session bị thu hồi");
+  if (session.expiresAt.getTime() < Date.now()) throw new ApiError(httpStatus.UNAUTHORIZED, "Session hết hạn");
+
+  if (String(session.userId) !== String(payload.sub)) {
+    // mismatch sid/sub: revoke session
+    session.revokedAt = new Date();
+    await session.save();
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Session mismatch");
   }
 
-  const passwordHash = await hashPassword(password);
+  // So sánh hash an toàn
+  const incomingHash = hashRefreshToken(raw);
+  const ok = safeEqualHex(session.refreshTokenHash, incomingHash);
 
-  let user;
-
-  // Trường hợp 2: user tồn tại nhưng đã bị xoá → khôi phục lại
-  if (existing && existing.isDeleted) {
-    existing.fullName = fullName;
-    existing.passwordHash = passwordHash;
-    existing.isDeleted = false;
-    existing.isActive = true;
-    user = await existing.save();
-  } else {
-    // Trường hợp 3: chưa có ai dùng email này → tạo mới
-    user = await authRepo.createUser({ fullName, email, passwordHash });
+  if (!ok) {
+    // REUSE DETECTED -> revoke ALL sessions của user
+    await Session.updateMany(
+      { userId: session.userId, revokedAt: null },
+      { revokedAt: new Date() }
+    );
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Refresh token reuse detected");
   }
+
+  const user = await authRepo.findById(payload.sub);
+  if (!user || user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
+  if (user.isActive === false) throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
 
   const accessToken = generateAccessToken(user);
-  const refreshToken = signRefreshToken(user);
 
-  return {
-    user: {
-      id: user._id,
-      fullName: user.fullName,
-      email: user.email,
-    },
-    accessToken,
-    refreshToken,
-  };
+  // rotate refresh nhưng không gia hạn session
+  const newRefreshToken = signRefreshToken({
+    sub: user._id,
+    sid: session._id,
+    expiresIn: remainingSec(session.expiresAt),
+  });
+
+  session.refreshTokenHash = hashRefreshToken(newRefreshToken);
+  session.lastUsedAt = new Date();
+  await session.save();
+
+  return { accessToken, newRefreshToken, session };
 };
 
-
-exports.refreshToken = async (req) => {
-  const refreshToken = req.cookies?.refresh_token;
-
-  if (!refreshToken) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, "Không có refresh token");
-  }
-
-  let payload;
-  try {
-    payload = verifyRefreshToken(refreshToken);
-  } catch (err) {
-    throw new ApiError(
-      httpStatus.UNAUTHORIZED,
-      "Refresh token không hợp lệ/ hết hạn"
-    );
-  }
-
-  const userId = payload.sub;
-
-  const user = await authRepo.findById(userId); // đã filter isDeleted: false
-  if (!user) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
-  }
-
-  const newAccessToken = generateAccessToken(user);
-  const newRefreshToken = signRefreshToken(user);
-
-  return { accessToken: newAccessToken, newRefreshToken, user };
-};
-
-
+// ===== LOGOUT =====
 exports.logout = async (req) => {
-  // Nếu bạn không lưu token ở DB thì không cần xử lý gì thêm.
+  const raw = req.cookies?.refresh_token;
+  if (!raw) return { ok: true };
+
+  try {
+    const payload = verifyRefreshToken(raw);
+    await Session.findByIdAndUpdate(payload.sid, { revokedAt: new Date() });
+  } catch {
+    // ignore
+  }
+
   return { ok: true };
 };

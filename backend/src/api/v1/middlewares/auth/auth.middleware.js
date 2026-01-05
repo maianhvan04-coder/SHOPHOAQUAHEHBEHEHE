@@ -1,4 +1,4 @@
-const ApiError = require("../../../../core/ApiError");
+const ApiError = require("../../../../core/apiError");
 const httpStatus = require("../../../../core/httpStatus");
 const { verifyAccessToken } = require("../../../../helpers/jwt.auth");
 
@@ -7,64 +7,46 @@ const authzCache = require("./authzCache");
 const rbacService = require("../../modules/rbac/rbac.service");
 
 exports.auth = async (req, res, next) => {
-
-  if (req.method === "OPTIONS") return next(); // nên để luôn
+  if (req.method === "OPTIONS") return next();
 
   const header = req.headers.authorization;
-
   if (!header?.startsWith("Bearer ")) {
-
-    return next(new ApiError(httpStatus.UNAUTHORIZED, "Cấm truy cập 1"));
+    return next(new ApiError(httpStatus.UNAUTHORIZED, "Missing Bearer token"));
   }
 
   try {
-    const token = header.split(" ")[1];
-    const payload = verifyAccessToken(token);
-
-    if (payload.type && payload.type !== "access") {
-      return next(new ApiError(httpStatus.UNAUTHORIZED, "Cấm truy cập 2"));
-    }
-
-
+    const token = header.slice("Bearer ".length);
+    const payload = verifyAccessToken(token); // đã check type=access ở helper
 
     const userId = payload.sub;
-    if (!userId) return next(new ApiError(httpStatus.UNAUTHORIZED, "Cấm truy cập 3"));
+    if (!userId) return next(new ApiError(httpStatus.UNAUTHORIZED, "Invalid token payload"));
 
-
-    // lấy authzVersion để build cacheKey
     const u = await User.findById(userId)
       .select("_id authzVersion isActive isDeleted")
       .lean();
 
-
-    if (!u || u.isDeleted || u.isActive === false) {
-      return next(new ApiError(httpStatus.UNAUTHORIZED, "Cấm truy cập 4"));
-    }
+    if (!u || u.isDeleted) return next(new ApiError(httpStatus.UNAUTHORIZED, "User not found"));
+    if (u.isActive === false) return next(new ApiError(httpStatus.UNAUTHORIZED, "User locked"));
 
     const cacheKey = `${userId}:${u.authzVersion || 0}`;
-
-    // console.log("userId", userId)
     let authz = authzCache.get(cacheKey);
 
     if (!authz) {
-
       authz = await rbacService.buildAuthz(userId);
-
-      if (!authz) return next(new ApiError(httpStatus.UNAUTHORIZED, "Cấm truy cập 5"));
+      if (!authz) return next(new ApiError(httpStatus.UNAUTHORIZED, "Authz not found"));
       authzCache.set(cacheKey, authz);
     }
 
-
     req.user = {
       sub: userId,
-      roles: authz.roles,
-      permissions: authz.permissions,
-      type: authz.type,
+      roles: authz.roles || [],
+      permissions: authz.permissions || [],
+      type: authz.type || "user",
+      authzVersion: u.authzVersion || 0,
     };
 
-
     return next();
-  } catch (e) {
-    return next(new ApiError(httpStatus.UNAUTHORIZED, "Cấm truy cập 6"));
+  } catch {
+    return next(new ApiError(httpStatus.UNAUTHORIZED, "Access token invalid/expired"));
   }
 };

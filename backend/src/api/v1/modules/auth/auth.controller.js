@@ -1,60 +1,67 @@
 const asyncHandler = require("../../../../core/asyncHandler");
 const authService = require("./auth.service");
 
-module.exports.login = asyncHandler(async (req, res) => {
-  const result = await authService.login(req.body);
-  const refreshToken = result.refreshToken
+const COOKIE_PATH = "/api/v1/auth/refresh-token";
+const isProd = process.env.NODE_ENV === "production";
 
+function setRefreshCookie(res, refreshToken, maxAgeMs) {
   res.cookie("refresh_token", refreshToken, {
     httpOnly: true,
-    secure: false,
+    secure: isProd,
     sameSite: "lax",
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: COOKIE_PATH,
+    maxAge: Math.max(0, maxAgeMs),
   });
+}
+
+module.exports.login = asyncHandler(async (req, res) => {
+  const result = await authService.login(req.body, req);
+
+  // cookie full 7 ngày
+  setRefreshCookie(res, result.refreshToken, 7 * 24 * 60 * 60 * 1000);
+
+  delete result.refreshToken;
+  delete result.session;
+
   res.json({ data: result });
 });
 
 module.exports.register = asyncHandler(async (req, res) => {
-  const result = await authService.register(req.body)
-  res.json({ data: result })
-})
+  const result = await authService.register(req.body, req);
+
+  setRefreshCookie(res, result.refreshToken, 7 * 24 * 60 * 60 * 1000);
+
+  delete result.refreshToken;
+  delete result.session;
+
+  res.json({ data: result });
+});
 
 module.exports.refreshToken = asyncHandler(async (req, res) => {
-  const { accessToken, newRefreshToken } = await authService.refreshToken(req);
+  const { accessToken, newRefreshToken, session } = await authService.refreshToken(req);
 
-  res.cookie("refresh_token", newRefreshToken, {
-    httpOnly: true,
-    secure: false,      // production + https thì true
-    sameSite: "lax",
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  const remainingMs = Math.max(0, session.expiresAt.getTime() - Date.now());
+  setRefreshCookie(res, newRefreshToken, remainingMs);
 
   return res.status(200).json({ accessToken });
 });
 
 module.exports.me = asyncHandler(async (req, res) => {
-  const userId = req.user?.sub; // auth middleware đã set
+  const userId = req.user?.sub;
   const data = await authService.getMe(userId, req.user);
-  console.log(data)
+
   res.json({ data });
 });
+
 module.exports.logout = asyncHandler(async (req, res) => {
   await authService.logout(req);
 
   res.clearCookie("refresh_token", {
     httpOnly: true,
+    secure: isProd,
     sameSite: "lax",
-    path: "/",
-    secure: false
-  })
-  res.clearCookie("token", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: false
-  })
+    path: COOKIE_PATH,
+  });
 
   return res.status(200).json({ message: "Logout thành công" });
 });

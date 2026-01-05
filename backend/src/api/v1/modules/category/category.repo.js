@@ -38,10 +38,13 @@ exports.softDeleteById = (id) =>
   ).select("-__v");
 
 // list admin: thấy active/inactive (không thấy deleted)
-exports.listAdmin = async ({ page, limit, search, isActive, type }) => {
-  const filter = { isDeleted: false };
+exports.listAdmin = async ({ page, limit, search, isActive, type, isDeleted }) => {
+  // ✅ thay vì fix isDeleted:false
+  const filter = { isDeleted: typeof isDeleted === "boolean" ? isDeleted : false };
 
-  if (typeof isActive === "boolean") filter.isActive = isActive;
+  // ✅ nếu đang xem Deleted thì không cần filter isActive (vì bạn set isActive:false khi xóa)
+  if (!filter.isDeleted && typeof isActive === "boolean") filter.isActive = isActive;
+
   if (type) filter.type = type;
 
   if (search) {
@@ -54,11 +57,7 @@ exports.listAdmin = async ({ page, limit, search, isActive, type }) => {
   const skip = (page - 1) * limit;
 
   const [items, total] = await Promise.all([
-    Category.find(filter)
-      .select("-__v")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
+    Category.find(filter).select("-__v").sort({ createdAt: -1 }).skip(skip).limit(limit),
     Category.countDocuments(filter),
   ]);
 
@@ -91,3 +90,16 @@ exports.listPublic = async ({ page, limit, search, type }) => {
 
   return { items, total };
 };
+
+// restore (khôi phục từ thùng rác)
+exports.restoreById = (id) =>
+  Category.findOneAndUpdate(
+    { _id: id, isDeleted: true },
+    { $set: { isDeleted: false, isActive: true } },
+    { new: true }
+  ).select("-__v");
+
+// hard delete (xoá vĩnh viễn) - chỉ cho xoá khi isDeleted=true
+exports.hardDeleteById = (id) =>
+  Category.findOneAndDelete({ _id: id, isDeleted: true }).select("-__v");
+

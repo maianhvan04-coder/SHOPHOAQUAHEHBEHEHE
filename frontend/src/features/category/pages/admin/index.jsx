@@ -1,30 +1,35 @@
-import { useMemo, useState } from "react";
+/* eslint-disable no-unused-vars */
 import PropTypes from "prop-types";
-import { useAdminCategory } from "../../hooks/adminCategory";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useOutletContext } from "react-router-dom";
+import { useToast } from "@chakra-ui/react";
+
+import PageHeader from "~/components/layout/admin/PageHeader";
 import Pagination from "~/components/common/Pagination";
+import Modal from "~/components/common/Modal";
+
+import { useAuth } from "~/app/providers/AuthProvides";
+import { canAccessAction } from "~/shared/utils/ability";
+
+import { useAdminCategory } from "~/features/category/hooks/AdminCategory";
+import CategoryTabs from "~/features/category/pages/admin/CategoryTabs";
 
 import {
   Badge,
   Box,
   Button,
-  Container,
-  Flex,
+  Card,
+  Checkbox,
   FormControl,
   FormLabel,
   HStack,
-  Heading,
   IconButton,
   Input,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Spinner,
+  InputGroup,
+  InputLeftElement,
+  Select,
+  Skeleton,
   Stack,
-  Switch,
   Table,
   Tbody,
   Td,
@@ -33,19 +38,23 @@ import {
   Th,
   Thead,
   Tr,
-  Select,
-  useDisclosure,
-  useToast,
   Tooltip,
+  VStack,
+  Switch,
   useColorModeValue,
 } from "@chakra-ui/react";
 
-import { AddIcon, DeleteIcon, EditIcon } from "@chakra-ui/icons";
-import { canAccessAction } from "~/shared/utils/ability";
-import { useOutletContext } from "react-router-dom";
-import { useAuth } from "~/app/providers/AuthProvides";
+import {
+  PlusIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+  ArrowPathIcon,
+  ArrowUturnLeftIcon,
+  FunnelIcon,
+} from "@heroicons/react/24/outline";
 
-// slugify
+// slugify (client only - backend bạn đang tự makeSlug)
 const slugify = (str) =>
   String(str || "")
     .toLowerCase()
@@ -56,7 +65,7 @@ const slugify = (str) =>
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 
-// Helper: check permission giống ProductsView
+// permission helper
 function computePermission({ screens, userPermissions, resourceKey, actionKey }) {
   const screen = (screens || []).find((s) => s?.key === resourceKey) || null;
   if (!screen) return false;
@@ -64,37 +73,24 @@ function computePermission({ screens, userPermissions, resourceKey, actionKey })
 }
 
 export default function AdminCategoryPage({ screens: screensProp, userPermissions: permsProp }) {
-  // ✅ Hooks chỉ được gọi trong component
   const outlet = useOutletContext?.() || {};
   const auth = useAuth?.() || {};
-
-  // ✅ ưu tiên props, fallback qua context/auth
-  const screens = screensProp ?? outlet?.screens ?? [];
-  const userPermissions = permsProp ?? auth?.permissions ?? auth?.permissions ?? [];
-
-  const {
-    categories,
-    loading,
-    search,
-    setSearch,
-    page,
-    setPage,
-    limit,
-    setLimit,
-    totalItems,
-    totalPages,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-  } = useAdminCategory();
-
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
+  const screens = screensProp ?? outlet?.screens ?? [];
+  const userPermissions = permsProp ?? auth?.permissions ?? [];
+
+  // ===== TAB =====
+  const [tab, setTab] = useState("active"); // "active" | "deleted"
+  const isDeletedTab = tab === "deleted";
+
+  // ===== THEME =====
+  const bgMain = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
-  const headBg = useColorModeValue("gray.50", "whiteAlpha.100");
-  const textMuted = useColorModeValue("gray.500", "gray.400");
+  const thColor = useColorModeValue("gray.500", "gray.400");
+  const rowHoverBg = useColorModeValue("gray.50", "whiteAlpha.100");
+  const stickyHeaderBg = useColorModeValue("rgba(255, 255, 255, 0.9)", "rgba(26, 32, 44, 0.9)");
 
   // ===== PERMISSIONS =====
   const canCreate = useMemo(
@@ -109,104 +105,122 @@ export default function AdminCategoryPage({ screens: screensProp, userPermission
     () => computePermission({ screens, userPermissions, resourceKey: "category", actionKey: "delete" }),
     [screens, userPermissions]
   );
+  const canRestore = useMemo(
+    () => computePermission({ screens, userPermissions, resourceKey: "category", actionKey: "restore" }),
+    [screens, userPermissions]
+  );
 
-  const showActionsCol = canUpdate || canDelete;
+  // ===== FILTERS =====
+  const [filters, setFilters] = useState({
+    search: "",
+    type: "",   // "" | "single" | "mix"
+    status: "", // "" | "active" | "inactive"
+  });
 
+  // ===== DATA HOOK =====
+  const {
+    categories,
+    loading,
+
+    page,
+    setPage,
+    limit,
+    setLimit,
+    totalItems,
+    totalPages,
+
+    counts, // {active, deleted}
+    createCategory,
+    updateCategory,
+
+    deleteCategory,      // soft
+    restoreCategory,
+    hardDeleteCategory,  // hard
+
+    refetch,
+    reloadAll,           // ✅ cần có để bulk không spam API
+  } = useAdminCategory({ tab, filters });
+
+  const activeCount = counts?.active ?? 0;
+  const deletedCount = counts?.deleted ?? 0;
+
+  // ===== FILTER CHANGE =====
+  const onFilterChange = useCallback((key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  }, [setPage]);
+
+  // ===== SELECTION =====
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const idsOnPage = useMemo(
+    () => (categories || []).map((c) => c?._id).filter(Boolean).map(String),
+    [categories]
+  );
+
+  const toggleSelect = (id) => {
+    const sid = String(id);
+    setSelectedIds((prev) => (prev.includes(sid) ? prev.filter((x) => x !== sid) : [...prev, sid]));
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const selectAll = (ids) => {
+    const uniq = Array.from(new Set((ids || []).map(String)));
+    setSelectedIds(uniq);
+  };
+
+  const allChecked = idsOnPage.length > 0 && idsOnPage.every((id) => selectedIds.includes(id));
+  const someChecked = idsOnPage.some((id) => selectedIds.includes(id)) && !allChecked;
+
+  useEffect(() => {
+    clearSelection();
+  }, [tab, filters.search, filters.type, filters.status, page, limit]);
+
+  // ===== MODAL FORM =====
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  // ===== FORM STATE =====
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState("single"); // single | mix
+  const [type, setType] = useState("single");
   const [isActive, setIsActive] = useState(true);
 
-  const title = useMemo(() => (editing ? "Sửa danh mục" : "Thêm danh mục"), [editing]);
-
-  const resetForm = () => {
+  const openCreate = () => {
+    if (!canCreate) return;
     setEditing(null);
     setName("");
     setDescription("");
     setType("single");
     setIsActive(true);
-  };
-
-  const closeModal = () => {
-    resetForm();
-    onClose();
-  };
-
-  const openCreate = () => {
-    if (!canCreate) {
-      toast({
-        title: "Bạn không có quyền tạo danh mục",
-        status: "warning",
-        duration: 1800,
-        isClosable: true,
-        position: "top",
-      });
-      return;
-    }
-    resetForm();
-    onOpen();
+    setIsFormOpen(true);
   };
 
   const openEdit = (c) => {
-    if (!canUpdate) {
-      toast({
-        title: "Bạn không có quyền sửa danh mục",
-        status: "warning",
-        duration: 1800,
-        isClosable: true,
-        position: "top",
-      });
-      return;
-    }
+    if (!canUpdate) return;
     setEditing(c);
     setName(c?.name || "");
     setDescription(c?.description || "");
     setType(c?.type || "single");
     setIsActive(Boolean(c?.isActive));
-    onOpen();
+    setIsFormOpen(true);
   };
 
-  const handleSave = async () => {
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      toast({
-        title: "Tên danh mục không được để trống",
-        status: "warning",
-        duration: 1800,
-        isClosable: true,
-        position: "top",
-      });
-      return;
-    }
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditing(null);
+  };
 
-    if (editing?._id && !canUpdate) {
-      toast({
-        title: "Bạn không có quyền cập nhật danh mục",
-        status: "warning",
-        duration: 1800,
-        isClosable: true,
-        position: "top",
-      });
-      return;
-    }
-
-    if (!editing?._id && !canCreate) {
-      toast({
-        title: "Bạn không có quyền tạo danh mục",
-        status: "warning",
-        duration: 1800,
-        isClosable: true,
-        position: "top",
-      });
+  const onSubmit = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast({ title: "Tên danh mục không được để trống", status: "warning", duration: 1600, isClosable: true, position: "top" });
       return;
     }
 
     const payload = {
-      name: trimmedName,
-      slug: slugify(trimmedName),
+      name: trimmed,
+      slug: slugify(trimmed), // backend vẫn sẽ tự makeSlug nếu bạn muốn
       description: description?.trim() || "",
       type,
       isActive: Boolean(isActive),
@@ -215,211 +229,414 @@ export default function AdminCategoryPage({ screens: screensProp, userPermission
     try {
       if (editing?._id) {
         await updateCategory(editing._id, payload);
-        toast({
-          title: "Cập nhật danh mục thành công",
-          status: "success",
-          duration: 1600,
-          isClosable: true,
-          position: "top",
-        });
+        toast({ title: "Cập nhật thành công", status: "success", duration: 1400, isClosable: true, position: "top" });
       } else {
         await createCategory(payload);
-        toast({
-          title: "Tạo danh mục thành công",
-          status: "success",
-          duration: 1600,
-          isClosable: true,
-          position: "top",
-        });
+        toast({ title: "Tạo thành công", status: "success", duration: 1400, isClosable: true, position: "top" });
       }
-      closeModal();
+      closeForm();
     } catch (err) {
-      toast({
-        title: "Có lỗi xảy ra",
-        description: err?.message || "Vui lòng thử lại",
-        status: "error",
-        duration: 2200,
-        isClosable: true,
-        position: "top",
-      });
+      toast({ title: "Có lỗi xảy ra", description: err?.message || "Vui lòng thử lại", status: "error", duration: 2200, isClosable: true, position: "top" });
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!canDelete) {
-      toast({
-        title: "Bạn không có quyền xoá danh mục",
-        status: "warning",
-        duration: 1800,
-        isClosable: true,
-        position: "top",
-      });
-      return;
-    }
-
-    const ok = window.confirm("Xoá danh mục này?");
+  // ===== SINGLE ACTIONS =====
+  const onSoftDelete = async (c) => {
+    if (!canDelete) return;
+    const ok = window.confirm(`Xoá "${c?.name}"? (đưa vào thùng rác)`);
     if (!ok) return;
 
     try {
-      await deleteCategory(id);
-      toast({
-        title: "Đã xoá danh mục",
-        status: "success",
-        duration: 1600,
-        isClosable: true,
-        position: "top",
-      });
+      await deleteCategory(c._id);
+      toast({ title: "Đã chuyển vào thùng rác", status: "success", duration: 1400, isClosable: true, position: "top" });
+      setTab("deleted");
+      setPage(1);
+      await reloadAll?.(); // ✅ đảm bảo list + count đúng
     } catch (err) {
-      toast({
-        title: "Xoá thất bại",
-        description: err?.message || "Vui lòng thử lại",
-        status: "error",
-        duration: 2200,
-        isClosable: true,
-        position: "top",
-      });
+      toast({ title: "Xoá thất bại", description: err?.message || "Vui lòng thử lại", status: "error", duration: 2200, isClosable: true, position: "top" });
+    }
+  };
+
+  const onRestore = async (c) => {
+    if (!canRestore) return;
+
+    try {
+      await restoreCategory(c._id);
+      toast({ title: "Đã khôi phục", status: "success", duration: 1400, isClosable: true, position: "top" });
+      setTab("active");
+      setPage(1);
+      await reloadAll?.();
+    } catch (err) {
+      toast({ title: "Khôi phục thất bại", description: err?.message || "Vui lòng thử lại", status: "error", duration: 2200, isClosable: true, position: "top" });
+    }
+  };
+
+  const onHardDelete = async (c) => {
+    if (!canDelete) return;
+    if (!isDeletedTab) {
+      toast({ title: "Chỉ xoá vĩnh viễn trong tab Thùng rác", status: "warning", duration: 1600, isClosable: true, position: "top" });
+      return;
+    }
+
+    const ok = window.confirm(`XÓA VĨNH VIỄN "${c?.name}"? Không thể hoàn tác.`);
+    if (!ok) return;
+
+    try {
+      await hardDeleteCategory(c._id);
+      toast({ title: "Đã xoá vĩnh viễn", status: "success", duration: 1400, isClosable: true, position: "top" });
+      await reloadAll?.();
+    } catch (err) {
+      toast({ title: "Xoá vĩnh viễn thất bại", description: err?.message || "Vui lòng thử lại", status: "error", duration: 2200, isClosable: true, position: "top" });
+    }
+  };
+
+  // ===== BULK ACTIONS (✅ không spam API) =====
+  const bulkSoftDelete = async () => {
+    if (!canDelete || selectedIds.length === 0) return;
+    const ok = window.confirm(`Xoá ${selectedIds.length} danh mục? (đưa vào thùng rác)`);
+    if (!ok) return;
+
+    try {
+      await Promise.all(selectedIds.map((id) => deleteCategory(id)));
+      clearSelection();
+      setTab("deleted");
+      setPage(1);
+      await reloadAll?.();
+      toast({ title: "Đã chuyển vào thùng rác", status: "success", duration: 1400, isClosable: true, position: "top" });
+    } catch (err) {
+      toast({ title: "Xoá thất bại", description: err?.message || "Vui lòng thử lại", status: "error", duration: 2200, isClosable: true, position: "top" });
+    }
+  };
+
+  const bulkRestore = async () => {
+    if (!canRestore || selectedIds.length === 0) return;
+    const ok = window.confirm(`Khôi phục ${selectedIds.length} danh mục?`);
+    if (!ok) return;
+
+    try {
+      await Promise.all(selectedIds.map((id) => restoreCategory(id)));
+      clearSelection();
+      setTab("active");
+      setPage(1);
+      await reloadAll?.();
+      toast({ title: "Đã khôi phục", status: "success", duration: 1400, isClosable: true, position: "top" });
+    } catch (err) {
+      toast({ title: "Khôi phục thất bại", description: err?.message || "Vui lòng thử lại", status: "error", duration: 2200, isClosable: true, position: "top" });
+    }
+  };
+
+  const bulkHardDelete = async () => {
+    if (!canDelete || selectedIds.length === 0) return;
+    if (!isDeletedTab) {
+      toast({ title: "Chỉ xoá vĩnh viễn trong tab Thùng rác", status: "warning", duration: 1600, isClosable: true, position: "top" });
+      return;
+    }
+
+    const ok = window.confirm(`XÓA VĨNH VIỄN ${selectedIds.length} danh mục? Không thể hoàn tác.`);
+    if (!ok) return;
+
+    try {
+      await Promise.all(selectedIds.map((id) => hardDeleteCategory(id)));
+      clearSelection();
+      await reloadAll?.();
+      toast({ title: "Đã xoá vĩnh viễn", status: "success", duration: 1400, isClosable: true, position: "top" });
+    } catch (err) {
+      toast({ title: "Xoá vĩnh viễn thất bại", description: err?.message || "Vui lòng thử lại", status: "error", duration: 2200, isClosable: true, position: "top" });
     }
   };
 
   return (
-    <Container maxW="7xl" py={6}>
-      {/* HEADER */}
-      <Flex
-        direction={{ base: "column", md: "row" }}
-        gap={4}
-        align={{ md: "center" }}
-        justify="space-between"
-        mb={6}
-      >
-        <Box>
-          <Heading size="lg">Quản lý danh mục</Heading>
-          <Text mt={1} fontSize="sm" color={textMuted}>
-            Quản lý các danh mục sản phẩm trong hệ thống
-          </Text>
-        </Box>
-
-        <HStack spacing={3}>
-          <Input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Tìm danh mục..."
-            w={{ base: "full", md: "320px" }}
-            bg={cardBg}
-            borderRadius="xl"
-          />
-
-          {canCreate && (
-            <Button onClick={openCreate} leftIcon={<AddIcon />} colorScheme="green" borderRadius="xl">
-              Thêm danh mục
-            </Button>
-          )}
-        </HStack>
-      </Flex>
-
-      {/* TABLE CARD */}
-      <Box bg={cardBg} borderRadius="2xl" boxShadow="sm" border="1px solid" borderColor={borderColor}>
-        {loading ? (
-          <Flex p={6} align="center" gap={3} color={textMuted}>
-            <Spinner size="sm" />
-            <Text fontSize="sm">Đang tải dữ liệu...</Text>
-          </Flex>
-        ) : (
-          <Box overflowX="auto">
-            <Table variant="simple">
-              <Thead bg={headBg}>
-                <Tr>
-                  <Th w="80px">#</Th>
-                  <Th>Tên</Th>
-                  <Th>Loại</Th>
-                  <Th>Trạng thái</Th>
-                  {showActionsCol && <Th textAlign="right">Hành động</Th>}
-                </Tr>
-              </Thead>
-
-              <Tbody>
-                {categories?.length === 0 ? (
-                  <Tr>
-                    <Td colSpan={showActionsCol ? 5 : 4}>
-                      <Box py={10} textAlign="center" color={textMuted}>
-                        Không có danh mục
-                      </Box>
-                    </Td>
-                  </Tr>
-                ) : (
-                  categories.map((c, index) => (
-                    <Tr key={c._id} _hover={{ bg: headBg }}>
-                      <Td color={textMuted} fontSize="sm">
-                        {(page - 1) * limit + index + 1}
-                      </Td>
-
-                      <Td fontWeight="semibold">{c.name}</Td>
-
-                      <Td fontSize="sm" color={textMuted}>
-                        {c.type === "mix" ? "Mix" : "Single"}
-                      </Td>
-
-                      <Td>
-                        {c.isActive ? (
-                          <Badge colorScheme="green" borderRadius="md">
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge colorScheme="gray" borderRadius="md">
-                            Inactive
-                          </Badge>
-                        )}
-                      </Td>
-
-                      {showActionsCol && (
-                        <Td textAlign="right">
-                          <HStack justify="flex-end" spacing={2}>
-                            {canUpdate && (
-                              <Tooltip label="Sửa" hasArrow placement="top">
-                                <IconButton
-                                  aria-label="Sửa"
-                                  icon={<EditIcon />}
-                                  size="sm"
-                                  variant="outline"
-                                  colorScheme="yellow"
-                                  onClick={() => openEdit(c)}
-                                />
-                              </Tooltip>
-                            )}
-
-                            {canDelete && (
-                              <Tooltip label="Xoá" hasArrow placement="top">
-                                <IconButton
-                                  aria-label="Xoá"
-                                  icon={<DeleteIcon />}
-                                  size="sm"
-                                  variant="outline"
-                                  colorScheme="red"
-                                  onClick={() => handleDelete(c._id)}
-                                />
-                              </Tooltip>
-                            )}
-                          </HStack>
-                        </Td>
-                      )}
-                    </Tr>
-                  ))
-                )}
-              </Tbody>
-            </Table>
+    <Box bg={bgMain} minH="100vh" p={{ base: 2, md: 6 }}>
+      <Box maxW="1600px" mx="auto">
+        {/* HEADER */}
+        <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "start", md: "center" }} mb={6} spacing={4}>
+          <Box>
+            <PageHeader title="Danh mục" description={isDeletedTab ? "Quản lý dữ liệu thùng rác." : "Quản lý danh mục sản phẩm."} />
+            <Box mt={4}>
+              <CategoryTabs
+                tab={tab}
+                onChangeTab={(t) => {
+                  setTab(t);
+                  setPage(1);
+                }}
+                activeCount={activeCount}
+                deletedCount={deletedCount}
+              />
+            </Box>
           </Box>
-        )}
 
-        {!loading && (
-          <Box borderTopWidth="1px" borderColor={borderColor}>
+          <HStack spacing={3}>
+            <Button
+              variant="outline"
+              bg={cardBg}
+              leftIcon={<ArrowPathIcon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />}
+              onClick={() => reloadAll?.() ?? refetch?.()}
+              size="sm"
+            >
+              Làm mới
+            </Button>
+
+            {!isDeletedTab && canCreate && (
+              <Button leftIcon={<PlusIcon className="h-5 w-5" />} colorScheme="green" onClick={openCreate} shadow="md">
+                Thêm mới
+              </Button>
+            )}
+          </HStack>
+        </Stack>
+
+        {/* FILTER & TABLE */}
+        <Card bg={cardBg} shadow="sm" border="1px solid" borderColor={borderColor} borderRadius="xl" overflow="hidden">
+          {/* Toolbar */}
+          <Box p={4} borderBottom="1px solid" borderColor={borderColor}>
+            <Stack direction={{ base: "column", lg: "row" }} spacing={4} justify="space-between" align={{ lg: "center" }}>
+              {/* Left: Filters */}
+              <Stack direction={{ base: "column", md: "row" }} spacing={3} flex={1}>
+                <InputGroup size="sm" maxW={{ base: "full", md: "320px" }}>
+                  <InputLeftElement pointerEvents="none">
+                    <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
+                  </InputLeftElement>
+                  <Input
+                    placeholder="Tìm danh mục..."
+                    borderRadius="md"
+                    value={filters.search ?? ""}
+                    onChange={(e) => onFilterChange("search", e.target.value)}
+                  />
+                </InputGroup>
+
+                <HStack spacing={2} overflowX="auto" pb={{ base: 2, md: 0 }}>
+                  <Select
+                    size="sm"
+                    borderRadius="md"
+                    w="160px"
+                    minW="140px"
+                    value={filters.type ?? ""}
+                    onChange={(e) => onFilterChange("type", e.target.value)}
+                    icon={<FunnelIcon />}
+                    color="gray.600"
+                  >
+                    <option value="">Loại</option>
+                    <option value="single">Single</option>
+                    <option value="mix">Mix</option>
+                  </Select>
+
+                  <Select
+                    size="sm"
+                    borderRadius="md"
+                    w="140px"
+                    minW="120px"
+                    value={filters.status ?? ""}
+                    onChange={(e) => onFilterChange("status", e.target.value)}
+                    color="gray.600"
+                  >
+                    <option value="">Trạng thái</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </Select>
+                </HStack>
+              </Stack>
+
+              {/* Right: Selection + Bulk actions */}
+              {selectedIds.length > 0 && (
+                <HStack bg="blue.50" px={4} py={1} borderRadius="full" spacing={2} justify={{ base: "space-between", lg: "flex-end" }}>
+                  <Text fontSize="sm" color="blue.700" fontWeight="medium">
+                    Đã chọn {selectedIds.length}
+                  </Text>
+
+                  <Button size="xs" variant="ghost" colorScheme="blue" onClick={clearSelection}>
+                    Bỏ chọn
+                  </Button>
+
+                  {!isDeletedTab ? (
+                    <Button size="xs" colorScheme="red" onClick={bulkSoftDelete} isDisabled={!canDelete}>
+                      Xoá (soft)
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="xs" colorScheme="green" onClick={bulkRestore} isDisabled={!canRestore}>
+                        Khôi phục
+                      </Button>
+                      <Button size="xs" colorScheme="red" onClick={bulkHardDelete} isDisabled={!canDelete}>
+                        Xoá vĩnh viễn
+                      </Button>
+                    </>
+                  )}
+                </HStack>
+              )}
+            </Stack>
+          </Box>
+
+          {/* Content */}
+          <Box position="relative">
+            {loading ? (
+              <Box p={6}>
+                <Stack spacing={4}>
+                  {[1, 2, 3].map((i) => (
+                    <HStack key={i} spacing={4}>
+                      <Skeleton boxSize="12" borderRadius="md" />
+                      <VStack align="start" flex={1}>
+                        <Skeleton height="4" width="40%" />
+                        <Skeleton height="3" width="20%" />
+                      </VStack>
+                    </HStack>
+                  ))}
+                </Stack>
+              </Box>
+            ) : categories.length === 0 ? (
+              <Box py={16} textAlign="center">
+                <Box mx="auto" bg="gray.100" borderRadius="full" p={4} w="fit-content" mb={4}>
+                  <MagnifyingGlassIcon className="h-8 w-8 text-gray-400" />
+                </Box>
+                <Text color="gray.500" fontWeight="medium">Không tìm thấy danh mục nào.</Text>
+                <Text fontSize="sm" color="gray.400">Thử thay đổi bộ lọc hoặc từ khoá tìm kiếm.</Text>
+              </Box>
+            ) : (
+              <Box overflowX="auto">
+                <Table variant="simple" size="md">
+                  <Thead
+                    position="sticky"
+                    top={0}
+                    bg={stickyHeaderBg}
+                    zIndex={10}
+                    sx={{ backdropFilter: "blur(12px)" }}
+                    boxShadow="0 1px 2px rgba(0,0,0,0.05)"
+                  >
+                    <Tr>
+                      <Th w="50px" textAlign="center">
+                        <Checkbox
+                          isChecked={allChecked}
+                          isIndeterminate={someChecked}
+                          onChange={() => (allChecked ? clearSelection() : selectAll(idsOnPage))}
+                          colorScheme="blue"
+                        />
+                      </Th>
+                      <Th color={thColor} fontSize="xs" textTransform="uppercase" letterSpacing="wider">Tên</Th>
+                      <Th color={thColor} fontSize="xs" textTransform="uppercase" letterSpacing="wider">Loại</Th>
+                      <Th color={thColor} fontSize="xs" textTransform="uppercase" letterSpacing="wider">Trạng thái</Th>
+                      <Th color={thColor} fontSize="xs" textTransform="uppercase" letterSpacing="wider" textAlign="right">Thao tác</Th>
+                    </Tr>
+                  </Thead>
+
+                  <Tbody>
+                    {categories.map((c) => {
+                      const id = String(c?._id);
+                      const selected = selectedIds.includes(id);
+
+                      return (
+                        <Tr key={id} bg={selected ? "blue.50" : "transparent"} _hover={{ bg: rowHoverBg }} transition="background 0.2s">
+                          <Td textAlign="center">
+                            <Checkbox isChecked={selected} onChange={() => toggleSelect(id)} colorScheme="blue" />
+                          </Td>
+
+                          <Td py={3}>
+                            <Box minW="220px" maxW="520px">
+                              <Text fontWeight="600" fontSize="sm" color="gray.700" noOfLines={1} title={c?.name}>
+                                {c?.name}
+                              </Text>
+                              <Text fontSize="xs" color="gray.500" fontFamily="mono" noOfLines={1}>
+                                {c?.slug || "-"}
+                              </Text>
+                              {c?.description ? (
+                                <Text fontSize="xs" color="gray.500" noOfLines={2} mt={1}>
+                                  {c.description}
+                                </Text>
+                              ) : null}
+                            </Box>
+                          </Td>
+
+                          <Td>
+                            <Badge variant="subtle" borderRadius="full">
+                              {c?.type === "mix" ? "MIX" : "SINGLE"}
+                            </Badge>
+                          </Td>
+
+                          <Td>
+                            <Badge px={2.5} py={0.5} borderRadius="full" fontSize="xs" colorScheme={c?.isActive ? "green" : "gray"} variant="subtle">
+                              {c?.isActive ? "ACTIVE" : "INACTIVE"}
+                            </Badge>
+                          </Td>
+
+                          <Td textAlign="right">
+                            <HStack justify="flex-end" spacing={1}>
+                              {!isDeletedTab ? (
+                                <>
+                                  {canUpdate && (
+                                    <Tooltip label="Sửa" hasArrow placement="top">
+                                      <IconButton
+                                        icon={<PencilSquareIcon className="h-4 w-4" />}
+                                        size="sm"
+                                        variant="ghost"
+                                        colorScheme="blue"
+                                        borderRadius="md"
+                                        aria-label="Edit"
+                                        onClick={() => openEdit(c)}
+                                      />
+                                    </Tooltip>
+                                  )}
+
+                                  {canDelete && (
+                                    <Tooltip label="Xoá (đưa vào thùng rác)" hasArrow placement="top">
+                                      <IconButton
+                                        icon={<TrashIcon className="h-4 w-4" />}
+                                        size="sm"
+                                        variant="ghost"
+                                        colorScheme="red"
+                                        borderRadius="md"
+                                        aria-label="Delete"
+                                        onClick={() => onSoftDelete(c)}
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {canRestore && (
+                                    <Tooltip label="Khôi phục" hasArrow placement="top">
+                                      <IconButton
+                                        icon={<ArrowUturnLeftIcon className="h-4 w-4" />}
+                                        size="sm"
+                                        variant="ghost"
+                                        colorScheme="green"
+                                        borderRadius="md"
+                                        aria-label="Restore"
+                                        onClick={() => onRestore(c)}
+                                      />
+                                    </Tooltip>
+                                  )}
+
+                                  {canDelete && (
+                                    <Tooltip label="Xoá vĩnh viễn" hasArrow placement="top">
+                                      <IconButton
+                                        icon={<TrashIcon className="h-4 w-4" />}
+                                        size="sm"
+                                        variant="solid"
+                                        colorScheme="red"
+                                        borderRadius="md"
+                                        aria-label="Hard delete"
+                                        onClick={() => onHardDelete(c)}
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </>
+                              )}
+                            </HStack>
+                          </Td>
+                        </Tr>
+                      );
+                    })}
+                  </Tbody>
+                </Table>
+              </Box>
+            )}
+          </Box>
+
+          {/* Footer / Pagination */}
+          <Box px={6} py={4} borderTop="1px solid" borderColor={borderColor}>
             <Pagination
               page={page}
               limit={limit}
               totalItems={totalItems}
               totalPages={totalPages}
-              onPageChange={(p) => setPage(p)}
+              onPageChange={setPage}
               onLimitChange={(n) => {
                 setLimit(n);
                 setPage(1);
@@ -430,82 +647,44 @@ export default function AdminCategoryPage({ screens: screensProp, userPermission
               isDisabled={loading}
             />
           </Box>
-        )}
+        </Card>
       </Box>
 
-      {/* MODAL */}
-      <Modal isOpen={isOpen} onClose={closeModal} isCentered>
-        <ModalOverlay bg="blackAlpha.400" />
-        <ModalContent borderRadius="2xl">
-          <ModalHeader>{title}</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Stack spacing={4}>
-              <FormControl>
-                <FormLabel>Tên danh mục</FormLabel>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ví dụ: Trái cây nhập khẩu"
-                  borderRadius="xl"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSave();
-                    }
-                  }}
-                />
-              </FormControl>
+      {/* MODAL FORM */}
+      <Modal isOpen={isFormOpen} onClose={closeForm} title={editing ? "Cập nhật danh mục" : "Thêm mới danh mục"} size="xl" isCentered>
+        <Stack spacing={4}>
+          <FormControl>
+            <FormLabel>Tên danh mục</FormLabel>
+            <Input value={name} onChange={(e) => setName(e.target.value)} borderRadius="xl" />
+          </FormControl>
 
-              <FormControl>
-                <FormLabel>Loại</FormLabel>
-                <Select value={type} onChange={(e) => setType(e.target.value)} borderRadius="xl">
-                  <option value="single">Single</option>
-                  <option value="mix">Mix</option>
-                </Select>
-              </FormControl>
+          <FormControl>
+            <FormLabel>Loại</FormLabel>
+            <Select value={type} onChange={(e) => setType(e.target.value)} borderRadius="xl">
+              <option value="single">Single</option>
+              <option value="mix">Mix</option>
+            </Select>
+          </FormControl>
 
-              <FormControl>
-                <FormLabel>Mô tả</FormLabel>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Mô tả ngắn về danh mục..."
-                  borderRadius="xl"
-                  rows={3}
-                />
-              </FormControl>
+          <FormControl>
+            <FormLabel>Mô tả</FormLabel>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} borderRadius="xl" rows={3} />
+          </FormControl>
 
-              <FormControl>
-                <HStack justify="space-between">
-                  <FormLabel mb={0}>Kích hoạt</FormLabel>
-                  <Switch
-                    isChecked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                    colorScheme="green"
-                  />
-                </HStack>
-              </FormControl>
-            </Stack>
-          </ModalBody>
-
-          <ModalFooter>
-            <HStack spacing={2}>
-              <Button variant="ghost" onClick={closeModal}>
-                Huỷ
-              </Button>
-              <Button
-                colorScheme="green"
-                onClick={handleSave}
-                isDisabled={editing?._id ? !canUpdate : !canCreate}
-              >
-                Lưu
-              </Button>
+          <FormControl>
+            <HStack justify="space-between">
+              <FormLabel mb={0}>Kích hoạt</FormLabel>
+              <Switch isChecked={isActive} onChange={(e) => setIsActive(e.target.checked)} colorScheme="green" />
             </HStack>
-          </ModalFooter>
-        </ModalContent>
+          </FormControl>
+
+          <HStack justify="flex-end">
+            <Button variant="ghost" onClick={closeForm}>Huỷ</Button>
+            <Button colorScheme="green" onClick={onSubmit}>Lưu</Button>
+          </HStack>
+        </Stack>
       </Modal>
-    </Container>
+    </Box>
   );
 }
 

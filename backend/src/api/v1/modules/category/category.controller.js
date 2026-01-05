@@ -109,3 +109,22 @@ exports.getCategoryDetails = asyncHandler(async (req, res) => {
     DT: data,
   });
 });
+
+exports.restore = asyncHandler(async (req, res) => {
+  const data = await categoryService.restore(req.params.id);
+  return res.json({
+    EC: 0,
+    EM: "Khôi phục category thành công",
+    DT: data,
+  });
+});
+
+exports.hardDelete = asyncHandler(async (req, res) => {
+  const data = await categoryService.hardDelete(req.params.id);
+  return res.json({
+    EC: 0,
+    EM: "Xoá category vĩnh viễn thành công",
+    DT: data,
+  });
+});
+

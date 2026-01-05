@@ -105,14 +105,17 @@ function UsersView({
 }) {
   const isDeletedTab = tab === "deleted";
 
-  // ===== Theme tokens (match sidebar/header green) =====
+  // ✅ ALL theme tokens at top-level (no hooks inside JSX)
   const pageBg = useColorModeValue("#F6F8F8", "#0B1211");
   const cardBg = useColorModeValue("white", "rgba(17, 24, 39, 0.75)");
   const cardBorder = useColorModeValue("blackAlpha.100", "whiteAlpha.200");
   const softText = useColorModeValue("gray.600", "gray.300");
   const mutedText = useColorModeValue("gray.500", "gray.400");
 
-  const headerBg = useColorModeValue("rgba(255,255,255,0.78)", "rgba(17, 24, 39, 0.60)");
+  const headerBg = useColorModeValue(
+    "rgba(255,255,255,0.78)",
+    "rgba(17, 24, 39, 0.60)"
+  );
   const tableHeadBg = useColorModeValue("blackAlpha.50", "whiteAlpha.100");
   const rowHoverBg = useColorModeValue("blackAlpha.50", "whiteAlpha.50");
 
@@ -121,24 +124,70 @@ function UsersView({
     "0 16px 40px rgba(0,0,0,0.35)"
   );
 
+  const glowGradient = useColorModeValue(
+    "radial-gradient(900px 420px at 18% 6%, rgba(48, 73, 69, 0.12), transparent 60%), radial-gradient(800px 380px at 92% 0%, rgba(64, 93, 88, 0.10), transparent 55%)",
+    "radial-gradient(900px 420px at 18% 6%, rgba(48, 73, 69, 0.22), transparent 60%), radial-gradient(800px 380px at 92% 0%, rgba(64, 93, 88, 0.18), transparent 55%)"
+  );
+
+  const controlBg = useColorModeValue("white", "whiteAlpha.100");
+  const ghostHoverBg = useColorModeValue("blackAlpha.100", "whiteAlpha.100");
+  const dangerNameColor = useColorModeValue("gray.700", "gray.100");
+
   const displayMode = useBreakpointValue({ base: "mobile", md: "desktop" });
 
   // permissions
-  const canCreate = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "create" });
-  const canUpdate = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "update" });
-  const canDelete = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "delete" });
-  const canRestore = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "restore" });
+  const canCreate = computePermission({
+    screens,
+    userPermissions,
+    resourceKey: "user",
+    actionKey: "create",
+  });
+  const canUpdate = computePermission({
+    screens,
+    userPermissions,
+    resourceKey: "user",
+    actionKey: "update",
+  });
+  const canDelete = computePermission({
+    screens,
+    userPermissions,
+    resourceKey: "user",
+    actionKey: "delete",
+  });
+  const canRestore = computePermission({
+    screens,
+    userPermissions,
+    resourceKey: "user",
+    actionKey: "restore",
+  });
 
-  const canChangeStatus = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "changeStatus" });
-  const canBulkStatus = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "bulkStatus" });
-  const canBulkDelete = computePermission({ screens, userPermissions, resourceKey: "user", actionKey: "bulkDelete" });
+  const canChangeStatus = computePermission({
+    screens,
+    userPermissions,
+    resourceKey: "user",
+    actionKey: "changeStatus",
+  });
+  const canBulkStatus = computePermission({
+    screens,
+    userPermissions,
+    resourceKey: "user",
+    actionKey: "bulkStatus",
+  });
+  const canBulkDelete = computePermission({
+    screens,
+    userPermissions,
+    resourceKey: "user",
+    actionKey: "bulkDelete",
+  });
 
   const idsOnPage = useMemo(
     () => (filteredUsers || []).map((u) => u?._id).filter(Boolean),
     [filteredUsers]
   );
-  const allChecked = idsOnPage.length > 0 && idsOnPage.every((id) => selectedIds.includes(id));
-  const someChecked = idsOnPage.some((id) => selectedIds.includes(id)) && !allChecked;
+  const allChecked =
+    idsOnPage.length > 0 && idsOnPage.every((id) => selectedIds.includes(id));
+  const someChecked =
+    idsOnPage.some((id) => selectedIds.includes(id)) && !allChecked;
 
   const renderRoleBadges = (u) => {
     const roleCodes = (u.roles || []).map((r) => r.code).filter(Boolean);
@@ -169,7 +218,9 @@ function UsersView({
     const disabled = isDeletedTab || !canChangeStatus || !!rowBusy?.[u._id];
     const label = isDeletedTab
       ? "User đã bị xoá (soft-delete)"
-      : (!canChangeStatus ? "Bạn không có quyền đổi status" : "Click để đổi trạng thái");
+      : !canChangeStatus
+      ? "Bạn không có quyền đổi status"
+      : "Click để đổi trạng thái";
 
     return (
       <Tooltip label={label} hasArrow>
@@ -189,7 +240,7 @@ function UsersView({
               toggleUserStatus?.(u);
             }}
           >
-            {rowBusy?.[u._id] ? "Updating..." : (u.isActive ? "Active" : "Inactive")}
+            {rowBusy?.[u._id] ? "Updating..." : u.isActive ? "Active" : "Inactive"}
           </Badge>
         </Box>
       </Tooltip>
@@ -204,16 +255,8 @@ function UsersView({
 
   return (
     <Box minH="100vh" bg={pageBg} position="relative">
-      {/* subtle brand glow (match #304945) */}
-      <Box
-        pointerEvents="none"
-        position="absolute"
-        inset={0}
-        bgGradient={useColorModeValue(
-          "radial-gradient(900px 420px at 18% 6%, rgba(48, 73, 69, 0.12), transparent 60%), radial-gradient(800px 380px at 92% 0%, rgba(64, 93, 88, 0.10), transparent 55%)",
-          "radial-gradient(900px 420px at 18% 6%, rgba(48, 73, 69, 0.22), transparent 60%), radial-gradient(800px 380px at 92% 0%, rgba(64, 93, 88, 0.18), transparent 55%)"
-        )}
-      />
+      {/* subtle brand glow */}
+      <Box pointerEvents="none" position="absolute" inset={0} bgGradient={glowGradient} />
 
       <Box p={{ base: 4, md: 8 }} maxW="1600px" mx="auto" position="relative">
         {/* Header card */}
@@ -228,7 +271,12 @@ function UsersView({
           mb={6}
           backdropFilter="blur(10px)"
         >
-          <Flex direction={{ base: "column", md: "row" }} justify="space-between" gap={4} align={{ md: "center" }}>
+          <Flex
+            direction={{ base: "column", md: "row" }}
+            justify="space-between"
+            gap={4}
+            align={{ md: "center" }}
+          >
             <Box flex="1">
               <PageHeader
                 title="User Management"
@@ -330,7 +378,7 @@ function UsersView({
                   <Input
                     placeholder="Search name, email..."
                     borderRadius="full"
-                    bg={useColorModeValue("white", "whiteAlpha.100")}
+                    bg={controlBg}
                     border="1px solid"
                     borderColor={cardBorder}
                     value={filters?.search ?? ""}
@@ -346,7 +394,7 @@ function UsersView({
                   size="sm"
                   borderRadius="full"
                   maxW="200px"
-                  bg={useColorModeValue("white", "whiteAlpha.100")}
+                  bg={controlBg}
                   border="1px solid"
                   borderColor={cardBorder}
                   value={filters?.role ?? ""}
@@ -354,7 +402,9 @@ function UsersView({
                 >
                   <option value="">All Roles</option>
                   {allRoleCodes.map((code) => (
-                    <option key={code} value={code}>{code}</option>
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
                   ))}
                 </Select>
 
@@ -362,7 +412,7 @@ function UsersView({
                   size="sm"
                   borderRadius="full"
                   maxW="200px"
-                  bg={useColorModeValue("white", "whiteAlpha.100")}
+                  bg={controlBg}
                   border="1px solid"
                   borderColor={cardBorder}
                   value={filters?.status ?? ""}
@@ -396,11 +446,21 @@ function UsersView({
                           onChange={() => selectAll?.(idsOnPage)}
                         />
                       </Th>
-                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">USER</Th>
-                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">ROLES</Th>
-                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">STATUS</Th>
-                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">CREATED</Th>
-                      <Th py={4} textAlign="right" color={mutedText} fontWeight="bold" letterSpacing="0.06em">ACTIONS</Th>
+                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">
+                        USER
+                      </Th>
+                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">
+                        ROLES
+                      </Th>
+                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">
+                        STATUS
+                      </Th>
+                      <Th py={4} color={mutedText} fontWeight="bold" letterSpacing="0.06em">
+                        CREATED
+                      </Th>
+                      <Th py={4} textAlign="right" color={mutedText} fontWeight="bold" letterSpacing="0.06em">
+                        ACTIONS
+                      </Th>
                     </Tr>
                   </Thead>
 
@@ -408,7 +468,9 @@ function UsersView({
                     {isLoading ? (
                       Array.from({ length: 6 }).map((_, i) => (
                         <Tr key={i}>
-                          <Td><SkeletonCircle size="4" /></Td>
+                          <Td>
+                            <SkeletonCircle size="4" />
+                          </Td>
                           <Td py={5}>
                             <HStack spacing={3}>
                               <SkeletonCircle size="8" />
@@ -418,9 +480,15 @@ function UsersView({
                               </Box>
                             </HStack>
                           </Td>
-                          <Td py={5}><SkeletonText noOfLines={2} spacing="2" /></Td>
-                          <Td py={5}><Skeleton height="18px" w="90px" borderRadius="full" /></Td>
-                          <Td py={5}><Skeleton height="12px" w="120px" /></Td>
+                          <Td py={5}>
+                            <SkeletonText noOfLines={2} spacing="2" />
+                          </Td>
+                          <Td py={5}>
+                            <Skeleton height="18px" w="90px" borderRadius="full" />
+                          </Td>
+                          <Td py={5}>
+                            <Skeleton height="12px" w="120px" />
+                          </Td>
                           <Td py={5} textAlign="right">
                             <HStack justify="flex-end">
                               <Skeleton height="28px" w="28px" borderRadius="lg" />
@@ -437,11 +505,7 @@ function UsersView({
                       </Tr>
                     ) : (
                       filteredUsers.map((u) => (
-                        <Tr
-                          key={u._id}
-                          _hover={{ bg: rowHoverBg }}
-                          transition="background 0.15s ease"
-                        >
+                        <Tr key={u._id} _hover={{ bg: rowHoverBg }} transition="background 0.15s ease">
                           <Td>
                             <Checkbox
                               isChecked={selectedIds.includes(u._id)}
@@ -489,7 +553,7 @@ function UsersView({
                                       icon={<PencilSquareIcon className="h-4 w-4" />}
                                       onClick={() => onEditUser?.(u)}
                                       transition="all .15s ease"
-                                      _hover={{ transform: "translateY(-1px)", bg: useColorModeValue("blackAlpha.100", "whiteAlpha.100") }}
+                                      _hover={{ transform: "translateY(-1px)", bg: ghostHoverBg }}
                                     />
                                   )}
                                   {canDelete && (
@@ -518,7 +582,7 @@ function UsersView({
                                     icon={<ArrowUturnLeftIcon className="h-4 w-4" />}
                                     onClick={() => onRestoreUser?.(u)}
                                     transition="all .15s ease"
-                                    _hover={{ transform: "translateY(-1px)", bg: useColorModeValue("blackAlpha.100", "whiteAlpha.100") }}
+                                    _hover={{ transform: "translateY(-1px)", bg: ghostHoverBg }}
                                   />
                                 )
                               )}
@@ -553,7 +617,11 @@ function UsersView({
         </Card>
 
         {/* Create / Update modal */}
-        <Modal isOpen={isFormOpen} onClose={closeForm} title={selectedUser ? "Update Profile" : "Create Account"}>
+        <Modal
+          isOpen={isFormOpen}
+          onClose={closeForm}
+          title={selectedUser ? "Update Profile" : "Create Account"}
+        >
           <UserForm user={selectedUser} onSubmit={onSubmitUser} onCancel={closeForm} />
         </Modal>
 
@@ -562,13 +630,15 @@ function UsersView({
           <Box p={1}>
             <Text mb={6} color={softText}>
               Are you sure you want to delete{" "}
-              <Text as="span" fontWeight="bold" color={useColorModeValue("gray.700", "gray.100")}>
+              <Text as="span" fontWeight="bold" color={dangerNameColor}>
                 {userToDelete?.fullName || userToDelete?.email || "this user"}
               </Text>
               ? This user will lose all access immediately.
             </Text>
             <HStack spacing={3} justify="flex-end">
-              <Button variant="ghost" onClick={closeDelete} borderRadius="xl">Cancel</Button>
+              <Button variant="ghost" onClick={closeDelete} borderRadius="xl">
+                Cancel
+              </Button>
               <Button colorScheme="red" borderRadius="xl" onClick={onConfirmDelete}>
                 Confirm Delete
               </Button>
@@ -581,13 +651,15 @@ function UsersView({
           <Box p={1}>
             <Text mb={6} color={softText}>
               Bạn có chắc muốn xoá{" "}
-              <Text as="span" fontWeight="bold" color={useColorModeValue("gray.700", "gray.100")}>
+              <Text as="span" fontWeight="bold" color={dangerNameColor}>
                 {selectedIds.length}
               </Text>{" "}
               user đã chọn không?
             </Text>
             <HStack spacing={3} justify="flex-end">
-              <Button variant="ghost" onClick={closeBulkDelete} borderRadius="xl">Cancel</Button>
+              <Button variant="ghost" onClick={closeBulkDelete} borderRadius="xl">
+                Cancel
+              </Button>
               <Button colorScheme="red" borderRadius="xl" onClick={confirmBulkDelete}>
                 Confirm Delete
               </Button>
