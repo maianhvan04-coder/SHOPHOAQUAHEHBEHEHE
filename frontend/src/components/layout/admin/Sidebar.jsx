@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import { useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDisclosure } from "@chakra-ui/react";
@@ -38,7 +37,7 @@ import {
   CalendarIcon,
   BuildingOfficeIcon,
   UserIcon,
-   ShoppingBagIcon,
+  ShoppingBagIcon,
   TagIcon,
   ReceiptPercentIcon,
   ShieldCheckIcon,
@@ -59,44 +58,50 @@ const ICON = {
   departments: BuildingOfficeIcon,
   profile: UserIcon,
 
-  //  category
   category: TagIcon,
   tags: TagIcon,
 
-  //  product
   product: ShoppingBagIcon,
   package: ShoppingBagIcon,
   box: ShoppingBagIcon,
 
-  //  orders
   order: ReceiptPercentIcon,
   orders: ReceiptPercentIcon,
   receipt: ReceiptPercentIcon,
 
-  // rbac
   shield: ShieldCheckIcon,
   rbac: ShieldCheckIcon,
   permission: LockClosedIcon,
   permissions: LockClosedIcon,
 };
 
+// ✅ no-network fallback (18x18 svg)
+const FALLBACK_18 =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18">
+      <rect width="18" height="18" rx="5" fill="#4F7CFF"/>
+      <text x="9" y="12.3" text-anchor="middle" font-size="10" fill="white" font-family="Arial" font-weight="700">J</text>
+    </svg>`
+  );
 
 export default function Sidebar({ groups, screens, userPermissions = [] }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
+
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  // ===== Modernize-like theme =====
+  // ===== theme =====
   const sidebarBg = useColorModeValue("#0B1220", "#0B1220");
   const sidebarBorder = useColorModeValue("rgba(255,255,255,0.08)", "rgba(255,255,255,0.08)");
   const muted = useColorModeValue("rgba(255,255,255,0.60)", "rgba(255,255,255,0.60)");
   const muted2 = useColorModeValue("rgba(255,255,255,0.40)", "rgba(255,255,255,0.40)");
 
   const itemHoverBg = useColorModeValue("rgba(255,255,255,0.06)", "rgba(255,255,255,0.06)");
-  const itemActiveBg = useColorModeValue("rgba(79,124,255,0.95)", "rgba(79,124,255,0.95)"); // pill xanh
+  const itemActiveBg = useColorModeValue("rgba(79,124,255,0.95)", "rgba(79,124,255,0.95)");
   const itemActiveShadow = useColorModeValue(
     "0 10px 30px rgba(79,124,255,0.25)",
     "0 10px 30px rgba(79,124,255,0.25)"
@@ -135,10 +140,7 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
         transition="all 180ms ease"
         bg={active ? itemActiveBg : "transparent"}
         boxShadow={active ? itemActiveShadow : "none"}
-        _hover={{
-          bg: active ? itemActiveBg : itemHoverBg,
-          transform: "translateY(-1px)",
-        }}
+        _hover={{ bg: active ? itemActiveBg : itemHoverBg, transform: "translateY(-1px)" }}
         _active={{ transform: "translateY(0px)" }}
       >
         <Box
@@ -220,25 +222,23 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
 
   const SidebarContent = ({ onDrawerClose }) => (
     <Box
-       bg={sidebarBg}
-    h="100vh"
-    position="sticky"
-    top="0"
-    borderRight="1px solid"
-    borderColor={sidebarBorder}
-    w={isCollapsed ? "84px" : "290px"}
-    transition="width 220ms ease"
-
-    // ✅ quan trọng
-    display="flex"
-    flexDirection="column"
-    overflowX="hidden"
-    overflowY="auto"
-    sx={{
-      "&::-webkit-scrollbar": { width: "6px" },
-      "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.18)", borderRadius: "999px" },
-      "&::-webkit-scrollbar-track": { background: "transparent" },
-    }}
+      bg={sidebarBg}
+      h="100vh"
+      position="sticky"
+      top="0"
+      borderRight="1px solid"
+      borderColor={sidebarBorder}
+      w={isCollapsed ? "84px" : "290px"}
+      transition="width 220ms ease"
+      display="flex"
+      flexDirection="column"
+      overflowX="hidden"
+      overflowY="auto"
+      sx={{
+        "&::-webkit-scrollbar": { width: "6px" },
+        "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.18)", borderRadius: "999px" },
+        "&::-webkit-scrollbar-track": { background: "transparent" },
+      }}
     >
       {/* Top bar */}
       <Flex align="center" justify="space-between" px={isCollapsed ? 4 : 6} pt="18px" pb="14px">
@@ -257,7 +257,7 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
               w="18px"
               h="18px"
               draggable={false}
-              fallbackSrc="https://via.placeholder.com/18"
+              fallbackSrc={FALLBACK_18} // ✅ no network
             />
           </Box>
 
@@ -348,11 +348,7 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
               _hover={{ bg: "rgba(255,255,255,0.07)" }}
               transition="all 180ms ease"
             >
-              <Avatar
-                size="sm"
-                name={user?.fullName || user?.name || "U"}
-                src={user?.avatar}
-              />
+              <Avatar size="sm" name={user?.fullName || user?.name || "U"} src={user?.avatar} />
               {!isCollapsed && (
                 <Box minW={0}>
                   <Text fontSize="sm" fontWeight="700" color="white" noOfLines={1}>

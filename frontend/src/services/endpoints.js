@@ -21,12 +21,21 @@ export const endpoints = {
   },
 
   categories: {
-    list: `${v1Admin}/category`, // GET (list)
-    create: `${v1Admin}/category/create`, // POST (create)
-    detail: (id) => `${v1Admin}/category/${id}`,
-    update: (id) => `${v1Admin}/category/${id}`, // PATCH
-    remove: (id) => `${v1Admin}/category/${id}`, // DELETE hoặc PATCH soft delete
-  },
+  list: `${v1Admin}/category`,              // GET
+  create: `${v1Admin}/category/create`,     // POST
+  detail: (id) => `${v1Admin}/category/${id}`,
+  update: (id) => `${v1Admin}/category/${id}`, // PATCH
+
+  // soft delete -> vào thùng rác
+  remove: (id) => `${v1Admin}/category/${id}`, // DELETE
+
+  // ✅ restore từ thùng rác
+  restore: (id) => `${v1Admin}/category/${id}/restore`, // PATCH
+
+  // ✅ hard delete (xóa vĩnh viễn) - chỉ khi isDeleted=true
+  hardDelete: (id) => `${v1Admin}/category/${id}/hard`,  // DELETE
+},
+
   products: {
     list: `${v1Admin}/product`,
     create: `${v1Admin}/product`,

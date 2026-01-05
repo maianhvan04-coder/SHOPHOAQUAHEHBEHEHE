@@ -80,8 +80,12 @@ exports.create = async (payload = {}) => {
 exports.adminList = async (query = {}) => {
   const { page, limit } = parsePagination(query);
   const search = query.search?.trim();
-  const type = query.type?.trim(); // (single|mix nếu bạn muốn filter)
+  const type = query.type?.trim();
   const isActive = parseBoolean(query.isActive);
+
+  // ✅ thêm tab (active|deleted)
+  const tab = String(query.tab || "active").trim().toLowerCase();
+  const isDeleted = tab === "deleted";
 
   const { items, total } = await categoryRepo.listAdmin({
     page,
@@ -89,6 +93,7 @@ exports.adminList = async (query = {}) => {
     search,
     type,
     isActive,
+    isDeleted, // ✅ NEW
   });
 
   return {
@@ -204,5 +209,26 @@ exports.softDelete = async (id) => {
 
   const deleted = await categoryRepo.softDeleteById(id);
   if (!deleted) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy category");
+  return deleted;
+};
+// ================== RESTORE ==================
+exports.restore = async (id) => {
+  ensureObjectId(id);
+
+  const restored = await categoryRepo.restoreById(id);
+  if (!restored) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Category không nằm trong thùng rác hoặc không tồn tại");
+  }
+  return restored;
+};
+
+// ================== HARD DELETE ==================
+exports.hardDelete = async (id) => {
+  ensureObjectId(id);
+
+  const deleted = await categoryRepo.hardDeleteById(id);
+  if (!deleted) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Chỉ xoá vĩnh viễn khi category đang ở thùng rác");
+  }
   return deleted;
 };

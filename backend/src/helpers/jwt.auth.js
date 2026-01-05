@@ -3,45 +3,31 @@ const ApiError = require("../core/apiError");
 const httpStatus = require("../core/httpStatus");
 
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
-const REFRESH_TOKEN_EXPIRES_IN = "7d";
-/**
- * Generate access token
- */
+
 exports.generateAccessToken = (user) => {
   return jwt.sign(
-    {
-      sub: user._id,
-      role: user.role,
-    },
+    { sub: String(user._id), role: user.role, type: "access" },
     process.env.JWT_ACCESS_SECRET,
-    {
-      expiresIn: ACCESS_TOKEN_EXPIRES_IN,
-    }
+    { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
   );
 };
 
-/**
- * Generate refresh token
- */
-exports.signRefreshToken = (user) => {
+exports.signRefreshToken = ({ sub, sid, expiresIn }) => {
   return jwt.sign(
-    {
-      sub: user._id,
-    },
+    { sub: String(sub), sid: String(sid), type: "refresh" },
     process.env.JWT_REFRESH_SECRET,
-    {
-      expiresIn: REFRESH_TOKEN_EXPIRES_IN,
-    }
+    { expiresIn } // seconds hoặc string
   );
 };
 
-/**
- * Verify access token
- */
 exports.verifyAccessToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-  } catch (err) {
+    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    if (payload?.type !== "access") {
+      throw new ApiError(httpStatus.UNAUTHORIZED, "Token không phải access");
+    }
+    return payload;
+  } catch {
     throw new ApiError(
       httpStatus.UNAUTHORIZED,
       "Access token không hợp lệ hoặc đã hết hạn"
@@ -49,13 +35,14 @@ exports.verifyAccessToken = (token) => {
   }
 };
 
-/**
- * Verify refresh token
- */
 exports.verifyRefreshToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-  } catch (err) {
+    const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    if (payload?.type !== "refresh") {
+      throw new ApiError(httpStatus.UNAUTHORIZED, "Token không phải refresh");
+    }
+    return payload;
+  } catch {
     throw new ApiError(
       httpStatus.UNAUTHORIZED,
       "Refresh token không hợp lệ hoặc đã hết hạn"
