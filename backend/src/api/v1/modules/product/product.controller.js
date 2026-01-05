@@ -8,11 +8,14 @@ const {
   getCategoryById,
 } = require("../category/category.service");
 module.exports.adminList = asyncHandler(async (req, res) => {
+
   const data = await productService.productAdminList(req.query);
+  // console.log(data)
   res.json({ data });
 });
 
 module.exports.adminCreate = asyncHandler(async (req, res) => {
+  console.log(req.body)
   const data = await productService.productAdminCreate(req.body);
   res.json({ message: "Tạo sản phẩm thành công", data });
 });
@@ -46,7 +49,6 @@ exports.setFeatured = asyncHandler(async (req, res) => {
 // const productService = require("../product.service");
 
 module.exports.getAllProducts = async (req, res) => {
-  console.log("Vao den day");
   try {
     const { search, sort, page, limit, category = "all" } = req.query;
     const filter = {
@@ -61,7 +63,7 @@ module.exports.getAllProducts = async (req, res) => {
       limit,
       filter
     );
-    console.log(result);
+
     if (result.EC !== 0) {
       return res.status(400).json(result);
     }
@@ -100,7 +102,7 @@ module.exports.getProductByCategory = async (req, res) => {
 };
 module.exports.getTopNewProducts = async (_, res) => {
   try {
-    console.log("vào đây rồi nha");
+
     const result = await productService.getTopNewProductsService();
     if (result.EC !== 0) {
       return res.status(400).json(result);

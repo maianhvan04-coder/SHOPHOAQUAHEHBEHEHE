@@ -21,5 +21,10 @@
   "homepage": "https://github.com/maianhvaninternbackend-collab/DUANHOAQUA#readme",
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "react-hook-form": "^7.69.0",
+    "yup": "^1.7.1"
   }
 }

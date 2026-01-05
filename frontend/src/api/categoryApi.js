@@ -2,8 +2,25 @@ import apiClient from "~/services/apiClient";
 import { endpoints } from "~/services/endpoints";
 
 export const categoryApi = {
-    list: (params) =>
-        apiClient.get(endpoints.categories.list, { params }),
+    async list(params) {
+        const res = await apiClient.get(endpoints.categories.list, { params });
+
+        const dt = res?.data?.DT || {};
+        const categories = Array.isArray(dt.categories) ? dt.categories : [];
+
+        return {
+            items: categories,
+            pagination: {
+                page: Number(dt.page || 1),
+                limit: Number(dt.limit || params?.limit || 10),
+                total: Number(dt.totalItems || categories.length || 0),
+                totalPages: Number(dt.totalPages || 1),
+            },
+            // nếu muốn check code:
+            ec: res?.data?.EC,
+            em: res?.data?.EM,
+        };
+    },
 
     create: (data) =>
         apiClient.post(endpoints.categories.create, data),
@@ -14,4 +31,3 @@ export const categoryApi = {
     remove: (id) =>
         apiClient.delete(endpoints.categories.remove(id)),
 };
-

@@ -23,6 +23,10 @@ exports.create = Joi.object({
         "string.max": "Tên sản phẩm tối đa {#limit} ký tự",
     }),
 
+    category: objectId.required().messages({
+        "any.required": "Danh mục là bắt buộc",
+    }),
+
     description: Joi.string().allow("").max(2000).optional().messages({
         "string.base": "Mô tả phải là chuỗi",
         "string.max": "Mô tả tối đa {#limit} ký tự",
@@ -40,25 +44,32 @@ exports.create = Joi.object({
         "number.min": "Tồn kho phải >= {#limit}",
     }),
 
-    categoryId: objectId.required().messages({
-        "any.required": "categoryId là bắt buộc",
-    }),
-
     isActive: Joi.boolean().optional().messages({
         "boolean.base": "isActive phải là true/false",
     }),
+
+
+    isFeatured: Joi.boolean().optional().messages({
+        "boolean.base": "isFeatured phải là true/false",
+    }),
+
     featuredRank: Joi.number().integer().min(0).max(100000).optional().messages({
         "number.base": "featuredRank phải là số",
         "number.integer": "featuredRank phải là số nguyên",
         "number.min": "featuredRank phải >= {#limit}",
         "number.max": "featuredRank phải <= {#limit}",
     }),
-    images: Joi.array().items(imageItem).optional().messages({
-        "array.base": "images phải là mảng",
+
+    images: Joi.array().min(1).items(imageItem).required().messages({
+        "any.required": "images là bắt buộc",
+        "array.min": "Phải có ít nhất 1 ảnh",
     }),
+
+    image: Joi.any().strip(),
 }).messages({
     "object.unknown": "Có trường không được phép gửi lên",
 });
+
 
 exports.update = Joi.object({
     name: Joi.string().min(2).max(150).optional().messages({

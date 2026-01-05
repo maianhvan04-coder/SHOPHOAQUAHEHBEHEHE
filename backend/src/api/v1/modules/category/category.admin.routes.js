@@ -16,7 +16,7 @@ router.get("/:id", ...guard({ any: [PERMISSIONS.CATEGORY_READ] }), controller.ad
 // POST /api/v1/admin/category/create
 router.post(
     "/create",
-    ...guard({ any: [PERMISSIONS.CATEGORY_WRITE] }),
+    ...guard({ any: [PERMISSIONS.CATEGORY_CREATE] }),
     validate(validator.create),
     controller.create
 );
@@ -24,7 +24,7 @@ router.post(
 // PATCH /api/v1/admin/category/:id
 router.patch(
     "/:id",
-    ...guard({ any: [PERMISSIONS.CATEGORY_WRITE] }),
+    ...guard({ any: [PERMISSIONS.CATEGORY_UPDATE] }),
     validate(validator.update),
     controller.update
 );
@@ -32,7 +32,7 @@ router.patch(
 // PATCH /api/v1/admin/category/:id/status
 router.patch(
     "/:id/status",
-    ...guard({ any: [PERMISSIONS.CATEGORY_WRITE] }),
+    ...guard({ any: [PERMISSIONS.CATEGORY_UPDATE] }),
     validate(validator.changeStatus),
     controller.changeStatus
 );
@@ -40,7 +40,7 @@ router.patch(
 // DELETE /api/v1/admin/category/:id  (soft)
 router.delete(
     "/:id",
-    ...guard({ any: [PERMISSIONS.CATEGORY_WRITE] }),
+    ...guard({ any: [PERMISSIONS.CATEGORY_DELETE] }),
     controller.softDelete
 );
 

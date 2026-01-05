@@ -16,78 +16,78 @@ const Category = require("../category/category.model.js");
 const Product = require("./product.model.js");
 
 exports.productAdminCreate = async (payload) => {
-  const { name, categoryId } = payload;
-  // console.log(">> Name :", name, categoryId)
+  const { name } = payload;
+  const category = payload.categoryId || payload.category; // hỗ trợ cả 2
 
-  if (!mongoose.Types.ObjectId.isValid(categoryId)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Category khong hop le");
+  if (!mongoose.Types.ObjectId.isValid(category)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Category không hợp lệ");
   }
 
-  const category = await categoryRepo.findByIdAdmin(categoryId);
-  if (!category) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Category không tồn tại");
+  const cat = await categoryRepo.findByIdAdmin(category);
+  if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Category không tồn tại");
+
+  //nếu không có image thì lấy ảnh đầu của images làm ảnh đại diện (để UI cũ vẫn dùng p.image.url)
+  if (!payload.image?.url && Array.isArray(payload.images) && payload.images.length) {
+    payload.image = payload.images[0];
   }
+
   const slug = makeSlug(name);
-  const existed = await productRepo.findAnyByIdSlug(slug);
 
+  const existed = await productRepo.findAnyByIdSlug(slug);
   if (existed && !existed.isDeleted) {
     throw new ApiError(httpStatus.CONFLICT, "Sản phẩm đã tồn tại");
   }
-  if (existed && existed.isDeleted) {
-    const updated = await productRepo.updateById(existed._id, {
-      ...payload,
-      slug,
-    });
 
-    return updated;
+  if (existed && existed.isDeleted) {
+    return productRepo.updateById(existed._id, { ...payload, slug });
   }
 
   return productRepo.create({ ...payload, slug });
 };
 
+
+
+
 exports.productAdminUpdate = async (id, payload) => {
-  if (!mongoose.Types.ObjectId.isValid(id))
+  if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "ProductId không hợp lệ");
-  console.log("id", id);
+  }
+
   const current = await productRepo.findByIdAdmin(id);
+  if (!current) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
 
-  if (!current) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Không tìm thấy sản phẩm");
-  }
-
-  if (payload.categoryId) {
-    const resultId = await categoryRepo.findByIdAdmin(payload.categoryId);
-
-    if (!resultId) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "Không tìm thấy danh mục sản phẩm"
-      );
-    }
-  }
   const updateData = { ...payload };
 
+  // ✅ validate category nếu có đổi
+  if (payload.category) {
+    if (!mongoose.Types.ObjectId.isValid(payload.category)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Category không hợp lệ");
+    }
+    const cat = await categoryRepo.findByIdAdmin(payload.category);
+    if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy danh mục");
+  }
+
+  // ✅ name đổi -> slug đổi
   if (payload.name) {
-    const newSlug = await makeSlug(payload.name);
+    const newSlug = makeSlug(payload.name);
     const existed = await productRepo.findAnyByIdSlug(newSlug);
     if (existed && existed._id.toString() !== id && !existed.isDeleted) {
       throw new ApiError(httpStatus.CONFLICT, "Slug đã tồn tại");
     }
-
     updateData.slug = newSlug;
   }
 
   const updated = await productRepo.updateById(id, updateData);
-  if (!updated)
-    throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
+  if (!updated) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
   return updated;
 };
 
+
 exports.productAdminList = async (query) => {
-  const { limit, page, skip } = parsePagination(query);
+  const { limit, page } = parsePagination(query);
 
   const search = query.search?.trim();
-  const categoryId = query.categoryId;
+  const category = query.category;          // ✅ dùng category
   let isActive = parseBoolean(query.isActive);
 
   if (isActive === "true") isActive = true;
@@ -95,9 +95,9 @@ exports.productAdminList = async (query) => {
   else isActive = undefined;
 
   const filter = { isDeleted: false };
+
   if (typeof isActive === "boolean") filter.isActive = isActive;
-  if (categoryId && mongoose.Types.ObjectId.isValid(categoryId))
-    filter.categoryId = categoryId;
+  if (category && mongoose.Types.ObjectId.isValid(category)) filter.category = category;
 
   if (search) {
     filter.$or = [
@@ -107,19 +107,15 @@ exports.productAdminList = async (query) => {
   }
 
   const sort = buildProductSort(query.sort);
-
-  const { items, total } = await productRepo.listAdminProduct({
-    page,
-    limit,
-    filter,
-    sort,
-  });
+  const { items, total } = await productRepo.listAdminProduct({ page, limit, filter, sort });
 
   return {
     items,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
 };
+
+
 
 exports.softDelete = async (id) => {
   const deleted = await productRepo.softDeleteById(id);

@@ -32,7 +32,7 @@ export const endpoints = {
     create: `${v1Admin}/product`,
     detail: (id) => `${v1Admin}/product/${id}`,
     update: (id) => `${v1Admin}/product/update/${id}`,
-    remove: (id) => `${v1Admin}/product/${id}`,
+    delete: (id) => `${v1Admin}/product/delete/${id}`,
     changeStatus: (id) => `${v1Admin}/product/${id}/status`,
   },
   rbac: {
