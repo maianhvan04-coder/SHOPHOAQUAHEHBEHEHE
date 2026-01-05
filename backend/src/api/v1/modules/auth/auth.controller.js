@@ -49,6 +49,7 @@ module.exports.refreshToken = asyncHandler(async (req, res) => {
 module.exports.me = asyncHandler(async (req, res) => {
   const userId = req.user?.sub;
   const data = await authService.getMe(userId, req.user);
+
   res.json({ data });
 });
 

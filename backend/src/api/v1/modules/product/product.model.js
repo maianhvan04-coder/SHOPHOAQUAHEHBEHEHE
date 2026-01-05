@@ -37,7 +37,7 @@ const productSchema = new mongoose.Schema(
         },
         price: { type: Number, required: true, min: 0 },
 
-        // ✅ THÊM stock
+        // THÊM stock
         stock: { type: Number, default: 0, min: 0 },
 
         // giữ lại field cũ
@@ -46,7 +46,7 @@ const productSchema = new mongoose.Schema(
 
         description: { type: String, default: "", trim: true },
 
-        // ✅ THÊM featured
+        //THÊM featured
         isFeatured: { type: Boolean, default: false, index: true },
         featuredRank: { type: Number, default: 0, index: true }, // 0 = không ưu tiên
 

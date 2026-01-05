@@ -2,13 +2,13 @@ const asyncHandler = require("../../../../core/asyncHandler");
 // Getall User
 const userService = require("./user.service");
 module.exports.getAllUsers = (asyncHandler(async (req, res) => {
-   console.log(req.query)
+
    const result = await userService.getUsers(req.query);
    res.json({ result })
 }))
 // Delete
 module.exports.delete = (asyncHandler(async (req, res) => {
-   console.log(req.params)
+
    const { id } = req.params
    // console.log(id)
    await userService.deleteUser(id)
@@ -19,7 +19,7 @@ module.exports.delete = (asyncHandler(async (req, res) => {
 }))
 
 module.exports.createUser = async (req, res) => {
-   console.log(req.body)
+
    try {
       const data = await userService.createUserAdmin(req.body);
       return res.status(201).json({ data });
@@ -75,7 +75,7 @@ exports.updateMyAvatar = asyncHandler(async (req, res) => {
 
 exports.updateMyProfile = asyncHandler(async (req, res) => {
    const userId = req.user.sub; // từ auth.middleware
-   console.log(userId)
+
    const updated = await userService.updateMyProfile(userId, req.body);
 
    res.json({
@@ -89,9 +89,9 @@ exports.updateMyProfile = asyncHandler(async (req, res) => {
 
 exports.getAssignableRoles = asyncHandler(async (req, res, next) => {
 
-   console.log(">>>>", req.user?.sub)
+
    const roles = await userService.getAssignableRoles(req.user?.sub);
-   console.log("Đay la list role", roles)
+
    return res.json({ result: roles });
 });
 

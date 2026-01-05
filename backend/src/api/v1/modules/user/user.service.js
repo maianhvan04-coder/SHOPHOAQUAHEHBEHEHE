@@ -63,46 +63,6 @@ exports.getUsers = async (query) => {
 }
 
 
-exports.getUsersDeleted = async (query) => {
-  let { page = 1, limit = 5, search, role, isActive } = query;
-
-  page = parseInt(page);
-  limit = parseInt(limit);
-
-  if (Number.isNaN(page) || page < 1) page = 1;
-  if (Number.isNaN(limit) || limit < 1 || limit > 100) limit = 10;
-
-  // isActive là string từ query => convert
-  if (isActive === "true") isActive = true;
-  else if (isActive === "false") isActive = false;
-  else isActive = undefined;
-
-  // role nên ép đúng enum schema
-  if (role) {
-    role = role.toUpperCase();
-    if (!Object.values(ROLES).includes(role)) {
-      role = undefined; // hoặc throw lỗi nếu muốn chặt
-    }
-  } // USER/ADMIN
-
-  const { users, total } = await userRepo.findUsersDeleted({
-    page,
-    limit,
-    search,
-    role,
-    isActive,
-  });
-
-  return {
-    items: users,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
 
 exports.getAssignableRoles = async () => {
   // chỉ trả role active, và thường không cho UI gán ADMIN
@@ -345,7 +305,8 @@ exports.updateMyAvatar = async (userId, file) => {
 const normEmail = (email = "") => String(email).trim().toLowerCase();
 
 exports.createUserAdmin = async (payload) => {
-  console.log(payload)
+
+
   const fullName = String(payload.fullName || "").trim();
   const email = String(payload.email || "").trim().toLowerCase();
   const phone = payload.phone ? String(payload.phone).replace(/\D/g, "").slice(0, 10) : "";
@@ -355,6 +316,7 @@ exports.createUserAdmin = async (payload) => {
   const password = String(payload.password || "");
 
   if (!fullName) throw new Error("fullName is required");
+  if (!phone) throw new Error("phone is required");
   if (!email) throw new Error("email is required");
   if (!password || password.length < 6) throw new Error("password min 6 chars");
   if (roleCodes.includes("ADMIN")) throw new Error("Không cho gán ADMIN qua API");

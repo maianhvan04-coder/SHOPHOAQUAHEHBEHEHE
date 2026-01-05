@@ -6,7 +6,7 @@ import { useAuth } from "~/app/providers/AuthProvides";
 import { useRbacCatalog } from "~/features/rbac/hooks/useRbacCatalog";
 
 const ALWAYS_ALLOW = ["/admin", "/admin/rbac/"];
-console.log("AdminRoute MOUNTED");
+
 
 const adminTheme = extendTheme({
   config: { initialColorMode: "light", useSystemColorMode: false },
@@ -27,7 +27,7 @@ const adminTheme = extendTheme({
 });
 
 export default function AdminRoute() {
-  console.log("AdminRoute MOUNTED");
+ 
 
   const { pathname } = useLocation();
   const { isAuthed, permissions, loading: authLoading } = useAuth();
@@ -38,17 +38,7 @@ export default function AdminRoute() {
   const matched = useMemo(() => findScreenByPathname(screens, pathname), [screens, pathname]);
 
   useEffect(() => {
-    console.log("[AdminRoute]", {
-      pathname,
-      loading,
-      isAuthed,
-      authLoading,
-      catalogLoading,
-      error,
-      sampleRoutes: screens?.[0]?.routes,
-      matched,
-      permissions,
-    });
+ 
   }, [pathname, loading, isAuthed, authLoading, catalogLoading, error, matched, permissions, screens]);
 
   // ===== UI =====

@@ -319,6 +319,25 @@ export default function ProductForm({
           </FormControl>
         </HStack>
 
+
+
+
+        {/* DESCRIPTION */}
+<FormControl isInvalid={!!errors.description}>
+  <FormLabel>Mô tả</FormLabel>
+  <Textarea
+    value={form.description}
+    onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+    bg={inputBg}
+    borderColor={borderColor}
+    borderRadius="xl"
+    rows={5}
+    placeholder="Nhập mô tả sản phẩm..."
+  />
+  <FormErrorMessage>{errors.description}</FormErrorMessage>
+</FormControl>
+
+
         {/* IMAGES */}
         <FormControl isInvalid={!!errors.images}>
           <FormLabel>Ảnh sản phẩm</FormLabel>
