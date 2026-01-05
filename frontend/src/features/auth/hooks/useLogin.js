@@ -72,15 +72,16 @@ export function useLogin() {
       const roles = Array.isArray(me?.roles)
         ? me.roles
         : me?.user?.roles
-        ? [me.user.roles]
-        : [];
+          ? [me.user.roles]
+          : [];
 
       const isOnlyUser =
         roles.length > 0 &&
         roles.every((r) => String(r).toUpperCase() === "USER");
 
       // ✅ đợi 600ms cho toast kịp hiện rồi mới navigate
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, 1000));
+
 
       if (isOnlyUser) {
         navigate("/", { replace: true });
@@ -96,10 +97,12 @@ export function useLogin() {
         catalog = {};
       }
 
-      const screens = catalog.screens || [];
+
+      const screens = catalog.data.screens
       const allowedScreens = screens
         .filter((s) => canAccessScreen(permissions, s))
         .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
 
       if (!allowedScreens.length) {
         navigate("/", { replace: true });
@@ -110,6 +113,7 @@ export function useLogin() {
       if (!firstRoute.startsWith("/")) firstRoute = "/" + firstRoute;
       if (!firstRoute.startsWith("/admin"))
         firstRoute = "/admin" + (firstRoute === "/" ? "" : firstRoute);
+
 
       navigate(firstRoute, { replace: true });
     } catch (err) {
