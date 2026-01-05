@@ -13,7 +13,7 @@ function Products() {
       tab={vm.tab}
       onTabChange={vm.changeTab}
       onRestoreProduct={vm.handleRestoreProduct}
-      
+
       screens={screens}
       userPermissions={permissions}
 
@@ -51,6 +51,16 @@ function Products() {
 
       activeCount={vm.activeCount}
       deletedCount={vm.deletedCount}
+
+
+      onToggleStatus={vm.toggleProductStatus}
+
+      // bulk
+      isBulkDeleteOpen={vm.isBulkDeleteOpen}
+      openBulkDelete={vm.openBulkDelete}
+      closeBulkDelete={vm.closeBulkDelete}
+      confirmBulkDelete={vm.confirmBulkDelete}
+      bulkSetStatus={vm.bulkSetStatus}
     />
   );
 }

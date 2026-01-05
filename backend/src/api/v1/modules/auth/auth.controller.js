@@ -37,7 +37,7 @@ module.exports.refreshToken = asyncHandler(async (req, res) => {
 module.exports.me = asyncHandler(async (req, res) => {
   const userId = req.user?.sub; // auth middleware đã set
   const data = await authService.getMe(userId, req.user);
-
+  console.log(data)
   res.json({ data });
 });
 module.exports.logout = asyncHandler(async (req, res) => {

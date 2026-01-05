@@ -3,7 +3,7 @@ const ApiError = require("../../../../core/ApiError");
 const httpStatus = require("../../../../core/httpStatus");
 
 const ALLOWED_FOLDERS = {
-    product: "fruit-shop/products",
+    product: "products",
     avatar: "fruit-shop/avatars",
 };
 

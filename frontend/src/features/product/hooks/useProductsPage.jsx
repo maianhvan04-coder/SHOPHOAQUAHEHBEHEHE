@@ -82,7 +82,7 @@ setCategories(categoryItems); // <-- array chắc chắn
         const res = await productApi.list({
           page,
           limit,
-          tab,
+          isDeleted: tab === "deleted",
           search: filters.search,
           category: filters.category,
           status: filters.status,
@@ -217,7 +217,8 @@ setCategories(categoryItems); // <-- array chắc chắn
     if (!p?._id) return;
     setRowBusy((m) => ({ ...m, [p._id]: true }));
     try {
-      await productApi.setStatus(p._id, !p.isActive);
+      // dùng API bạn đang có: changeStatus(id, isActive)
+      await productApi.changeStatus(p._id, !p.isActive);
       await loadProducts({ page: pagination.page });
     } finally {
       setRowBusy((m) => ({ ...m, [p._id]: false }));

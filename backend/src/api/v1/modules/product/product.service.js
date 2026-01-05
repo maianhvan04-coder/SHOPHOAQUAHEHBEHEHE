@@ -84,8 +84,9 @@ exports.productAdminUpdate = async (id, payload) => {
 
 
 exports.productAdminList = async (query) => {
-  const { limit, page } = parsePagination(query);
 
+  const { limit, page } = parsePagination(query);
+  const { isDeleted } = query;
   const search = query.search?.trim();
   const category = query.category;          // ✅ dùng category
   let isActive = parseBoolean(query.isActive);
@@ -94,8 +95,8 @@ exports.productAdminList = async (query) => {
   else if (isActive === "false") isActive = false;
   else isActive = undefined;
 
-  const filter = { isDeleted: false };
-
+  const filter = { isDeleted };
+  console.log(filter)
   if (typeof isActive === "boolean") filter.isActive = isActive;
   if (category && mongoose.Types.ObjectId.isValid(category)) filter.category = category;
 
