@@ -3,15 +3,19 @@ import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 import { message, Select, Spin } from "antd";
 import { createNewOrder, resetOrderState } from "../order.slice";
-import { current } from "@reduxjs/toolkit";
-import { phoneRegex } from "../../../shared/utils/validators";
 
+import { phoneRegex } from "../../../shared/utils/validators";
+import axios from "axios";
+import { getAddressSuggestions } from "../../../api/external_api/goong.api";
 const CheckoutPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const [addressData, setAddressData] = useState([]);
   const [wards, setWards] = useState([]);
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   useEffect(() => {
     fetch("/data/vietnam_provinces.json")
       .then((res) => res.json())
@@ -43,7 +47,33 @@ const CheckoutPage = () => {
     customerNote: "",
   });
   const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [typingTimeout, setTypingTimeout] = useState(null);
+  const handleSearchAddress = (value) => {
+    if (typingTimeout) clearTimeout(typingTimeout);
 
+    if (value && value.length > 1) {
+      const timeout = setTimeout(async () => {
+        setIsSearching(true);
+
+        const predictions = await getAddressSuggestions(
+          value,
+          address.ward,
+          address.province
+        );
+
+        setAddressSuggestions(
+          predictions.map((item) => ({
+            label: item.description,
+            value: item.description,
+          }))
+        );
+
+        setIsSearching(false);
+      }, 500);
+
+      setTypingTimeout(timeout);
+    }
+  };
   useEffect(() => {
     if (isSuccess && currentOrder) {
       if (currentOrder.paymentMethod === "PayPal") {
@@ -70,6 +100,7 @@ const CheckoutPage = () => {
       ...address,
       province: option.label,
       ward: "",
+      addressDetails: "",
     });
   };
   const handlePlaceOrder = () => {
@@ -114,12 +145,12 @@ const CheckoutPage = () => {
         quantity: item.quantity,
       })),
       shippingAddress: {
-      fullName: address.fullName.trim(),
-      phone: address.phone.trim(),
-      province: address.province,      
-      ward: address.ward,              
-      addressDetails: address.addressDetails.trim(),
-    },
+        fullName: address.fullName.trim(),
+        phone: address.phone.trim(),
+        province: address.province,
+        ward: address.ward,
+        addressDetails: address.addressDetails.trim(),
+      },
       paymentMethod,
       shippingPrice,
       itemsPrice,
@@ -179,20 +210,33 @@ const CheckoutPage = () => {
                 className="w-full h-[50px] rounded-xl"
                 disabled={!address.province}
                 value={address.ward || undefined}
-                onChange={(val, opt) =>
-                  setAddress({ ...address, ward: opt.label })
-                }
+                onChange={(val, opt) => {
+                  setAddress({
+                    ...address,
+                    ward: opt.label,
+                    addressDetails: "",
+                  });
+
+                  setAddressSuggestions([]);
+                }}
                 options={wards.map((w) => ({ label: w.name, value: w.code }))}
               />
 
-              <input
-                type="text"
-                placeholder="Số nhà, tên đường... *"
-                className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#49a760] outline-none md:col-span-2"
-                onChange={(e) =>
-                  setAddress({ ...address, addressDetails: e.target.value })
-                }
-              />
+              <div className="md:col-span-2">
+                <Select
+                  showSearch
+                  placeholder="Số nhà, tên đường (Gợi ý từ bản đồ)... *"
+                  className="w-full h-[50px] rounded-xl custom-goong-select"
+                  filterOption={false}
+                  onSearch={handleSearchAddress}
+                  onChange={(val) =>
+                    setAddress({ ...address, addressDetails: val })
+                  }
+                  notFoundContent={isSearching ? <Spin size="small" /> : null}
+                  options={addressSuggestions}
+                  value={address.addressDetails || undefined}
+                />
+              </div>
               <input
                 type="text"
                 placeholder="Ghi chú thêm về đơn hàng..."
