@@ -63,7 +63,7 @@ productSchema.index(
     collation: { locale: "vi", strength: 2 },
   }
 );
-productSchema.index({ slug: 1 }, { unique: true });
+
 
 // index như schema mới
 productSchema.index({ isFeatured: -1, featuredRank: 1, createdAt: -1 });

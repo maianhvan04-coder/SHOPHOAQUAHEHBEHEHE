@@ -75,7 +75,7 @@ const ICON = {
   permissions: LockClosedIcon,
 };
 
-// ✅ no-network fallback (18x18 svg)
+// no-network fallback (18x18 svg)
 const FALLBACK_18 =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
@@ -108,7 +108,7 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
   );
 
   const byGroup = useMemo(() => {
-    const allowedScreens = (screens || []).filter((s) => canAccessScreen(userPermissions, s));
+    const allowedScreens = (screens || []).filter((s) =>s.public || canAccessScreen(userPermissions, s));
     const map = {};
     allowedScreens.forEach((s) => {
       const gkey = s.group;
@@ -323,11 +323,13 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
       <Box mt="auto" pb="18px">
         <Divider borderColor={sidebarBorder} my="10px" />
 
-        <SectionTitle>System</SectionTitle>
-        <VStack spacing="4px" align="stretch" pb="12px">
-          <NavItem label="Settings" to="/settings" iconKey="settings" onItemClose={onDrawerClose} />
-          <NavItem label="Logout" iconKey="logout" onClick={handleLogout} onItemClose={onDrawerClose} />
-        </VStack>
+       <SectionTitle>System</SectionTitle>
+<VStack spacing="4px" align="stretch" pb="12px">
+
+  <NavItem label="Settings" to="/settings" iconKey="settings" onItemClose={onDrawerClose} />
+  <NavItem label="Logout" iconKey="logout" onClick={handleLogout} onItemClose={onDrawerClose} />
+</VStack>
+
 
         {/* User card */}
         <Box px={isCollapsed ? 2 : 4}>

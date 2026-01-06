@@ -119,11 +119,11 @@ export default function ProductForm({
     if (!Number.isFinite(stock) || stock < 0)
       next.stock = "Tồn kho không hợp lệ.";
 
-    const sold = form.sold === "" ? 0 : toNumberOrNaN(form.sold);
-    if (!Number.isFinite(sold) || sold < 0)
-      next.sold = "Đã bán không hợp lệ.";
-    else if (sold > stock)
-      next.sold = "Đã bán không được lớn hơn tồn kho.";
+    // const sold = form.sold === "" ? 0 : toNumberOrNaN(form.sold);
+    // if (!Number.isFinite(sold) || sold < 0)
+    //   next.sold = "Đã bán không hợp lệ.";
+    // else if (sold > stock)
+    //   next.sold = "Đã bán không được lớn hơn tồn kho.";
 
     const rating = form.rating === "" ? 0 : toNumberOrNaN(form.rating);
     if (!Number.isFinite(rating) || rating < 0 || rating > 5)
@@ -145,7 +145,7 @@ export default function ProductForm({
     if (e.category) return categoryRef.current?.focus();
     if (e.price) return priceRef.current?.focus();
     if (e.stock) return stockRef.current?.focus();
-    if (e.sold) return soldRef.current?.focus();
+    // if (e.sold) return soldRef.current?.focus();
     if (e.rating) return ratingRef.current?.focus();
     if (e.featuredRank) return rankRef.current?.focus();
   };
@@ -167,7 +167,7 @@ export default function ProductForm({
       category: form.category,
       price: Number(form.price),
       stock: Number(form.stock || 0),
-      sold: Number(form.sold || 0),
+      // sold: Number(form.sold || 0),
       rating: Number(form.rating || 0),
       isFeatured: !!form.isFeatured,
       featuredRank: Number(form.featuredRank || 0),
@@ -264,9 +264,10 @@ export default function ProductForm({
             <Input
               ref={soldRef}
               value={form.sold}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, sold: e.target.value }))
-              }
+               isReadOnly
+              // onChange={(e) =>
+              //   setForm((p) => ({ ...p, sold: e.target.value }))
+              // }
               inputMode="numeric"
             />
             <FormErrorMessage>{errors.sold}</FormErrorMessage>

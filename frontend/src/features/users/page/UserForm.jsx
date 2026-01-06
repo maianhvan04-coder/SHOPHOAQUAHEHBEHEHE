@@ -21,15 +21,18 @@ import {
 } from "@chakra-ui/react";
 import { ViewIcon, ViewOffIcon } from "@chakra-ui/icons";
 import { userService } from "~/features/users/userService";
+import { validateUserForm } from "~/shared/utils/validators";
 
-/* ================= REGEX ================= */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/; 
 const PHONE_REGEX = /^0\d{9}$/;
-
 function UserForm({ user, onSubmit, onCancel }) {
   const toast = useToast();
   const isEdit = !!user?._id;
-
+const validate = () => {
+  const { isValid, errors: newErrors } = validateUserForm(formData, { isEdit });
+  setErrors(newErrors);
+  return isValid;
+};
   /* ================= STATE ================= */
   const [formData, setFormData] = useState({
     fullName: user?.fullName || "",
@@ -71,32 +74,7 @@ function UserForm({ user, onSubmit, onCancel }) {
     return () => { mounted = false; };
   }, [isEdit]);
 
-  /* ================= VALIDATE ================= */
-  const validate = () => {
-    const newErrors = {};
-
-    if (!formData.fullName.trim())
-      newErrors.fullName = "Họ tên không được để trống";
-
-    if (!formData.email.trim())
-      newErrors.email = "Email không được để trống";
-    else if (!EMAIL_REGEX.test(formData.email.trim()))
-      newErrors.email = "Email không đúng định dạng";
-
-    if (formData.phone && !PHONE_REGEX.test(formData.phone))
-      newErrors.phone = "Số điện thoại phải bắt đầu bằng 0 và đủ 10 số";
-
-    if (!formData.roleCode)
-      newErrors.roleCode = "Vui lòng chọn vai trò";
-
-    if (!isEdit && !formData.password)
-      newErrors.password = "Mật khẩu là bắt buộc khi tạo mới";
-    else if (formData.password && formData.password.length < 6)
-      newErrors.password = "Mật khẩu phải từ 6 ký tự";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  
 
   /* ================= HANDLE CHANGE ================= */
   const handleChange = (e) => {

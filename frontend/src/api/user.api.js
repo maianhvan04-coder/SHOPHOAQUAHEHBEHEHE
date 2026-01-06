@@ -26,7 +26,7 @@ export const getUserDetailApi = (id) =>
 
 export const updateProfileApi = (data) => {
   const URL_API = "/api/v1/users/me/profile";
-  return axiosUser.patch(URL_API, data); 
+  return axiosUser.patch(URL_API, data);
 };
 
 //đổi mk
@@ -54,7 +54,7 @@ export const deleteFromCartAPI = (productId) => {
 //up avatar
 export const uploadUserAvatarApi = (file) => {
   const formData = new FormData();
-  formData.append("image", file); // ✅ phải là "image" (khớp uploadAvatar("image"))
+  formData.append("image", file);
 
   return axiosUser.patch("/api/v1/users/me/avatar", formData, {
     headers: { "Content-Type": "multipart/form-data" },

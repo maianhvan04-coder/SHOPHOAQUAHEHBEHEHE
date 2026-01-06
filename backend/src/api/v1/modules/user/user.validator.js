@@ -24,7 +24,14 @@ exports.idParam = Joi.object({
 exports.create = Joi.object({
     fullName: Joi.string().trim().min(2).max(120).required(),
     email: Joi.string().trim().email().allow("", null),
-    phone: Joi.string().trim().pattern(/^[0-9+\-()\s]{8,20}$/).allow("", null),
+    phone: Joi.string()
+        .trim()
+        .pattern(/^\d{10}$/)
+        .messages({
+            "string.pattern.base": "Số điện thoại phải đúng 10 chữ số.",
+        })
+        .allow("", null),
+
     password: Joi.string().min(6).max(72).required(),
     addresses: Joi.array().items(addressSchema).default([]),
     isActive: Joi.boolean().default(true),
@@ -41,7 +48,14 @@ exports.create = Joi.object({
 exports.update = Joi.object({
     fullName: Joi.string().trim().min(2).max(120),
     email: Joi.string().trim().email().allow("", null),
-    phone: Joi.string().trim().pattern(/^[0-9+\-()\s]{8,20}$/).allow("", null),
+    phone: Joi.string()
+        .trim()
+        .pattern(/^\d{10}$/)
+        .messages({
+            "string.pattern.base": "Số điện thoại phải đúng 10 chữ số.",
+        })
+        .allow("", null),
+
     password: Joi.string().min(6).max(72), // optional
     addresses: Joi.array().items(addressSchema),
     isActive: Joi.boolean(),

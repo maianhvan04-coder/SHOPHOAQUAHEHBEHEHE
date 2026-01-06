@@ -5,8 +5,8 @@ import { findScreenByPathname, canAccessScreen, firstAccessibleScreen } from "~/
 import { useAuth } from "~/app/providers/AuthProvides";
 import { useRbacCatalog } from "~/features/rbac/hooks/useRbacCatalog";
 
-// ✅ chỉ allow RBAC pages thôi (nếu cần)
-const ALWAYS_ALLOW_PREFIX = ["/admin/rbac"];
+//  chỉ allow RBAC pages thôi (nếu cần)
+const ALWAYS_ALLOW_PREFIX = ["/admin/rbac","/admin/profile"];
 
 const adminTheme = extendTheme({
   config: { initialColorMode: "light", useSystemColorMode: false },
@@ -37,11 +37,11 @@ export default function AdminRoute() {
     error,
   } = useRbacCatalog(isAuthed);
 
-  // ✅ quan trọng: chờ catalogReady
+  //  quan trọng: chờ catalogReady
   const loading = authLoading || (isAuthed && !catalogReady) || catalogLoading;
-
+ 
   const matched = useMemo(() => findScreenByPathname(screens, pathname), [screens, pathname]);
-
+  
   return (
     <ChakraProvider theme={adminTheme}>
       {loading ? (
@@ -68,13 +68,14 @@ export default function AdminRoute() {
 
         const screen = matched;
         if (!screen) {
-          // ✅ đừng đá sang /4033 nếu bạn không khai báo route đó -> sẽ ra 404
+
           return <Navigate to="/403" replace state={{ reason: "Route không nằm trong catalog" }} />;
         }
 
-        if (!canAccessScreen(permissions, screen)) {
-          return <Navigate to="/403" replace state={{ reason: "Thiếu permission để vào màn này" }} />;
-        }
+        if (!screen?.public && !canAccessScreen(permissions, screen)) {
+  return <Navigate to="/403" replace state={{ reason: "Thiếu permission để vào màn này" }} />;
+}
+
 
         return <Outlet context={{ groups, screens }} />;
       })()}

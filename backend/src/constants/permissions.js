@@ -450,6 +450,26 @@ const ADMIN_SCREENS = Object.freeze({
         },
     },
 
+    PROFILE: {
+        key: "profile",
+        group: PERMISSION_GROUPS.USERS.key,
+        label: "Profile",
+        icon: "profile",
+        order: 15,
+        routes: ["/admin/profile"],
+        public: true,
+    },
+    SETTINGS: {
+        key: "settings",
+        group: PERMISSION_GROUPS.SYSTEM.key,
+        label: "Settings",
+        icon: "settings",
+        order: 15,
+        routes: ["/admin/settings"],
+        public: true,
+    },
+
+
     CATEGORIES: {
         key: "category",
         group: PERMISSION_GROUPS.CATALOG.key,
