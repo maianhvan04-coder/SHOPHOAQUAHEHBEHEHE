@@ -9,6 +9,7 @@ import { fetchCart } from "../../../../features/cart/cart.slice";
 import { fetchAllCategories } from "../../../../features/category/category.store";
 import { useAuth } from "~/app/providers/AuthProvides";
 import UserPopup from "./UserPopup";
+
 const Navbar = ({ onScrollToSection }) => {
   const [openUser, setOpenUser] = useState(false);
   const [isSticky, setIsSticky] = useState(false);
@@ -16,27 +17,32 @@ const Navbar = ({ onScrollToSection }) => {
   const [openMix, setOpenMix] = useState(false);
   const [openShop, setOpenShop] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+
   const { isAuthed, user, logout } = useAuth();
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  // ===== Sticky =====
   useEffect(() => {
-    const handleScroll = () => {
-      setIsSticky(window.scrollY > 200);
-    };
+    const handleScroll = () => setIsSticky(window.scrollY > 200);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // ===== Redux =====
   const { listCategories, isLoading } = useSelector((state) => state.category);
   const { totalQuantity } = useSelector((state) => state.cart);
+
   useEffect(() => {
     dispatch(fetchAllCategories());
   }, [dispatch]);
+
   useEffect(() => {
-    if (isAuthed) {
-      dispatch(fetchCart());
-    }
+    if (isAuthed) dispatch(fetchCart());
   }, [isAuthed, dispatch]);
+
+  // ===== Search =====
   const [searchParams] = useSearchParams();
   const currentSearch = searchParams.get("search") || "";
   const [searchInput, setSearchInput] = useState(currentSearch);
@@ -45,7 +51,6 @@ const Navbar = ({ onScrollToSection }) => {
     e.preventDefault();
     const term = searchInput.trim();
     const currentPath = window.location.pathname;
-
     const targetPath = currentPath === "/category" ? "/category" : "/";
 
     if (term) {
@@ -54,10 +59,17 @@ const Navbar = ({ onScrollToSection }) => {
       navigate(targetPath);
     }
 
-    if (targetPath === "/") {
-      onScrollToSection("menuFruit");
-    }
+    if (targetPath === "/") onScrollToSection?.("menuFruit");
   };
+
+  // ===== Logout handler =====
+  const handleLogout = async () => {
+    await logout(); // ✅ gọi backend + clear state (AuthProvider)
+    setOpenUser(false);
+    setIsMobileMenuOpen(false);
+    navigate("/login");
+  };
+
   return (
     <nav
       className={`
@@ -65,7 +77,6 @@ const Navbar = ({ onScrollToSection }) => {
         py-4
         z-50
         transition-all duration-300
-        
         ${
           isSticky
             ? "sticky top-0 w-full shadow-md"
@@ -73,8 +84,11 @@ const Navbar = ({ onScrollToSection }) => {
         }
       `}
     >
+      {/* ===== MOBILE TOP BAR ===== */}
       <div className="flex md:hidden items-center justify-between px-4">
-        <span className="font-bold text-lg">Joygreen</span>
+        <span className="font-bold text-lg cursor-pointer" onClick={() => navigate("/")}>
+          Joygreen
+        </span>
 
         <div className="flex items-center gap-4">
           <button
@@ -83,6 +97,7 @@ const Navbar = ({ onScrollToSection }) => {
           >
             <CiSearch className="size-7 cursor-pointer" />
           </button>
+
           <div className="relative">
             <CiShoppingCart
               className="size-7 cursor-pointer"
@@ -92,6 +107,7 @@ const Navbar = ({ onScrollToSection }) => {
               {totalQuantity}
             </span>
           </div>
+
           <button
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}
             className="text-2xl"
@@ -100,6 +116,8 @@ const Navbar = ({ onScrollToSection }) => {
           </button>
         </div>
       </div>
+
+      {/* ===== MOBILE SEARCH ===== */}
       {isMobileSearchOpen && (
         <div className="md:hidden px-4 mt-3 pb-2 transition-all duration-300">
           <form
@@ -116,17 +134,10 @@ const Navbar = ({ onScrollToSection }) => {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Tìm kiếm trái cây..."
               className="
-          w-full
-          rounded-full
-          border border-gray-300
-          bg-white
-          pl-4 pr-10 py-2.5
-          text-sm
-          shadow-sm
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#49a760]
-        "
+                w-full rounded-full border border-gray-300 bg-white
+                pl-4 pr-10 py-2.5 text-sm shadow-sm
+                focus:outline-none focus:ring-2 focus:ring-[#49a760]
+              "
             />
             <button
               type="submit"
@@ -137,22 +148,20 @@ const Navbar = ({ onScrollToSection }) => {
           </form>
         </div>
       )}
+
+      {/* ===== MOBILE MENU ===== */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-[#f8f7f2] border-t border-gray-200">
           <ul className="flex flex-col px-4 py-4 text-sm">
-            <li className="py-2 font-medium">Home</li>
+            <li className="py-2 font-medium" onClick={() => { setIsMobileMenuOpen(false); navigate("/"); }}>
+              Home
+            </li>
 
-            <li
-              className="py-2 font-medium"
-              onClick={() => onScrollToSection("bestSeller")}
-            >
+            <li className="py-2 font-medium" onClick={() => { setIsMobileMenuOpen(false); onScrollToSection?.("bestSeller"); }}>
               Best Seller
             </li>
 
-            <li
-              className="py-2 font-medium"
-              onClick={() => onScrollToSection("menuFruit")}
-            >
+            <li className="py-2 font-medium" onClick={() => { setIsMobileMenuOpen(false); onScrollToSection?.("menuFruit"); }}>
               Menu hoa quả
             </li>
 
@@ -161,19 +170,14 @@ const Navbar = ({ onScrollToSection }) => {
               onClick={() => setOpenMix(!openMix)}
             >
               Hộp mix
-              <MdKeyboardArrowDown
-                className={`transition ${openMix ? "rotate-180" : ""}`}
-              />
+              <MdKeyboardArrowDown className={`transition ${openMix ? "rotate-180" : ""}`} />
             </li>
 
             {openMix && (
               <ul className="ml-4 mb-2 space-y-1 text-gray-600">
                 {isLoading
                   ? [1, 2, 3].map((i) => (
-                      <li
-                        key={i}
-                        className="py-2 h-4 w-24 bg-gray-200 animate-pulse rounded"
-                      ></li>
+                      <li key={i} className="py-2 h-4 w-24 bg-gray-200 animate-pulse rounded" />
                     ))
                   : listCategories
                       .filter((cat) => cat.type === "mix")
@@ -181,9 +185,10 @@ const Navbar = ({ onScrollToSection }) => {
                         <li
                           key={cat._id}
                           className="py-1 cursor-pointer"
-                          onClick={() =>
-                            navigate(`/category?category=${cat.slug}`)
-                          }
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            navigate(`/category?category=${cat.slug}`);
+                          }}
                         >
                           {cat.name}
                         </li>
@@ -191,10 +196,7 @@ const Navbar = ({ onScrollToSection }) => {
               </ul>
             )}
 
-            <li
-              className="py-2 font-medium"
-              onClick={() => onScrollToSection("feedback")}
-            >
+            <li className="py-2 font-medium" onClick={() => { setIsMobileMenuOpen(false); onScrollToSection?.("feedback"); }}>
               Feedback
             </li>
 
@@ -203,20 +205,14 @@ const Navbar = ({ onScrollToSection }) => {
               onClick={() => setOpenShop(!openShop)}
             >
               Shop
-              <MdKeyboardArrowDown
-                className={`transition ${openShop ? "rotate-180" : ""}`}
-              />
+              <MdKeyboardArrowDown className={`transition ${openShop ? "rotate-180" : ""}`} />
             </li>
 
             {openShop && (
               <ul className="ml-4 mb-2 space-y-1 text-gray-600">
                 {isLoading
-                  ? // Hiển thị 3 dòng loading giả
-                    [1, 2, 3].map((i) => (
-                      <li
-                        key={i}
-                        className="py-2 h-4 w-24 bg-gray-200 animate-pulse rounded"
-                      ></li>
+                  ? [1, 2, 3].map((i) => (
+                      <li key={i} className="py-2 h-4 w-24 bg-gray-200 animate-pulse rounded" />
                     ))
                   : listCategories
                       .filter((cat) => cat.type === "single")
@@ -224,9 +220,10 @@ const Navbar = ({ onScrollToSection }) => {
                         <li
                           key={cat._id}
                           className="py-1 cursor-pointer"
-                          onClick={() =>
-                            navigate(`/category?category=${cat.slug}`)
-                          }
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            navigate(`/category?category=${cat.slug}`);
+                          }}
                         >
                           {cat.name}
                         </li>
@@ -234,32 +231,30 @@ const Navbar = ({ onScrollToSection }) => {
               </ul>
             )}
 
-            <li className="border-t mt-3 pt-3 py-2 font-medium">Đăng nhập</li>
-            <li className="py-2 font-medium">Đăng ký</li>
-
-            <li className="border-t mt-4 pt-4 space-y-2 text-xs text-gray-600">
-              <div className="flex items-center gap-2">
-                <span>📞</span>
-                <span className="font-medium text-black">+84.988.387.811</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span>✉️</span>
-                <span>Joygreenvn@gmail.com</span>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <span>📍</span>
-                <div className="leading-snug">
-                  <div>226 Lê Trọng Tấn, Hà Nội</div>
-                  <div>131 Chu Huy Mân, Hà Nội</div>
-                </div>
-              </div>
-            </li>
+            {!isAuthed ? (
+              <>
+                <li className="border-t mt-3 pt-3 py-2 font-medium" onClick={() => { setIsMobileMenuOpen(false); navigate("/login"); }}>
+                  Đăng nhập
+                </li>
+                <li className="py-2 font-medium" onClick={() => { setIsMobileMenuOpen(false); navigate("/register"); }}>
+                  Đăng ký
+                </li>
+              </>
+            ) : (
+              <>
+                <li className="border-t mt-3 pt-3 py-2 font-medium" onClick={handleLogout}>
+                  Đăng xuất
+                </li>
+                <li className="py-2 font-medium" onClick={() => { setIsMobileMenuOpen(false); navigate("/profile"); }}>
+                  Tài khoản
+                </li>
+              </>
+            )}
           </ul>
         </div>
       )}
 
+      {/* ===== DESKTOP MENU ===== */}
       <ul className="hidden md:flex w-full mx-auto justify-center items-center gap-6 lg:gap-10 xl:gap-14">
         <li
           className="relative flex items-center gap-0.5 font-bold cursor-pointer hover:text-[#49a760] transition-colors"
@@ -269,17 +264,11 @@ const Navbar = ({ onScrollToSection }) => {
           <MdKeyboardArrowDown />
         </li>
 
-        <li
-          className="cursor-pointer"
-          onClick={() => onScrollToSection("bestSeller")}
-        >
+        <li className="cursor-pointer" onClick={() => onScrollToSection?.("bestSeller")}>
           Best Seller
         </li>
 
-        <li
-          className="cursor-pointer"
-          onClick={() => onScrollToSection("menuFruit")}
-        >
+        <li className="cursor-pointer" onClick={() => onScrollToSection?.("menuFruit")}>
           Menu hoa quả
         </li>
 
@@ -287,9 +276,7 @@ const Navbar = ({ onScrollToSection }) => {
           Hộp mix <MdKeyboardArrowDown />
           <ul className="absolute top-full left-0 mt-2 w-48 bg-white shadow-xl border border-gray-100 rounded-lg py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
             {isLoading ? (
-              <li className="px-5 py-2 text-gray-400 animate-pulse text-xs">
-                Đang tải...
-              </li>
+              <li className="px-5 py-2 text-gray-400 animate-pulse text-xs">Đang tải...</li>
             ) : (
               listCategories
                 .filter((cat) => cat.type === "mix")
@@ -306,10 +293,7 @@ const Navbar = ({ onScrollToSection }) => {
           </ul>
         </li>
 
-        <li
-          className="cursor-pointer"
-          onClick={() => onScrollToSection("feedback")}
-        >
+        <li className="cursor-pointer" onClick={() => onScrollToSection?.("feedback")}>
           Feedback
         </li>
 
@@ -317,9 +301,7 @@ const Navbar = ({ onScrollToSection }) => {
           Shop <MdKeyboardArrowDown />
           <ul className="absolute top-full left-0 mt-2 w-48 bg-white shadow-xl border border-gray-100 rounded-lg py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
             {isLoading ? (
-              <li className="px-5 py-2 text-gray-400 animate-pulse text-xs">
-                Đang tải...
-              </li>
+              <li className="px-5 py-2 text-gray-400 animate-pulse text-xs">Đang tải...</li>
             ) : (
               listCategories
                 .filter((cat) => cat.type === "single")
@@ -337,21 +319,19 @@ const Navbar = ({ onScrollToSection }) => {
         </li>
 
         <li
-          onClick={() => onScrollToSection("contact")}
+          onClick={() => onScrollToSection?.("contact")}
           className="relative pe-6 after:absolute after:right-[-16px] after:top-0 after:bottom-0 after:w-px after:bg-gray-300 cursor-pointer"
         >
           Contact
         </li>
 
         <li className="relative flex gap-3 items-center">
+          {/* Search */}
           <div className="relative group">
             <CiSearch className="size-7 cursor-pointer" />
             <div className="absolute right-0 top-10 w-72 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform group-hover:translate-y-2">
               <div className="relative flex items-center">
-                <form
-                  onSubmit={handleSearch}
-                  className="relative flex items-center w-full"
-                >
+                <form onSubmit={handleSearch} className="relative flex items-center w-full">
                   <input
                     key={currentSearch}
                     type="text"
@@ -360,7 +340,6 @@ const Navbar = ({ onScrollToSection }) => {
                     placeholder="Tìm kiếm trái cây..."
                     className="w-full rounded-full border border-gray-200 bg-white pl-4 pr-12 py-2.5 text-sm shadow-xl focus:outline-none focus:ring-2 focus:ring-[#49a760] transition-all"
                   />
-
                   <button
                     type="submit"
                     className="absolute right-1 p-2 text-white bg-[#49a760] rounded-full hover:bg-[#3d8b50] transition-colors active:scale-95 flex items-center justify-center"
@@ -372,25 +351,17 @@ const Navbar = ({ onScrollToSection }) => {
             </div>
           </div>
 
+          {/* Cart */}
           <div className="relative">
-            <CiShoppingCart
-              className="size-7 cursor-pointer"
-              onClick={() => navigate("/cart")}
-            />
+            <CiShoppingCart className="size-7 cursor-pointer" onClick={() => navigate("/cart")} />
             <span className="absolute -top-1 -right-2 min-w-4 h-4 flex items-center justify-center rounded-full bg-[var(--color-green-button)] px-1 text-[10px] font-semibold text-white">
               {totalQuantity}
             </span>
           </div>
 
-          {/* USER */}
+          {/* User */}
           <div className="relative group">
-            <span
-              className="inline-flex items-center gap-1 px-3 py-2 cursor-pointer"
-              onClick={() => {
-                // click vào icon/user: nếu đã login thì qua account, chưa thì qua login
-                navigate(isAuthed ? "/profile" : "/login");
-              }}
-            >
+            <span className="inline-flex items-center gap-1 px-3 py-2 cursor-pointer" onClick={() => navigate(isAuthed ? "/profile" : "/login")}>
               <FaRegUser />
               <MdKeyboardArrowDown />
             </span>
@@ -398,27 +369,24 @@ const Navbar = ({ onScrollToSection }) => {
             <Dropdown align="right">
               {!isAuthed ? (
                 <>
-                  <DropdownItem
-                    text="Đăng nhập"
-                    onClick={() => navigate("/login")}
-                  />
+                  <DropdownItem text="Đăng nhập" onClick={() => navigate("/login")} />
+                  <DropdownItem text="Đăng ký" onClick={() => navigate("/register")} />
                 </>
               ) : (
-                <>
-                  <div className="absolute right-0 mt-3 z-50">
-                    <UserPopup
-                      user={user}
-                      onProfile={() => {
-                        setOpenUser(false);
-                        navigate("/profile");
-                      }}
-                      onMyOrders={() => {
-                        navigate("/my-orders");
-                      }}
-                      onLogout={logout}
-                    />
-                  </div>
-                </>
+                <div className="absolute right-0 mt-3 z-50">
+                  <UserPopup
+                    user={user}
+                    onProfile={() => {
+                      setOpenUser(false);
+                      navigate("/profile");
+                    }}
+                    onMyOrders={() => {
+                      setOpenUser(false);
+                      navigate("/my-orders");
+                    }}
+                    onLogout={handleLogout}
+                  />
+                </div>
               )}
             </Dropdown>
           </div>
@@ -429,6 +397,7 @@ const Navbar = ({ onScrollToSection }) => {
 };
 
 export default Navbar;
+
 const Dropdown = ({ children, align = "left" }) => (
   <ul
     className={`

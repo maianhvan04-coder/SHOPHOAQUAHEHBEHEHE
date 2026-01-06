@@ -58,9 +58,7 @@ export function useLogin() {
       const accessToken =
         loginData?.data?.accessToken || loginData?.accessToken;
 
-      if (!accessToken) throw new Error("Không nhận được accessToken");
-
-      authStorage.setToken(accessToken);
+      if (!accessToken) throw new Error("Không nhận được accessToken")
 
       // ✅ toast success
       setSuccess("Đăng nhập thành công");

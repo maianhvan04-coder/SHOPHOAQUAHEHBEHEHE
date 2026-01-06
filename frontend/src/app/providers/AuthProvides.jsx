@@ -44,7 +44,7 @@ export default function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const token = authStorage.getToken(); 
+    const token = authStorage.getToken();
     if (!token) {
       setLoading(false);
       return;
@@ -52,29 +52,31 @@ export default function AuthProvider({ children }) {
     refreshMe();
   }, [refreshMe]);
 
-  const logout = useCallback(() => {
-  authStorage.clear();
-  setUser(null);
-  setRoles([]);
-  setPermissions([]);
-}, []);
+  // ✅ LOGOUT: gọi backend để xoá session trong MongoDB + clear cookie (nếu có)
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch (e) {
+      // ignore
+    } finally {
+      authStorage.clear();
+      setUser(null);
+      setRoles([]);
+      setPermissions([]);
+    }
+  }, []);
 
   const value = useMemo(
-    () => ({ loading, isAuthed, user, roles, permissions, logout,  refreshMe }),
-    [loading, isAuthed, user, roles, permissions, logout,  refreshMe]
+    () => ({ loading, isAuthed, user, roles, permissions, logout, refreshMe }),
+    [loading, isAuthed, user, roles, permissions, logout, refreshMe]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-
-
 AuthProvider.propTypes = {
   children: PropTypes.node.isRequired,
 };
-
-
-
 
 export function useAuth() {
   const v = useContext(Ctx);
