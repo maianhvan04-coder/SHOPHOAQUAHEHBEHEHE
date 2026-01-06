@@ -6,6 +6,7 @@ import { createNewOrder, resetOrderState } from "../order.slice";
 
 import { phoneRegex } from "../../../shared/utils/validators";
 import axios from "axios";
+import { getAddressSuggestions } from "../../../api/external_api/goong.api";
 const CheckoutPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const CheckoutPage = () => {
   const [wards, setWards] = useState([]);
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const GOONG_API_KEY = "frkCIq2OwEBzix72E0Mjynqy3YRxwK45pVjbpLl1";
+
   useEffect(() => {
     fetch("/data/vietnam_provinces.json")
       .then((res) => res.json())
@@ -48,36 +49,27 @@ const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("COD");
   const [typingTimeout, setTypingTimeout] = useState(null);
   const handleSearchAddress = (value) => {
-    // 1. Nếu khách đang gõ tiếp, hãy xóa cái hẹn giờ cũ đi
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
-    }
+    if (typingTimeout) clearTimeout(typingTimeout);
 
-    // 2. Chỉ thực hiện khi gõ từ 3 ký tự trở lên để tránh search rác
-    if (value && value.length > 2) {
-      // 3. Đặt một "hẹn giờ" mới: Sau 500ms không gõ gì nữa thì mới gọi API
+    if (value && value.length > 1) {
       const timeout = setTimeout(async () => {
         setIsSearching(true);
-        try {
-          const response = await axios.get(
-            `https://rsapi.goong.io/Place/AutoComplete?api_key=${GOONG_API_KEY}&input=${encodeURIComponent(
-              value
-            )}`
-          );
-          if (response.data.predictions) {
-            setAddressSuggestions(
-              response.data.predictions.map((item) => ({
-                label: item.description,
-                value: item.description,
-              }))
-            );
-          }
-        } catch (error) {
-          console.error("Lỗi Goong:", error);
-        } finally {
-          setIsSearching(false);
-        }
-      }, 500); // 500ms là khoảng thời gian chờ lý tưởng
+
+        const predictions = await getAddressSuggestions(
+          value,
+          address.ward,
+          address.province
+        );
+
+        setAddressSuggestions(
+          predictions.map((item) => ({
+            label: item.description,
+            value: item.description,
+          }))
+        );
+
+        setIsSearching(false);
+      }, 500);
 
       setTypingTimeout(timeout);
     }
@@ -108,6 +100,7 @@ const CheckoutPage = () => {
       ...address,
       province: option.label,
       ward: "",
+      addressDetails: "",
     });
   };
   const handlePlaceOrder = () => {
@@ -217,9 +210,15 @@ const CheckoutPage = () => {
                 className="w-full h-[50px] rounded-xl"
                 disabled={!address.province}
                 value={address.ward || undefined}
-                onChange={(val, opt) =>
-                  setAddress({ ...address, ward: opt.label })
-                }
+                onChange={(val, opt) => {
+                  setAddress({
+                    ...address,
+                    ward: opt.label,
+                    addressDetails: "",
+                  });
+
+                  setAddressSuggestions([]);
+                }}
                 options={wards.map((w) => ({ label: w.name, value: w.code }))}
               />
 
