@@ -144,3 +144,24 @@ exports.restoreUsersMany = asyncHandler(async (req, res) => {
       result,
    });
 });
+
+// user.controller.js
+exports.changeMyPassword = asyncHandler(async (req, res) => {
+  const userId = req.user.sub;
+  const { oldPassword, newPassword } = req.body;
+
+  const result = await userService.changeMyPassword(userId, oldPassword, newPassword);
+
+  // ✅ nếu bạn dùng refresh_token cookie như login của bạn
+  res.clearCookie("refresh_token", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/api/v1/auth/refresh-token",
+  });
+
+  return res.json({
+    message: "Đổi mật khẩu thành công, vui lòng đăng nhập lại",
+    data: result,
+  });
+});

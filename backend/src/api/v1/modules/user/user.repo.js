@@ -57,6 +57,7 @@ exports.findPublicById = (id) =>
 
 exports.findByEmail = (email, { session } = {}) =>
   User.findOne({ email: normEmail(email), isDeleted: false }).session(session || null);
+
 exports.findByPhone = (phone, { session } = {}) =>
   User.findOne({ phone: phone, isDeleted: false }).session(session || null);
 
@@ -420,3 +421,11 @@ exports.softDeleteMany = async (ids) => {
 exports.softDeleteById = async (id, opts = {}) =>
   User.updateOne({ _id: id, isDeleted: false }, { $set: { isDeleted: true, isActive: false } })
     .session(opts.session || null);
+
+
+// user.repo.js
+exports.findByIdWithPassword = (id, opts = {}) => {
+  const q = User.findOne({ _id: id, isDeleted: false }).select("+passwordHash");
+  if (opts.session) q.session(opts.session);
+  return q;
+};
