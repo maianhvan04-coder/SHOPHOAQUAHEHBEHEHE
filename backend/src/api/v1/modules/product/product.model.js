@@ -56,7 +56,7 @@ const productSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// ✅ index như schema mới
+// index như schema mới
 productSchema.index({ isFeatured: -1, featuredRank: 1, createdAt: -1 });
 
 const Product = mongoose.model("Product", productSchema);
