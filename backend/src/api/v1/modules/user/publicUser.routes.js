@@ -14,6 +14,7 @@ router.patch(
     controller.updateMyAvatar
 );
 
+router.patch("/me/password", auth, controller.changeMyPassword);
 router.patch("/me/profile", auth, controller.updateMyProfile);
 
 module.exports = router;

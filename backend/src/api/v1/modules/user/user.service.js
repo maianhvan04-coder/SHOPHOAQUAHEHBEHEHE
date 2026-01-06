@@ -676,3 +676,38 @@ exports.restoreUsersMany = async (ids, options = {}) => {
     session.endSession();
   }
 };
+
+// đổi mk
+exports.changeMyPassword = async (userId, oldPassword, newPassword) => {
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Thiếu dữ liệu");
+  }
+
+  if (String(newPassword).length < 6) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Mật khẩu tối thiểu 6 ký tự");
+  }
+
+  if (oldPassword === newPassword) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Mật khẩu mới không được trùng mật khẩu cũ");
+  }
+
+  const user = await userRepo.findByIdWithPassword(userId);
+  if (!user) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
+
+  const ok = await comparePassword(oldPassword, user.passwordHash);
+  if (!ok) throw new ApiError(httpStatus.BAD_REQUEST, "Mật khẩu hiện tại không đúng");
+
+  const passwordHash = await hashPassword(newPassword, 10);
+
+  // ✅ đổi pass + vô hiệu hoá token cũ (nếu bạn có check authzVersion trong JWT middleware)
+  await userRepo.updateById(userId, {
+    passwordHash,
+    authzVersion: (user.authzVersion || 0) + 1,
+  });
+
+  // hoặc dùng bumpAuthzVersion nếu bạn muốn tách riêng:
+  // await userRepo.updateById(userId, { passwordHash });
+  // await userRepo.bumpAuthzVersion(userId);
+
+  return { ok: true };
+};
