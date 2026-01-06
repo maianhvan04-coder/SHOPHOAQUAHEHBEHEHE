@@ -3,15 +3,18 @@ import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 import { message, Select, Spin } from "antd";
 import { createNewOrder, resetOrderState } from "../order.slice";
-import { current } from "@reduxjs/toolkit";
-import { phoneRegex } from "../../../shared/utils/validators";
 
+import { phoneRegex } from "../../../shared/utils/validators";
+import axios from "axios";
 const CheckoutPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const [addressData, setAddressData] = useState([]);
   const [wards, setWards] = useState([]);
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const GOONG_API_KEY = "frkCIq2OwEBzix72E0Mjynqy3YRxwK45pVjbpLl1";
   useEffect(() => {
     fetch("/data/vietnam_provinces.json")
       .then((res) => res.json())
@@ -43,7 +46,42 @@ const CheckoutPage = () => {
     customerNote: "",
   });
   const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [typingTimeout, setTypingTimeout] = useState(null);
+  const handleSearchAddress = (value) => {
+    // 1. Nếu khách đang gõ tiếp, hãy xóa cái hẹn giờ cũ đi
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
 
+    // 2. Chỉ thực hiện khi gõ từ 3 ký tự trở lên để tránh search rác
+    if (value && value.length > 2) {
+      // 3. Đặt một "hẹn giờ" mới: Sau 500ms không gõ gì nữa thì mới gọi API
+      const timeout = setTimeout(async () => {
+        setIsSearching(true);
+        try {
+          const response = await axios.get(
+            `https://rsapi.goong.io/Place/AutoComplete?api_key=${GOONG_API_KEY}&input=${encodeURIComponent(
+              value
+            )}`
+          );
+          if (response.data.predictions) {
+            setAddressSuggestions(
+              response.data.predictions.map((item) => ({
+                label: item.description,
+                value: item.description,
+              }))
+            );
+          }
+        } catch (error) {
+          console.error("Lỗi Goong:", error);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 500); // 500ms là khoảng thời gian chờ lý tưởng
+
+      setTypingTimeout(timeout);
+    }
+  };
   useEffect(() => {
     if (isSuccess && currentOrder) {
       if (currentOrder.paymentMethod === "PayPal") {
@@ -114,12 +152,12 @@ const CheckoutPage = () => {
         quantity: item.quantity,
       })),
       shippingAddress: {
-      fullName: address.fullName.trim(),
-      phone: address.phone.trim(),
-      province: address.province,      
-      ward: address.ward,              
-      addressDetails: address.addressDetails.trim(),
-    },
+        fullName: address.fullName.trim(),
+        phone: address.phone.trim(),
+        province: address.province,
+        ward: address.ward,
+        addressDetails: address.addressDetails.trim(),
+      },
       paymentMethod,
       shippingPrice,
       itemsPrice,
@@ -185,14 +223,21 @@ const CheckoutPage = () => {
                 options={wards.map((w) => ({ label: w.name, value: w.code }))}
               />
 
-              <input
-                type="text"
-                placeholder="Số nhà, tên đường... *"
-                className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#49a760] outline-none md:col-span-2"
-                onChange={(e) =>
-                  setAddress({ ...address, addressDetails: e.target.value })
-                }
-              />
+              <div className="md:col-span-2">
+                <Select
+                  showSearch
+                  placeholder="Số nhà, tên đường (Gợi ý từ bản đồ)... *"
+                  className="w-full h-[50px] rounded-xl custom-goong-select"
+                  filterOption={false}
+                  onSearch={handleSearchAddress}
+                  onChange={(val) =>
+                    setAddress({ ...address, addressDetails: val })
+                  }
+                  notFoundContent={isSearching ? <Spin size="small" /> : null}
+                  options={addressSuggestions}
+                  value={address.addressDetails || undefined}
+                />
+              </div>
               <input
                 type="text"
                 placeholder="Ghi chú thêm về đơn hàng..."
