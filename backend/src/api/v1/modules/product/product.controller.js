@@ -56,7 +56,7 @@ module.exports.getAllProducts = async (req, res) => {
       onlyActiveCategory: true,
       category: category,
     };
-    const result = await productService.getAllProductsService(
+    const result = await productService.getAllProductsServiceForUser(
       search,
       sort,
       page,

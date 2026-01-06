@@ -27,7 +27,11 @@ exports.productAdminCreate = async (payload) => {
   if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Category không tồn tại");
 
   //nếu không có image thì lấy ảnh đầu của images làm ảnh đại diện (để UI cũ vẫn dùng p.image.url)
-  if (!payload.image?.url && Array.isArray(payload.images) && payload.images.length) {
+  if (
+    !payload.image?.url &&
+    Array.isArray(payload.images) &&
+    payload.images.length
+  ) {
     payload.image = payload.images[0];
   }
 
@@ -45,16 +49,14 @@ exports.productAdminCreate = async (payload) => {
   return productRepo.create({ ...payload, slug });
 };
 
-
-
-
 exports.productAdminUpdate = async (id, payload) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "ProductId không hợp lệ");
   }
 
   const current = await productRepo.findByIdAdmin(id);
-  if (!current) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
+  if (!current)
+    throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
 
   const updateData = { ...payload };
 
@@ -64,7 +66,8 @@ exports.productAdminUpdate = async (id, payload) => {
       throw new ApiError(httpStatus.BAD_REQUEST, "Category không hợp lệ");
     }
     const cat = await categoryRepo.findByIdAdmin(payload.category);
-    if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy danh mục");
+    if (!cat)
+      throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy danh mục");
   }
 
   // ✅ name đổi -> slug đổi
@@ -78,17 +81,16 @@ exports.productAdminUpdate = async (id, payload) => {
   }
 
   const updated = await productRepo.updateById(id, updateData);
-  if (!updated) throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
+  if (!updated)
+    throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
   return updated;
 };
 
-
 exports.productAdminList = async (query) => {
-
   const { limit, page } = parsePagination(query);
   const { isDeleted } = query;
   const search = query.search?.trim();
-  const category = query.category;          // ✅ dùng category
+  const category = query.category; // ✅ dùng category
   let isActive = parseBoolean(query.isActive);
 
   if (isActive === "true") isActive = true;
@@ -96,9 +98,10 @@ exports.productAdminList = async (query) => {
   else isActive = undefined;
 
   const filter = { isDeleted };
-  console.log(filter)
+  console.log(filter);
   if (typeof isActive === "boolean") filter.isActive = isActive;
-  if (category && mongoose.Types.ObjectId.isValid(category)) filter.category = category;
+  if (category && mongoose.Types.ObjectId.isValid(category))
+    filter.category = category;
 
   if (search) {
     filter.$or = [
@@ -108,15 +111,18 @@ exports.productAdminList = async (query) => {
   }
 
   const sort = buildProductSort(query.sort);
-  const { items, total } = await productRepo.listAdminProduct({ page, limit, filter, sort });
+  const { items, total } = await productRepo.listAdminProduct({
+    page,
+    limit,
+    filter,
+    sort,
+  });
 
   return {
     items,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
 };
-
-
 
 exports.softDelete = async (id) => {
   const deleted = await productRepo.softDeleteById(id);
@@ -132,7 +138,7 @@ exports.adminGetById = async (id) => {
   return result;
 };
 
-module.exports.getAllProductsService = async (
+module.exports.getAllProductsServiceForUser = async (
   search,
   sort,
   page,
@@ -147,7 +153,6 @@ module.exports.getAllProductsService = async (
     const { onlyActiveCategory, category, ...otherFilters } = extraFilter;
     let query = buildProductQuery({ search, ...otherFilters });
 
-    // --- BƯỚC 1: Xử lý tìm ID từ Slug nếu có truyền category ---
     let categoryId = null;
     if (category && category !== "all") {
       const categoryDoc = await Category.findOne({ slug: category });
@@ -161,9 +166,7 @@ module.exports.getAllProductsService = async (
       categoryId = categoryDoc._id;
     }
 
-    // --- BƯỚC 2: Xử lý logic lọc theo Only Active (Dành cho trang User) ---
     if (onlyActiveCategory) {
-      // Lấy danh sách ID các category đang active
       const activeCategories = await Category.find({
         isActive: true,
         isDeleted: false,
@@ -173,11 +176,9 @@ module.exports.getAllProductsService = async (
       );
 
       if (categoryId) {
-        // Nếu chọn 1 category cụ thể, kiểm tra xem nó có active không
         if (activeCategoryIds.includes(categoryId.toString())) {
           query.category = categoryId;
         } else {
-          // Nếu category đó bị ẩn/xóa -> Trả về rỗng
           return {
             EC: 0,
             EM: "Danh mục hiện không khả dụng",
@@ -185,15 +186,11 @@ module.exports.getAllProductsService = async (
           };
         }
       } else {
-        // Nếu không chọn category cụ thể (Tab Tất cả) -> Chỉ lấy sản phẩm của các cat đang active
         query.category = { $in: activeCategoryIds };
       }
     } else if (categoryId) {
-      // Trường hợp không yêu cầu onlyActiveCategory (ví dụ trang Admin)
       query.category = categoryId;
     }
-
-    // --- BƯỚC 3 & 4: Giữ nguyên (Sort & Execute) ---
     const sortMap = {
       name_asc: { name: 1 },
       name_desc: { name: -1 },
@@ -202,16 +199,23 @@ module.exports.getAllProductsService = async (
       createAt_asc: { createAt: 1 },
       createAt_desc: { createAt: -1 },
     };
-    const sortOptions = sortMap[sort] || { createdAt: -1 };
-    const finalSort = { ...sortOptions, _id: -1 };
+    let projection = { __v: 0 };
+    let finalSort = {};
+    if (search) {
+      projection.score = { $meta: "textScore" };
+      finalSort = { score: { $meta: "textScore" }, _id: -1 };
+    } else {
+      const sortOptions = sortMap[sort] || { createdAt: -1 };
+      finalSort = { ...sortOptions, _id: -1 };
+    }
     const [products, totalItems] = await Promise.all([
-      Product.find(query)
-        .select("-__v")
+      Product.find(query, projection)
         .sort(finalSort)
+        .collation({ locale: "vi", strength: 2 })
         .skip(skip)
         .limit(limitNum)
         .populate("category", "name"),
-      Product.countDocuments(query),
+      Product.countDocuments(query).collation({ locale: "vi", strength: 2 }),
     ]);
 
     const totalPages = Math.ceil(totalItems / limitNum);
@@ -227,7 +231,6 @@ module.exports.getAllProductsService = async (
       },
     };
   } catch (error) {
-    // ... catch error
     return {
       EC: -1,
       EM: "Lỗi server khi lấy danh sách sản phẩm",
@@ -254,110 +257,6 @@ exports.setFeatured = async (id, { isFeatured, featuredRank }) => {
   if (!updated)
     throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
   return updated;
-};
-
-module.exports.getAllProductsService = async (
-  search,
-  sort,
-  page,
-  limit,
-  extraFilter = {}
-) => {
-  try {
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 15;
-    const skip = (pageNum - 1) * limitNum;
-
-    const { onlyActiveCategory, category, ...otherFilters } = extraFilter;
-    let query = buildProductQuery({ search, ...otherFilters });
-
-    // --- BƯỚC 1: Xử lý tìm ID từ Slug nếu có truyền category ---
-    let categoryId = null;
-    if (category && category !== "all") {
-      const categoryDoc = await Category.findOne({ slug: category });
-      if (!categoryDoc) {
-        return {
-          EC: 0,
-          EM: "Không tìm thấy danh mục",
-          DT: { products: [], totalItems: 0 },
-        };
-      }
-      categoryId = categoryDoc._id;
-    }
-
-    // --- BƯỚC 2: Xử lý logic lọc theo Only Active (Dành cho trang User) ---
-    if (onlyActiveCategory) {
-      // Lấy danh sách ID các category đang active
-      const activeCategories = await Category.find({
-        isActive: true,
-        isDeleted: false,
-      }).select("_id");
-      const activeCategoryIds = activeCategories.map((cat) =>
-        cat._id.toString()
-      );
-
-      if (categoryId) {
-        // Nếu chọn 1 category cụ thể, kiểm tra xem nó có active không
-        if (activeCategoryIds.includes(categoryId.toString())) {
-          query.category = categoryId;
-        } else {
-          // Nếu category đó bị ẩn/xóa -> Trả về rỗng
-          return {
-            EC: 0,
-            EM: "Danh mục hiện không khả dụng",
-            DT: { products: [], totalItems: 0, page: pageNum, limit: limitNum },
-          };
-        }
-      } else {
-        // Nếu không chọn category cụ thể (Tab Tất cả) -> Chỉ lấy sản phẩm của các cat đang active
-        query.category = { $in: activeCategoryIds };
-      }
-    } else if (categoryId) {
-      // Trường hợp không yêu cầu onlyActiveCategory (ví dụ trang Admin)
-      query.category = categoryId;
-    }
-
-    // --- BƯỚC 3 & 4: Giữ nguyên (Sort & Execute) ---
-    const sortMap = {
-      name_asc: { name: 1 },
-      name_desc: { name: -1 },
-      price_asc: { price: 1 },
-      price_desc: { price: -1 },
-      createAt_asc: { createAt: 1 },
-      createAt_desc: { createAt: -1 },
-    };
-    const sortOptions = sortMap[sort] || { createdAt: -1 };
-
-    const [products, totalItems] = await Promise.all([
-      Product.find(query)
-        .select("-__v")
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limitNum)
-        .populate("category", "name"),
-      Product.countDocuments(query),
-    ]);
-
-    const totalPages = Math.ceil(totalItems / limitNum);
-    return {
-      EC: 0,
-      EM: "Lấy danh sách sản phẩm thành công",
-      DT: {
-        products,
-        totalItems,
-        page: pageNum,
-        totalPages,
-        limit: limitNum,
-      },
-    };
-  } catch (error) {
-    // ... catch error
-    return {
-      EC: -1,
-      EM: "Lỗi server khi lấy danh sách sản phẩm",
-      DT: { products: [], totalItems: 0 },
-    };
-  }
 };
 
 module.exports.getProductByIdService = async (_id) => {

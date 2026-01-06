@@ -9,7 +9,6 @@ export const fetchProductsForUser = createAsyncThunk(
   "product/fetchProductsForUser",
   async (filters, { rejectWithValue }) => {
     try {
-      console.log(filters)
       const response = await getAllProductsAPI(filters);
       if (response && response.EC === 0) {
         return response.DT;
@@ -42,7 +41,7 @@ export const fetchTopNewProducts = createAsyncThunk(
     try {
       const response = await getTopNewProductsAPI();
       if (response && response.EC === 0) {
-        return response.DT; // Mảng 4 sản phẩm
+        return response.DT;
       } else {
         return rejectWithValue(response.EM);
       }
@@ -82,30 +81,33 @@ const productSlice = createSlice({
       .addCase(fetchProductsForUser.fulfilled, (state, action) => {
         state.isLoading = false;
 
-        // Lấy dữ liệu từ payload (BE trả về theo đúng limit bạn truyền lên)
-        const { products, page } = action.payload;
+        const { products, page, totalItems, totalPages } = action.payload;
 
-        // CHỈ SẮP XẾP Ở TRANG 1
-        if (Number(page) === 1) {
-          const savedWishlist = localStorage.getItem("joygreen_wishlist");
-          const favoriteIds = savedWishlist ? JSON.parse(savedWishlist) : [];
+        const savedWishlist = localStorage.getItem("joygreen_wishlist");
+        const favoriteIds = savedWishlist
+          ? JSON.parse(savedWishlist).map((id) => String(id))
+          : [];
 
-          // Lọc ra những sản phẩm có trong wishlist
-          const favorites = products.filter((p) => favoriteIds.includes(p._id));
-          // Lọc ra những sản phẩm còn lại
-          const others = products.filter((p) => !favoriteIds.includes(p._id));
+        if (products && products.length > 0 && favoriteIds.length > 0) {
+          const favoritesInThisPage = [];
+          const othersInThisPage = [];
 
-          // Gộp lại: Yêu thích lên đầu trang 1
-          state.listProducts = [...favorites, ...others];
+          products.forEach((p) => {
+            if (favoriteIds.includes(String(p._id))) {
+              favoritesInThisPage.push(p);
+            } else {
+              othersInThisPage.push(p);
+            }
+          });
+
+          state.listProducts = [...favoritesInThisPage, ...othersInThisPage];
         } else {
-          // TỪ TRANG 2 TRỞ ĐI: Giữ nguyên trật tự Backend trả về
-          // Tuyệt đối không can thiệp sắp xếp ở đây để tránh trùng lặp cảm giác
-          state.listProducts = products;
+          state.listProducts = products || [];
         }
 
-        state.totalItems = action.payload.totalItems;
-        state.currentPage = action.payload.page;
-        state.totalPages = action.payload.totalPages;
+        state.totalItems = totalItems;
+        state.currentPage = page;
+        state.totalPages = totalPages;
       })
       .addCase(fetchProductsForUser.rejected, (state, action) => {
         state.isLoading = false;
