@@ -2,10 +2,10 @@ const Order = require("./order.model");
 const Product = require("../product/product.model");
 
 module.exports.createOrderService = async (userId, data) => {
- 
+
   const {
     orderItems,
-    shippingAddress, 
+    shippingAddress,
     paymentMethod,
     shippingPrice = 0,
     customerNote,
@@ -32,7 +32,7 @@ module.exports.createOrderService = async (userId, data) => {
     processedItems.push({
       product: product._id,
       name: product.name,
-      image: product.image?.url || "", 
+      image: product.image?.url || "",
       quantity: item.quantity,
       price: currentPrice,
     });
@@ -47,9 +47,9 @@ module.exports.createOrderService = async (userId, data) => {
     shippingAddress: {
       fullName: shippingAddress.fullName,
       phone: shippingAddress.phone,
-      province: shippingAddress.province,   
-      ward: shippingAddress.ward,          
-      addressDetails: shippingAddress.addressDetails, 
+      province: shippingAddress.province,
+      ward: shippingAddress.ward,
+      addressDetails: shippingAddress.addressDetails,
     },
     paymentMethod,
     itemsPrice,
@@ -123,33 +123,66 @@ module.exports.cancelOrderService = async (userId, orderId) => {
 
   return cancelledOrder;
 };
+
+
 module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
   const { orderStatus, shopNote } = statusData;
 
   const order = await Order.findById(orderId);
   if (!order) throw new Error("Không tìm thấy đơn hàng.");
 
-
+  // Chặn cập nhật nếu đã Delivered/Cancelled
   if (order.status.orderStatus === "Delivered") {
     throw new Error("Đơn hàng đã hoàn thành, không thể cập nhật thêm.");
   }
-
   if (order.status.orderStatus === "Cancelled") {
     throw new Error("Đơn hàng đã bị hủy, không thể cập nhật.");
   }
 
-
-  if (shopNote) order.shopNote = shopNote;
-
+  if (typeof shopNote === "string") order.shopNote = shopNote;
 
   if (orderStatus) {
     order.status.orderStatus = orderStatus;
 
+
     if (orderStatus === "Delivered") {
+
+
+      if (order.status.isDelivered) {
+        throw new Error("Đơn hàng đã được đánh dấu Delivered trước đó.");
+      }
+
+
+
+      const qtyByProduct = new Map();
+      for (const item of order.orderItems || []) {
+        const pid = String(item.product);
+        const q = Number(item.quantity || 0);
+        if (!pid || q <= 0) continue;
+        qtyByProduct.set(pid, (qtyByProduct.get(pid) || 0) + q);
+      }
+
+      // 2) update hàng loạt Product.sold += qty
+      const ops = Array.from(qtyByProduct.entries()).map(([pid, qty]) => ({
+        updateOne: {
+          filter: { _id: pid },
+          update: {
+            $inc: {
+              sold: qty,
+              stock: -qty,
+            },
+          },
+        },
+      }));
+
+      if (ops.length) {
+        await Product.bulkWrite(ops);
+      }
+
+      // 3) set flags cho order
       order.status.isDelivered = true;
       order.status.deliveredAt = Date.now();
 
- 
       order.status.isPaid = true;
       order.status.paidAt = Date.now();
     }
@@ -157,6 +190,10 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
 
   return await order.save();
 };
+
+
+
+
 module.exports.getAllOrdersAdmin = async (query) => {
   const { status, limit = 10, page = 1, orderId } = query;
   const filter = {};

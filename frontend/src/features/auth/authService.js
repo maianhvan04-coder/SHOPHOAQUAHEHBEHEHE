@@ -1,20 +1,24 @@
+// src/features/auth/authService.js
 import { authApi } from "~/api/authApi";
 import { authStorage } from "./authStorage";
 
-function unwrap(res) {
-  return res?.data?.data ?? res?.data;
-}
+const unwrap = (res) => res?.data?.data ?? res?.data;
 
 export const authService = {
   async login(payload) {
     const res = await authApi.login(payload);
-    const data = unwrap(res); // { accessToken, user, roles, permissions, ... }
+    const data = unwrap(res);
 
-    // ✅ QUAN TRỌNG: lưu access token
-    if (data?.accessToken) authStorage.setToken(data.accessToken);
+    if (!data?.accessToken) throw new Error("Không nhận được accessToken");
 
-    // ✅ optional: nếu backend trả luôn user/roles/permissions thì cache luôn
-    // authStorage.setMe({ user: data.user, roles: data.roles, permissions: data.permissions });
+    authStorage.setToken(data.accessToken);
+
+    // optional cache me luôn nếu backend trả roles/permissions
+    authStorage.setMe({
+      user: data?.user || null,
+      roles: Array.isArray(data?.roles) ? data.roles.filter(Boolean) : [],
+      permissions: Array.isArray(data?.permissions) ? data.permissions.filter(Boolean) : [],
+    });
 
     return data;
   },
@@ -23,15 +27,22 @@ export const authService = {
     const res = await authApi.me();
     const data = unwrap(res);
 
-    // optional: cache me
-    // authStorage.setMe(data);
+    authStorage.setMe({
+      user: data?.user || null,
+      roles: Array.isArray(data?.roles) ? data.roles.filter(Boolean) : [],
+      permissions: Array.isArray(data?.permissions) ? data.permissions.filter(Boolean) : [],
+    });
 
     return data;
   },
 
   async logout() {
-    const res = await authApi.logout();
-    authStorage.clear();
-    return unwrap(res);
+    // ✅ request này đi qua apiClient -> có Bearer -> backend có sid -> xóa session DB
+    try {
+      await authApi.logout();
+    } finally {
+      authStorage.clear();
+    }
+    return { ok: true };
   },
 };

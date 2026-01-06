@@ -13,6 +13,6 @@ router.get("/me", auth, controller.me);
 // cookie path cũng trỏ vào đây
 router.post("/refresh-token", controller.refreshToken);
 
-router.post("/logout", controller.logout);
+router.post("/logout", auth, controller.logout);
 
 module.exports = router;

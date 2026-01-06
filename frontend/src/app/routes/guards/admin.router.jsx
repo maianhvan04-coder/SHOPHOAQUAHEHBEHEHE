@@ -1,12 +1,12 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { ChakraProvider, extendTheme, Center, Spinner } from "@chakra-ui/react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { findScreenByPathname, canAccessScreen, firstAccessibleScreen } from "~/shared/utils/ability";
 import { useAuth } from "~/app/providers/AuthProvides";
 import { useRbacCatalog } from "~/features/rbac/hooks/useRbacCatalog";
 
-const ALWAYS_ALLOW = ["/admin", "/admin/rbac/"];
-
+// ✅ chỉ allow RBAC pages thôi (nếu cần)
+const ALWAYS_ALLOW_PREFIX = ["/admin/rbac"];
 
 const adminTheme = extendTheme({
   config: { initialColorMode: "light", useSystemColorMode: false },
@@ -25,50 +25,55 @@ const adminTheme = extendTheme({
     },
   },
 });
-
 export default function AdminRoute() {
- 
-
   const { pathname } = useLocation();
   const { isAuthed, permissions, loading: authLoading } = useAuth();
-  const { groups, screens, loading: catalogLoading, error } = useRbacCatalog(isAuthed);
 
-  const loading = authLoading || catalogLoading;
+  const {
+    groups,
+    screens,
+    loading: catalogLoading,
+    ready: catalogReady, // ✅
+    error,
+  } = useRbacCatalog(isAuthed);
+
+  // ✅ quan trọng: chờ catalogReady
+  const loading = authLoading || (isAuthed && !catalogReady) || catalogLoading;
 
   const matched = useMemo(() => findScreenByPathname(screens, pathname), [screens, pathname]);
 
-  useEffect(() => {
- 
-  }, [pathname, loading, isAuthed, authLoading, catalogLoading, error, matched, permissions, screens]);
-
-  // ===== UI =====
   return (
     <ChakraProvider theme={adminTheme}>
-      {loading && (
+      {loading ? (
         <Center h="100vh">
           <Spinner size="lg" />
         </Center>
-      )}
-
-      {!loading && (() => {
+      ) : (() => {
         if (!isAuthed) return <Navigate to="/login" replace />;
-        if (error) return <Navigate to="/4031" replace state={{ reason: error }} />;
+
+        if (error) return <Navigate to="/403" replace state={{ reason: error }} />;
 
         if (pathname === "/403") return <Outlet context={{ groups, screens }} />;
-        if (ALWAYS_ALLOW.some((p) => pathname.startsWith(p))) return <Outlet context={{ groups, screens }} />;
+
+        if (ALWAYS_ALLOW_PREFIX.some((p) => pathname.startsWith(p))) {
+          return <Outlet context={{ groups, screens }} />;
+        }
 
         if (pathname === "/admin" || pathname === "/admin/") {
           const nextPath = firstAccessibleScreen(groups, screens, permissions);
           return nextPath
             ? <Navigate to={nextPath} replace />
-            : <Navigate to="/4032" replace state={{ reason: "Không có screen nào bạn được phép truy cập" }} />;
+            : <Navigate to="/403" replace state={{ reason: "Không có screen nào bạn được phép truy cập" }} />;
         }
 
         const screen = matched;
-        if (!screen) return <Navigate to="/4033" replace state={{ reason: "Route không nằm trong catalog" }} />;
+        if (!screen) {
+          // ✅ đừng đá sang /4033 nếu bạn không khai báo route đó -> sẽ ra 404
+          return <Navigate to="/403" replace state={{ reason: "Route không nằm trong catalog" }} />;
+        }
 
         if (!canAccessScreen(permissions, screen)) {
-          return <Navigate to="/4034" replace state={{ reason: "Thiếu permission để vào màn này" }} />;
+          return <Navigate to="/403" replace state={{ reason: "Thiếu permission để vào màn này" }} />;
         }
 
         return <Outlet context={{ groups, screens }} />;

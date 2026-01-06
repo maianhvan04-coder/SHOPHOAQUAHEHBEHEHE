@@ -1,12 +1,18 @@
+// src/helpers/jwt.auth.js
 const jwt = require("jsonwebtoken");
 const ApiError = require("../core/apiError");
 const httpStatus = require("../core/httpStatus");
 
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
 
-exports.generateAccessToken = (user) => {
+exports.generateAccessToken = (user, sid) => {
   return jwt.sign(
-    { sub: String(user._id), role: user.role, type: "access" },
+    {
+      sub: String(user._id),
+      type: "access",
+      sid: String(sid),
+      authzVersion: Number(user.authzVersion || 0),
+    },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
   );
@@ -16,7 +22,7 @@ exports.signRefreshToken = ({ sub, sid, expiresIn }) => {
   return jwt.sign(
     { sub: String(sub), sid: String(sid), type: "refresh" },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn } // seconds hoặc string
+    { expiresIn }
   );
 };
 
@@ -28,10 +34,7 @@ exports.verifyAccessToken = (token) => {
     }
     return payload;
   } catch {
-    throw new ApiError(
-      httpStatus.UNAUTHORIZED,
-      "Access token không hợp lệ hoặc đã hết hạn"
-    );
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Access token không hợp lệ hoặc đã hết hạn");
   }
 };
 
@@ -43,9 +46,6 @@ exports.verifyRefreshToken = (token) => {
     }
     return payload;
   } catch {
-    throw new ApiError(
-      httpStatus.UNAUTHORIZED,
-      "Refresh token không hợp lệ hoặc đã hết hạn"
-    );
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Refresh token không hợp lệ hoặc đã hết hạn");
   }
 };

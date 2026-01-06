@@ -17,7 +17,6 @@ export const createUserAdmin = (data) => {
 }
 
 
-
 // ===== USER =====
 export const getUsersApi = (params) =>
   axiosUser.get("/api/v1/users", { params });
@@ -27,12 +26,13 @@ export const getUserDetailApi = (id) =>
 
 export const updateProfileApi = (data) => {
   const URL_API = "/api/v1/users/me/profile";
-  return axiosUser.patch(URL_API, { data });
+  return axiosUser.patch(URL_API, data); 
+};
 
-}
-
+//đổi mk
 export const changePasswordApi = (data) =>
-  axiosUser.patch("/api/v1/users/me/change-password", data);
+  axiosUser.patch("/api/v1/users/me/password", data);
+
 export const getCartAPI = () => {
   const URL_API = "/api/v1/cart";
   return axiosUser.get(URL_API);
@@ -46,15 +46,16 @@ export const updateQuantityCartAPI = (productId, quantity) => {
   const URL_API = "/api/v1/cart/update";
   return axiosUser.patch(URL_API, { productId, quantity });
 };
+
 export const deleteFromCartAPI = (productId) => {
   const URL_API = `/api/v1/cart/delete/${productId}`;
   return axiosUser.delete(URL_API);
-}
-
-
+};
+//up avatar
 export const uploadUserAvatarApi = (file) => {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("image", file); // ✅ phải là "image" (khớp uploadAvatar("image"))
+
   return axiosUser.patch("/api/v1/users/me/avatar", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });

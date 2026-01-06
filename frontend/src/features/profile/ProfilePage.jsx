@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { updateProfileApi, changePasswordApi, uploadUserAvatarApi } from "~/api/user.api";
 import ProfileTabs from "./ProfileTabs";
 import { useAuth } from "~/app/providers/AuthProvides";
@@ -13,7 +14,7 @@ const ProfilePage = () => {
     email: user?.email || "",
   });
 
-  // ✅ avatar state
+  // ===== avatar state =====
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatar, setAvatar] = useState(user?.image || { url: "", publicId: "" });
@@ -24,18 +25,15 @@ const ProfilePage = () => {
   }, [avatarFile]);
 
   const [pwd, setPwd] = useState({ old: "", new: "", confirm: "" });
+  const [showPwd, setShowPwd] = useState({ old: false, new: false, confirm: false });
 
   useEffect(() => {
     if (user) {
-      setForm({
-        name: user.fullName || "",
-        email: user.email || "",
-      });
+      setForm({ name: user.fullName || "", email: user.email || "" });
       setAvatar(user.image || { url: "", publicId: "" });
     }
   }, [user]);
 
-  // cleanup preview URL
   useEffect(() => {
     return () => {
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -46,7 +44,6 @@ const ProfilePage = () => {
     const f = e.target.files?.[0];
     if (!f) return;
 
-    // validate cơ bản
     if (!f.type.startsWith("image/")) {
       alert("Vui lòng chọn file ảnh");
       return;
@@ -59,62 +56,70 @@ const ProfilePage = () => {
     setAvatarFile(f);
   };
 
+  // ✅ Upload avatar: backend trả { message, data: { image } }
   const handleUploadAvatar = async () => {
     if (!avatarFile) return alert("Chọn ảnh trước đã");
+
     try {
       setAvatarUploading(true);
-      const res = await uploadUserAvatarApi(avatarFile);
-      // backend nên trả { data: { url, publicId } }
-      const uploaded = res.data?.data;
-      if (!uploaded?.url) throw new Error("Upload thất bại");
 
-      setAvatar(uploaded);
+      const res = await uploadUserAvatarApi(avatarFile);
+      // res = { message, data: { image } }
+      const uploadedImage = res?.data?.image;
+
+      if (!uploadedImage?.url) throw new Error("Upload thất bại");
+
+      setAvatar(uploadedImage);
       setAvatarFile(null);
+
+      // ✅ lưu tạm localStorage để reload vẫn có
+      localStorage.setItem("user_image", JSON.stringify(uploadedImage));
 
       alert("Upload ảnh thành công ✨");
     } catch (err) {
-      alert(err.response?.data?.message || err.message || "Upload thất bại");
+      alert(err?.response?.data?.message || err?.message || "Upload thất bại");
     } finally {
       setAvatarUploading(false);
     }
   };
 
+  // ✅ Update profile: backend trả { data: updatedUser, message }
   const handleUpdateProfile = async () => {
     try {
       const payload = {
         fullName: form.name,
-        image: avatar, // ✅ lưu image vào DB
+        image: avatar, // { url, publicId }
       };
 
       const res = await updateProfileApi(payload);
-      const updatedUser = res.data?.data;
+      // res = { data: updatedUser, message }
+      const updatedUser = res?.data;
 
       if (!updatedUser || !updatedUser._id) throw new Error("Lỗi dữ liệu");
 
-      // ✅ LocalStorage update
       localStorage.setItem("user_id", updatedUser._id);
-      localStorage.setItem("user_email", updatedUser.email);
-      localStorage.setItem("user_fullName", updatedUser.fullName);
+      localStorage.setItem("user_email", updatedUser.email || "");
+      localStorage.setItem("user_fullName", updatedUser.fullName || "");
       localStorage.setItem("user_role", updatedUser.role || "user");
-      if (updatedUser.image) {
-        localStorage.setItem("user_image", JSON.stringify(updatedUser.image));
-      }
+      if (updatedUser.image) localStorage.setItem("user_image", JSON.stringify(updatedUser.image));
 
       alert("Cập nhật thành công! ✨");
     } catch (err) {
-      alert(`Cập nhật thất bại: ${err.response?.data?.message || err.message}`);
+      alert(`Cập nhật thất bại: ${err?.response?.data?.message || err?.message || "Error"}`);
     }
   };
 
   const handleChangePassword = async () => {
     if (pwd.new !== pwd.confirm) return alert("Mật khẩu không khớp");
+
     try {
       await changePasswordApi({ oldPassword: pwd.old, newPassword: pwd.new });
+
       alert("Đổi mật khẩu thành công, vui lòng đăng nhập lại");
       localStorage.clear();
       window.location.href = "/login";
     } catch (err) {
-      alert(err.response?.data?.message || "Thất bại");
+      alert(err?.response?.data?.message || "Thất bại");
     }
   };
 
@@ -129,8 +134,7 @@ const ProfilePage = () => {
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
         {tab === "profile" && (
           <div className="space-y-6">
-
-            {/* ✅ AVATAR */}
+            {/* AVATAR */}
             <div className="flex items-center gap-5">
               <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
                 <img
@@ -147,12 +151,7 @@ const ProfilePage = () => {
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <label className="px-4 py-2 rounded-2xl bg-gray-100 hover:bg-gray-200 cursor-pointer text-sm font-semibold">
                     Chọn ảnh
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePickAvatar}
-                      className="hidden"
-                    />
+                    <input type="file" accept="image/*" onChange={handlePickAvatar} className="hidden" />
                   </label>
 
                   <button
@@ -221,13 +220,25 @@ const ProfilePage = () => {
                 <label className="text-xs uppercase tracking-wider font-bold text-gray-400 ml-1">
                   {f.label}
                 </label>
-                <input
-                  type="password"
-                  value={pwd[f.id]}
-                  onChange={(e) => setPwd({ ...pwd, [f.id]: e.target.value })}
-                  className="w-full bg-gray-50 border-none rounded-2xl px-5 py-3.5 focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
-                  placeholder="••••••••"
-                />
+
+                <div className="relative">
+                  <input
+                    type={showPwd[f.id] ? "text" : "password"}
+                    value={pwd[f.id]}
+                    onChange={(e) => setPwd({ ...pwd, [f.id]: e.target.value })}
+                    className="w-full bg-gray-50 border-none rounded-2xl px-5 py-3.5 pr-12 focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
+                    placeholder="••••••••"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd((s) => ({ ...s, [f.id]: !s[f.id] }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl hover:bg-gray-200/60 text-gray-700 flex items-center justify-center"
+                    aria-label={showPwd[f.id] ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    {showPwd[f.id] ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                  </button>
+                </div>
               </div>
             ))}
 
