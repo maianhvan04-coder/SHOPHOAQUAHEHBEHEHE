@@ -21,6 +21,11 @@ const userSchema = new Schema({
     phone: { type: String, trim: true, unique: true, sparse: true },
     passwordHash: { type: String, required: true },
     authzVersion: { type: Number, default: 0 },
+
+    // ✅ reset password
+    passwordResetTokenHash: { type: String, default: null },
+    passwordResetExpires: { type: Date, default: null },
+    
     image: {
         url: { type: String, trim: true, default: "" },
         publicId: { type: String, trim: true, default: "" },

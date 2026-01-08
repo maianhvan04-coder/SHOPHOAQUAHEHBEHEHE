@@ -1,4 +1,6 @@
 // src/api/v1/modules/auth/auth.service.js
+const crypto = require("crypto");
+
 const ApiError = require("../../../../core/apiError");
 const httpStatus = require("../../../../core/httpStatus");
 
@@ -9,6 +11,8 @@ const rbacService = require("../rbac/rbac.service");
 const { hashPassword, comparePassword } = require("../../../../helpers/password.auth");
 const { generateAccessToken, signRefreshToken, verifyRefreshToken } = require("../../../../helpers/jwt.auth");
 const { hashRefreshToken, safeEqualHex } = require("../../../../helpers/tokenHash");
+const { sendResetPasswordEmail } = require("../../../../helpers/mailer");
+
 
 const Session = require("./session.model");
 
@@ -174,5 +178,69 @@ exports.logout = async (req) => {
     await Session.findByIdAndDelete(sid);
     return { ok: true };
   }
+  return { ok: true };
+};
+
+const RESET_MS = 15 * 60 * 1000;
+const sha256 = (s) => crypto.createHash("sha256").update(s).digest("hex");
+
+// // TODO: thay bằng nodemailer/resend
+// async function sendResetEmail({ toEmail, resetUrl }) {
+//   console.log("RESET URL:", resetUrl, "=> send to", toEmail);
+// }
+
+// ===== FORGOT PASSWORD =====
+const baseClientUrl = () =>
+  (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+
+exports.forgotPassword = async (email) => {
+  const user = await authRepo.findAnyByEmail(email);
+  // ✅ luôn return ok để không lộ email tồn tại
+  if (!user || user.isDeleted) return { ok: true };
+  if (user.isActive === false) return { ok: true };
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  user.passwordResetTokenHash = sha256(rawToken);
+  user.passwordResetExpires = new Date(Date.now() + RESET_MS);
+  await user.save();
+
+  const resetUrl = `${baseClientUrl()}/reset-password?token=${rawToken}`;
+
+  // ✅ gửi mail thật
+  await sendResetPasswordEmail({ to: user.email, resetUrl });
+
+  return { ok: true };
+};
+
+// ===== RESET PASSWORD =====
+// ✅ đúng theo controller gọi: resetPassword(token, newPassword)
+exports.resetPassword = async (token, newPassword) => {
+  const tokenHash = sha256(token);
+
+  const user = await authRepo.findByResetTokenHash(tokenHash);
+  if (!user) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Token không hợp lệ hoặc đã hết hạn", "INVALID_RESET_TOKEN");
+  }
+  if (user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
+  if (user.isActive === false) throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
+
+  // ✅ cập nhật mật khẩu
+  user.passwordHash = await hashPassword(newPassword);
+
+  // ✅ tăng version để access token cũ die (nếu auth middleware check)
+  user.authzVersion = (user.authzVersion || 0) + 1;
+
+  // ✅ clear reset token
+  user.passwordResetTokenHash = null;
+  user.passwordResetExpires = null;
+
+  await user.save();
+
+  // ✅ revoke toàn bộ session (logout mọi thiết bị)
+  await Session.updateMany(
+    { userId: user._id, revokedAt: null },
+    { revokedAt: new Date() }
+  );
+
   return { ok: true };
 };

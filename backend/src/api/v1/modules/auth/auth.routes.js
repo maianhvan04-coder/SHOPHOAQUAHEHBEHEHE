@@ -10,6 +10,10 @@ router.post("/register", loginSlowDown, loginLimiter, validate(schema.register),
 
 router.get("/me", auth, controller.me);
 
+// QUÊN MẬT KHẨU
+router.post("/forgot-password", loginSlowDown, loginLimiter, validate(schema.forgotPassword), controller.forgotPassword);
+router.post("/reset-password", loginSlowDown, loginLimiter, validate(schema.resetPassword), controller.resetPassword);
+
 // cookie path cũng trỏ vào đây
 router.post("/refresh-token", controller.refreshToken);
 

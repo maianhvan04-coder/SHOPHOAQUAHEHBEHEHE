@@ -12,6 +12,8 @@ const uploadRoutes = require("../modules/upload/upload.routes");
 const publicProduct = require("../modules/product/public.router");
 const orderUserRouter = require("../modules/order/routes/order.user.routes");
 const orderAdminRoute = require("../modules/order/routes/order.admin.routes");
+const chatRoutes = require("../modules/chat/chat.route");
+
 
 router.get("/health", (req, res) => {
   res.status(200).json({
@@ -37,4 +39,6 @@ module.exports = (app) => {
   app.use(v1 + "/categories", categoryPublic);
   app.use(v1 + "/order", orderUserRouter);
 
+  // ✅ chatbot
+  app.use(v1 + "/chat", chatRoutes);
 };
