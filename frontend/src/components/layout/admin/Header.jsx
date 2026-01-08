@@ -335,7 +335,7 @@ function Header() {
             >
               <MenuItem
                 as={Link}
-                to="/profile"
+                to="/admin/profile"
                 bg="transparent"
                 _hover={{ bg: menuItemHover }}
                 color={strongText}
