@@ -13,7 +13,10 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = authStorage.getToken();
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -28,48 +31,50 @@ function resolveQueue(error, token = null) {
   queue = [];
 }
 
-// helper: bỏ refresh cho các endpoint auth
+// helper: các endpoint không auto-refresh
 function isAuthEndpoint(url = "") {
+  const u = String(url || "");
   return (
-    url.includes("/auth/login") ||
-    url.includes("/auth/register") ||
-    url.includes("/auth/refresh") ||
-    url.includes("/auth/logout")
+    u.includes("/auth/login") ||
+    u.includes("/auth/register") ||
+    u.includes("/auth/refresh-token") || // ✅ đúng backend của bạn
+    u.includes("/auth/logout") ||
+    u.includes("/auth/forgot-password") || // ✅ thêm
+    u.includes("/auth/reset-password") // ✅ thêm
   );
 }
 
 apiClient.interceptors.response.use(
-  // ✅ trả về res (bạn đang dùng unwrap(res) ở nơi khác)
   (res) => res,
   async (err) => {
     const original = err?.config;
     const status = err?.response?.status;
     const url = original?.url || "";
 
-    // ✅ 1) Login sai / register sai / refresh fail => TRẢ THẲNG VỀ CATCH
-    // (để frontend nhận đúng message backend)
+    // ✅ 1) endpoint auth => trả thẳng về catch để lấy message BE
     if (isAuthEndpoint(url)) {
       throw err;
     }
 
-    // ✅ 2) Không có access token thì khỏi refresh
+    // ✅ 2) không có access token thì khỏi refresh
     const hasToken = !!authStorage.getToken();
     if (!hasToken) {
       throw err;
     }
 
-    // ✅ 3) Chỉ xử lý 401 và chỉ retry 1 lần
+    // ✅ 3) chỉ xử lý 401 và chỉ retry 1 lần
     if (status !== 401 || original?._retry) {
       throw err;
     }
 
     original._retry = true;
 
-    // ✅ 4) Nếu đang refresh thì xếp hàng
+    // ✅ 4) nếu đang refresh thì xếp hàng
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         queue.push({
           resolve: (token) => {
+            original.headers = original.headers || {};
             original.headers.Authorization = `Bearer ${token}`;
             resolve(apiClient(original));
           },
@@ -78,11 +83,11 @@ apiClient.interceptors.response.use(
       });
     }
 
-    // ✅ 5) Bắt đầu refresh
+    // ✅ 5) bắt đầu refresh
     isRefreshing = true;
     try {
       const refreshRes = await apiClient.post(endpoints.auth.refresh);
-      const data = refreshRes?.data?.data ?? refreshRes?.data; // tuỳ backend
+      const data = refreshRes?.data?.data ?? refreshRes?.data;
       const newToken = data?.accessToken;
 
       if (!newToken) throw err;
@@ -90,11 +95,12 @@ apiClient.interceptors.response.use(
       authStorage.setToken(newToken);
       resolveQueue(null, newToken);
 
+      original.headers = original.headers || {};
       original.headers.Authorization = `Bearer ${newToken}`;
       return apiClient(original);
     } catch (e) {
       resolveQueue(e, null);
-      authStorage.clear();
+      authStorage.clear(); // xoá access token + me cache nếu có
       throw e;
     } finally {
       isRefreshing = false;

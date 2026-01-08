@@ -17,6 +17,8 @@ import ShopPage from "~/pages/client/public/ShopPage";
 // Auth pages (client)
 import LoginPage from "~/features/auth/page/login/user/login.jsx";
 import RegisterPage from "~/features/auth/page/register/user/register.jsx";
+import ForgotPasswordPage from "~/features/auth/page/forgot-password/ForgotPasswordPage";
+import ResetPasswordPage from "~/features/auth/page/reset-password/ResetPasswordPage";
 import ProfilePage from "~/features/profile/ProfilePage";
 
 // Error pages
@@ -56,6 +58,8 @@ const routes = [
   // ===== CLIENT AUTH =====
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
+  { path: "/forgot-password", element: <ForgotPasswordPage /> }, 
+  { path: "/reset-password", element: <ResetPasswordPage /> },
 
   // ===== ADMIN PRIVATE (RBAC) =====
   {
