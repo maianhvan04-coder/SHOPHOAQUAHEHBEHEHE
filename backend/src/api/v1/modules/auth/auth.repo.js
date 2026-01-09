@@ -20,3 +20,11 @@ exports.findById = (id) => {
 exports.createUser = (payload) => {
   return User.create(payload);
 };
+
+//quyên password
+exports.findByResetTokenHash = (tokenHash) =>
+  User.findOne({
+    passwordResetTokenHash: tokenHash,
+    passwordResetExpires: { $gt: new Date() },
+    isDeleted: false,
+  });

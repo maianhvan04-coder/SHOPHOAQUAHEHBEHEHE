@@ -8,4 +8,8 @@ export const authApi = {
   me: () => apiClient.get(endpoints.auth.me),
   refresh: () => apiClient.post(endpoints.auth.refresh),
   logout: () => apiClient.post(endpoints.auth.logout),
+
+  // ✅ quên/đặt lại mật khẩu
+  forgotPassword: (payload) => apiClient.post(endpoints.auth.forgotPassword, payload), // {email} hoặc {phone}
+  resetPassword: (payload) => apiClient.post(endpoints.auth.resetPassword, payload),   // {token,newPassword,confirmPassword}
 };

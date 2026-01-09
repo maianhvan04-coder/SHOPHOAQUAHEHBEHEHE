@@ -63,3 +63,32 @@ module.exports.logout = asyncHandler(async (req, res) => {
 
   return res.status(200).json({ message: "Logout thành công" });
 });
+
+module.exports.forgotPassword = asyncHandler(async (req, res) => {
+  await authService.forgotPassword(req.body.email);
+
+  // ✅ luôn trả chung để tránh lộ email tồn tại hay không
+  res.json({
+    data: { message: "Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu." },
+  });
+});
+
+module.exports.resetPassword = asyncHandler(async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  await authService.resetPassword(token, newPassword);
+
+  // ✅ nếu user đang có refresh cookie (trên device này) thì clear luôn
+  res.clearCookie("refresh_token", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax",
+    path: COOKIE_PATH,
+  });
+
+  // tuỳ chọn: dọn các path cũ
+  res.clearCookie("refresh_token", { path: "/api/v1/auth/refresh-token" });
+  res.clearCookie("refresh_token", { path: "/" });
+
+  res.json({ data: { message: "Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại." } });
+});

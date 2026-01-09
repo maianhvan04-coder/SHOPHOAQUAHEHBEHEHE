@@ -150,7 +150,7 @@ export default function LoginPage() {
                 Remember me
               </label>
 
-              <Link to="#" className="hover:underline text-white/90">
+              <Link to="/forgot-password" className="hover:underline text-white/90">
                 Forgot password?
               </Link>
             </div>

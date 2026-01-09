@@ -2,8 +2,7 @@ const ApiError = require("../../../core/ApiError");
 const httpStatus = require("../../../core/httpStatus");
 
 function pickField(path) {
-  // Joi path có thể là ['images', 0, 'url'] -> "images.0.url"
-  if (!Array.isArray(path)) return "";
+  if (!Array.isArray(path)) return "unknown";
   return path.map(String).join(".");
 }
 
@@ -14,22 +13,23 @@ exports.validate = (schema) => (req, res, next) => {
   });
 
   if (error) {
-    const details = error.details.map((d) => ({
-      field: pickField(d.path),
-      message: d.message.replace(/"/g, ""), // bỏ dấu "
-      type: d.type,                        // ví dụ: "string.uri", "any.required"
-    }));
+    // ✅ { "email": "...", "password": "..." }
+    const errors = {};
+    for (const d of error.details || []) {
+      const field = pickField(d.path);
+      if (!errors[field]) errors[field] = d.message.replace(/"/g, "");
+    }
 
     return next(
       new ApiError(
         httpStatus.BAD_REQUEST,
-        "Validation error",
-        details,
+        "Dữ liệu không hợp lệ",
+        { errors },              // ✅ đúng format bạn muốn
         "VALIDATION_ERROR"
       )
     );
   }
 
   req.body = value;
-  next();
+  return next();
 };

@@ -29,20 +29,36 @@ const RegisterPage = () => {
     const newErrors = {};
 
     if (!formValues.fullName.trim())
-      newErrors.fullName = "Please input your full name!";
+      newErrors.fullName = "Vui lòng nhập họ và tên!";
 
-    if (!formValues.email) newErrors.email = "Please input your email!";
+    if (!formValues.email)
+      newErrors.email = "Vui lòng nhập email!";
     else if (!/\S+@\S+\.\S+/.test(formValues.email))
-      newErrors.email = "Email is invalid!";
+      newErrors.email = "Email không hợp lệ!";
 
-    if (!formValues.password) newErrors.password = "Please input your password!";
-    else if (formValues.password.length < 8)
-      newErrors.password = "Password must be at least 8 characters!";
+    // Password rules
+    if (!formValues.password) {
+      newErrors.password = "Vui lòng nhập mật khẩu!";
+    } else {
+      const pwd = formValues.password;
 
-    if (!formValues.confirmPassword)
-      newErrors.confirmPassword = "Please confirm your password!";
-    else if (formValues.confirmPassword !== formValues.password)
-      newErrors.confirmPassword = "Passwords do not match!";
+      if (pwd.length < 8) {
+        newErrors.password = "Mật khẩu phải có ít nhất 8 ký tự!";
+      } else if (!/[A-Z]/.test(pwd)) {
+        newErrors.password = "Mật khẩu phải có ít nhất 1 chữ hoa (A-Z)!";
+      } else if (!/[0-9]/.test(pwd)) {
+        newErrors.password = "Mật khẩu phải có ít nhất 1 chữ số (0-9)!";
+      } else if (!/[^\w\s]/.test(pwd)) {
+        newErrors.password = "Mật khẩu phải có ít nhất 1 ký tự đặc biệt (VD: !@#$)!";
+      }
+    }
+
+    // ✅ Confirm password
+    if (!formValues.confirmPassword) {
+      newErrors.confirmPassword = "Vui lòng nhập lại mật khẩu!";
+    } else if (formValues.confirmPassword !== formValues.password) {
+      newErrors.confirmPassword = "Mật khẩu nhập lại không khớp!";
+    }
 
     return newErrors;
   };
@@ -79,20 +95,20 @@ const RegisterPage = () => {
     setToastOpen(false);
 
     try {
-      await authApi.registerUserApi({
+      await authApi.register({
         fullName: formValues.fullName,
         email: formValues.email,
         password: formValues.password,
       });
 
-      showToast("success", "Register successful! Redirecting to login...");
+      showToast("success", "Đăng ký thành công! Đang chuyển đến trang đăng nhập...");
       setTimeout(() => navigate("/login"), 800);
     } catch (error) {
       const msg =
         error?.response?.data?.error?.message ||
         error?.response?.data?.EM ||
         error?.response?.data?.message ||
-        "Register failed!";
+        "Đăng ký thất bại! Vui lòng thử lại.";
 
       showToast("error", msg);
     } finally {

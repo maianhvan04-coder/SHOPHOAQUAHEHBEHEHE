@@ -15,6 +15,6 @@ router.patch(
 );
 
 router.patch("/me/password", auth, controller.changeMyPassword);
-router.patch("/me/profile", auth, controller.updateMyProfile);
+router.patch("/me/profile", auth, validate(userValidator.update), controller.updateMyProfile);
 
 module.exports = router;

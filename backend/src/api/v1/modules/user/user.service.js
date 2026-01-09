@@ -490,7 +490,7 @@ const pick = (obj, keys) => {
 
 
 exports.updateMyProfile = async (userId, body) => {
-  // ✅ chỉ cho phép update các field này
+  // chỉ cho phép update các field này
   const payload = pick(body, ["fullName", "phone", "image", "addresses"]);
 
   // Validate nhẹ

@@ -4,19 +4,19 @@ const Users = lazy(() => import("~/pages/admin/Users"));
 const Categories = lazy(() => import("~/features/category/pages/admin"));
 const Products = lazy(() => import("~/pages/admin/Products"));
 const Rbac = lazy(() => import("~/pages/admin/Roles"));
-const Orders = lazy(() =>
-  import("../../features/order/pages/OrderManagementPage")
-);
-const ProfileAdmin = lazy(() =>
-  import("~/features/profile/admin/ProfileAdmin")
-);
+const Orders = lazy(() => import("../../features/order/pages/OrderManagementPage"));
+const Profile = lazy(() => import("~/pages/admin/Profile"));
+const Settings = lazy(() => import("~/pages/admin/Settings"));
 export const adminRouters = [
   { path: "user", component: Users }, // /admin/user
   { path: "category", component: Categories }, // /admin/category
-  { path: "product", component: Products }, // /admin/product
+  { path: "product", component: Products },   // /admin/product
   { path: "rbac", component: Rbac },
+  { path: "profile", component: Profile },
+
   { path: "order", component: Orders }, // /admin/rbac
-  { path: "profile", component: ProfileAdmin },
+
+  { path: "settings", component: Settings },
 ];
 
 // import { lazy } from "react";

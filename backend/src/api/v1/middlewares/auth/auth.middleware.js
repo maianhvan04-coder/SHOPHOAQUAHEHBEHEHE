@@ -63,7 +63,8 @@ exports.auth = async (req, res, next) => {
     };
 
     return next();
-  } catch {
-    return next(new ApiError(httpStatus.UNAUTHORIZED, "Access token invalid/expired"));
-  }
+  } catch (err) {
+  if (err && typeof err === "object" && "statusCode" in err) return next(err);
+  return next(new ApiError(httpStatus.UNAUTHORIZED, "Access token invalid/expired"));
+}
 };

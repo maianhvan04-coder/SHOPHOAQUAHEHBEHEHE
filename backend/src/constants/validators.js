@@ -1,7 +1,9 @@
 const VALIDATORS = {
   PASSWORD_STRONG: {
-    regex: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,30}$/,
-    message: "Mật khẩu phải có ít nhất 1 chữ và 1 số, dài 6-30 ký tự",
+    // >=8, có HOA, có số, có ký tự đặc biệt, tối đa 30
+    regex: /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,30}$/,
+    message:
+      "Mật khẩu phải dài 8-30 ký tự, gồm ít nhất 1 chữ hoa, 1 số và 1 ký tự đặc biệt (@$!%*#?&)",
   },
   PHONE_VN: {
     regex: /^0\d{9}$/,

@@ -7,6 +7,8 @@ export const endpoints = {
     me: `${v1}/auth/me`,
     register: `${v1}/auth/register`,
     logout: `${v1}/auth/logout`,
+    forgotPassword: `${v1}/auth/forgot-password`, 
+    resetPassword: `${v1}/auth/reset-password`,
   },
   users: {
     getAll: `${v1Admin}/user`,
@@ -53,6 +55,7 @@ export const endpoints = {
     setUserOverride: `${v1Admin}/rbac/user-override`,
     removeUserOverride: `${v1Admin}/rbac/user-override`,
     catalog: `${v1Admin}/rbac/catalog`,
+
     // ROLES
     getPermissionByRole: ({ roleCode }) =>
       `${v1Admin}/rbac/roles/${encodeURIComponent(roleCode)}/permissions`,
@@ -64,4 +67,7 @@ export const endpoints = {
   upload: {
     signature: `${v1Admin}/upload/signature`,
   },
+  chat: {
+  send: `${v1}/chat`,
+},
 };
