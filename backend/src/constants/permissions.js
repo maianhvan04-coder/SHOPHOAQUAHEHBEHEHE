@@ -449,6 +449,15 @@ const ADMIN_SCREENS = Object.freeze({
 
         },
     },
+    DASHBOARD: {
+        key: "dashboard",
+        group: PERMISSION_GROUPS.SYSTEM.key,
+        label: "Dashboard",
+        icon: "home",
+        order: 0,
+        routes: ["/admin/dashboard"],
+        public: true, // ⭐ quan trọng
+    },
 
     PROFILE: {
         key: "profile",

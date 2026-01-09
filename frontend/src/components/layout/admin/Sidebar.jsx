@@ -1,9 +1,5 @@
 import { useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useDisclosure } from "@chakra-ui/react";
-import { useAuth } from "~/app/providers/AuthProvides";
-import { canAccessScreen, matchRoute } from "~/shared/utils/ability";
-
 import {
   Box,
   VStack,
@@ -22,8 +18,8 @@ import {
   HStack,
   useBreakpointValue,
   useColorModeValue,
+  useDisclosure,
 } from "@chakra-ui/react";
-
 import {
   Bars3Icon,
   ChevronLeftIcon,
@@ -34,8 +30,6 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
-  CalendarIcon,
-  BuildingOfficeIcon,
   UserIcon,
   ShoppingBagIcon,
   TagIcon,
@@ -44,9 +38,11 @@ import {
   LockClosedIcon,
 } from "@heroicons/react/24/outline";
 
-import { authService } from "../../../features/auth/authService";
+import { useAuth } from "~/app/providers/AuthProvides";
+import { canAccessScreen, matchRoute } from "~/shared/utils/ability";
+import { authService } from "~/features/auth/authService";
 
-// icon string -> component
+// icon map
 const ICON = {
   home: HomeIcon,
   users: UserGroupIcon,
@@ -54,34 +50,20 @@ const ICON = {
   analytics: ChartBarIcon,
   settings: Cog6ToothIcon,
   logout: ArrowLeftOnRectangleIcon,
-  calendar: CalendarIcon,
-  departments: BuildingOfficeIcon,
   profile: UserIcon,
-
   category: TagIcon,
-  tags: TagIcon,
-
   product: ShoppingBagIcon,
-  package: ShoppingBagIcon,
-  box: ShoppingBagIcon,
-
   order: ReceiptPercentIcon,
-  orders: ReceiptPercentIcon,
-  receipt: ReceiptPercentIcon,
-
-  shield: ShieldCheckIcon,
   rbac: ShieldCheckIcon,
   permission: LockClosedIcon,
-  permissions: LockClosedIcon,
 };
 
-// no-network fallback (18x18 svg)
 const FALLBACK_18 =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18">
       <rect width="18" height="18" rx="5" fill="#4F7CFF"/>
-      <text x="9" y="12.3" text-anchor="middle" font-size="10" fill="white" font-family="Arial" font-weight="700">J</text>
+      <text x="9" y="12.3" text-anchor="middle" font-size="10" fill="white" font-weight="700">J</text>
     </svg>`
   );
 
@@ -89,36 +71,44 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
-
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  // ===== theme =====
   const sidebarBg = useColorModeValue("#0B1220", "#0B1220");
-  const sidebarBorder = useColorModeValue("rgba(255,255,255,0.08)", "rgba(255,255,255,0.08)");
-  const muted = useColorModeValue("rgba(255,255,255,0.60)", "rgba(255,255,255,0.60)");
-  const muted2 = useColorModeValue("rgba(255,255,255,0.40)", "rgba(255,255,255,0.40)");
+  const sidebarBorder = "rgba(255,255,255,0.08)";
+  const muted = "rgba(255,255,255,0.6)";
+  const muted2 = "rgba(255,255,255,0.4)";
 
-  const itemHoverBg = useColorModeValue("rgba(255,255,255,0.06)", "rgba(255,255,255,0.06)");
-  const itemActiveBg = useColorModeValue("rgba(79,124,255,0.95)", "rgba(79,124,255,0.95)");
-  const itemActiveShadow = useColorModeValue(
-    "0 10px 30px rgba(79,124,255,0.25)",
-    "0 10px 30px rgba(79,124,255,0.25)"
+  const itemHoverBg = "rgba(255,255,255,0.06)";
+  const itemActiveBg = "rgba(79,124,255,0.95)";
+  const itemActiveShadow = "0 10px 30px rgba(79,124,255,0.25)";
+
+  // ===== DASHBOARD =====
+  const dashboardScreen = useMemo(
+    () =>
+      (screens || []).find(
+        (s) => s.key === "dashboard" && (s.public || canAccessScreen(userPermissions, s))
+      ),
+    [screens, userPermissions]
   );
 
+  // ===== GROUPED SCREENS =====
   const byGroup = useMemo(() => {
-   const allowedScreens = (screens || []).filter((s) =>
-  canAccessScreen(userPermissions, s, { mode: "menu" })
-);
+    const allowed = (screens || []).filter(
+      (s) => s.group && (s.public || canAccessScreen(userPermissions, s))
+    );
 
     const map = {};
-    allowedScreens.forEach((s) => {
-      const gkey = s.group;
-      map[gkey] = map[gkey] || [];
-      map[gkey].push(s);
+    allowed.forEach((s) => {
+      map[s.group] = map[s.group] || [];
+      map[s.group].push(s);
     });
-    Object.keys(map).forEach((k) => map[k].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+
+    Object.keys(map).forEach((k) =>
+      map[k].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    );
+
     return map;
   }, [screens, userPermissions]);
 
@@ -127,83 +117,41 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
     navigate("/login");
   };
 
-  const NavItem = ({ label, to, iconKey, onClick, onItemClose }) => {
+  const NavItem = ({ label, to, iconKey, onClick }) => {
     const active = to ? matchRoute(to, pathname) : false;
-    const IconComp = (iconKey && ICON[iconKey]) || UserIcon;
+    const IconComp = ICON[iconKey] || UserIcon;
 
-    const pill = (
+    const content = (
       <Flex
-        role="group"
         align="center"
         gap="12px"
         px={isCollapsed ? 3 : 4}
         py="10px"
         mx={isCollapsed ? 2 : 3}
         rounded="xl"
-        transition="all 180ms ease"
         bg={active ? itemActiveBg : "transparent"}
         boxShadow={active ? itemActiveShadow : "none"}
-        _hover={{ bg: active ? itemActiveBg : itemHoverBg, transform: "translateY(-1px)" }}
-        _active={{ transform: "translateY(0px)" }}
+        _hover={{ bg: active ? itemActiveBg : itemHoverBg }}
       >
-        <Box
-          w="36px"
-          h="36px"
-          rounded="lg"
-          display="grid"
-          placeItems="center"
-          bg={active ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.04)"}
-          transition="all 180ms ease"
-          _groupHover={{ bg: active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)" }}
-        >
-          <Icon as={IconComp} boxSize="5" color="white" opacity={active ? 1 : 0.92} />
+        <Box w="36px" h="36px" display="grid" placeItems="center">
+          <Icon as={IconComp} boxSize="5" color="white" />
         </Box>
-
         {!isCollapsed && (
-          <Text
-            fontSize="sm"
-            fontWeight={active ? 700 : 600}
-            color="white"
-            letterSpacing="0.2px"
-            noOfLines={1}
-          >
+          <Text fontSize="sm" fontWeight={active ? 700 : 600} color="white">
             {label}
           </Text>
         )}
       </Flex>
     );
 
-    // click-only item (logout)
     if (onClick) {
-      return (
-        <Tooltip label={isCollapsed ? label : ""} placement="right" hasArrow>
-          <Box
-            as="button"
-            w="full"
-            textAlign="left"
-            onClick={() => {
-              onClick();
-              onItemClose?.();
-            }}
-          >
-            {pill}
-          </Box>
-        </Tooltip>
-      );
+      return <Box as="button" w="full" onClick={onClick}>{content}</Box>;
     }
 
     return (
-      <Tooltip label={isCollapsed ? label : ""} placement="right" hasArrow>
-        <Box
-          as={NavLink}
-          to={to || "#"}
-          w="full"
-          onClick={() => onItemClose?.()}
-          style={{ textDecoration: "none" }}
-        >
-          {pill}
-        </Box>
-      </Tooltip>
+      <Box as={NavLink} to={to} w="full" style={{ textDecoration: "none" }}>
+        {content}
+      </Box>
     );
   };
 
@@ -223,189 +171,106 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
       </Text>
     );
 
-  const SidebarContent = ({ onDrawerClose }) => (
+  const SidebarContent = () => (
     <Box
       bg={sidebarBg}
       h="100vh"
-      position="sticky"
-      top="0"
+      w={isCollapsed ? "84px" : "290px"}
       borderRight="1px solid"
       borderColor={sidebarBorder}
-      w={isCollapsed ? "84px" : "290px"}
-      transition="width 220ms ease"
       display="flex"
       flexDirection="column"
-      overflowX="hidden"
-      overflowY="auto"
-      sx={{
-        "&::-webkit-scrollbar": { width: "6px" },
-        "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.18)", borderRadius: "999px" },
-        "&::-webkit-scrollbar-track": { background: "transparent" },
-      }}
     >
-      {/* Top bar */}
-      <Flex align="center" justify="space-between" px={isCollapsed ? 4 : 6} pt="18px" pb="14px">
-        <HStack spacing="12px" overflow="hidden">
-          <Box
-            w="36px"
-            h="36px"
-            rounded="xl"
-            bg="rgba(79,124,255,0.18)"
-            display="grid"
-            placeItems="center"
-          >
-            <Image
-              src="/vite.svg"
-              alt="Logo"
-              w="18px"
-              h="18px"
-              draggable={false}
-              fallbackSrc={FALLBACK_18} // ✅ no network
-            />
-          </Box>
-
-          {!isCollapsed && (
-            <Box lineHeight="1.1">
-              <Text fontSize="lg" fontWeight="800" color="white">
-                JOYGREEN
-              </Text>
-              <Text fontSize="xs" color={muted} mt="2px">
-                Role Management System
-              </Text>
-            </Box>
-          )}
+      {/* Logo */}
+      <Flex align="center" justify="space-between" px={6} py={4}>
+        <HStack>
+          <Image src="/vite.svg" w="18px" fallbackSrc={FALLBACK_18} />
+          {!isCollapsed && <Text color="white" fontWeight="800">JOYGREEN</Text>}
         </HStack>
-
-        {/* Collapse toggle (desktop) */}
         <IconButton
-          aria-label={isCollapsed ? "Expand" : "Collapse"}
-          icon={isCollapsed ? <ChevronRightIcon className="h-5 w-5" /> : <ChevronLeftIcon className="h-5 w-5" />}
           size="sm"
           variant="ghost"
-          display={{ base: "none", md: "inline-flex" }}
-          color="white"
-          _hover={{ bg: "rgba(255,255,255,0.06)" }}
+          icon={isCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
           onClick={() => setIsCollapsed((v) => !v)}
         />
       </Flex>
 
       <Divider borderColor={sidebarBorder} />
 
-      {/* Menu */}
-      <Box py="10px" pb="0">
-        <VStack align="stretch" spacing="0">
-          {(groups || []).map((g) => {
-            const list = byGroup[g.key] || [];
-            if (!list.length) return null;
+      
 
-            return (
-              <Box key={g.key}>
-                <SectionTitle>{g.label || g.name || g.key}</SectionTitle>
-
-                <VStack spacing="4px" align="stretch" pb="10px">
-                  {list.map((s) => {
-                    const to = (s.routes && s.routes[0]) || s.href || "#";
-                    return (
-                      <NavItem
-                        key={s.key}
-                        label={s.label || s.name || s.key}
-                        to={to}
-                        iconKey={s.icon}
-                        onItemClose={onDrawerClose}
-                      />
-                    );
-                  })}
-                </VStack>
-              </Box>
-            );
-          })}
+      {/* GROUPS */}
+      <Box flex="1" overflowY="auto">
+        {/* DASHBOARD */}
+      {dashboardScreen && (
+        <VStack align="stretch" py={3}>
+          <NavItem
+            label={dashboardScreen.label}
+            to={dashboardScreen.routes?.[0]}
+            iconKey={dashboardScreen.icon || "home"}
+          />
         </VStack>
+      )}
+        {(groups || []).map((g) => {
+          const list = byGroup[g.key] || [];
+          if (!list.length) return null;
+
+          return (
+            <Box key={g.key}>
+              <SectionTitle>{g.label}</SectionTitle>
+              {list.map((s) => (
+                <NavItem
+                  key={s.key}
+                  label={s.label}
+                  to={s.routes?.[0]}
+                  iconKey={s.icon}
+                />
+              ))}
+            </Box>
+          );
+        })}
+         <NavItem label="Logout" iconKey="logout" onClick={handleLogout} />
       </Box>
 
-      {/* Bottom actions + user */}
-      <Box mt="auto" pb="18px">
-        <Divider borderColor={sidebarBorder} my="10px" />
+      <Divider borderColor={sidebarBorder} />
 
-       <SectionTitle>System</SectionTitle>
-<VStack spacing="4px" align="stretch" pb="12px">
-
-  <NavItem label="Settings" to="/settings" iconKey="settings" onItemClose={onDrawerClose} />
-  <NavItem label="Logout" iconKey="logout" onClick={handleLogout} onItemClose={onDrawerClose} />
-</VStack>
-
-
-        {/* User card */}
-        <Box px={isCollapsed ? 2 : 4}>
-          <Tooltip
-            label={isCollapsed ? `${user?.fullName || user?.name || "Unknown"}\n${user?.email || ""}` : ""}
-            placement="right"
-            hasArrow
-            whiteSpace="pre-line"
-          >
-            <Flex
-              align="center"
-              gap="12px"
-              p="12px"
-              rounded="2xl"
-              bg="rgba(255,255,255,0.05)"
-              border="1px solid"
-              borderColor="rgba(255,255,255,0.08)"
-              _hover={{ bg: "rgba(255,255,255,0.07)" }}
-              transition="all 180ms ease"
-            >
-              <Avatar size="sm" name={user?.fullName || user?.name || "U"} src={user?.avatar} />
-              {!isCollapsed && (
-                <Box minW={0}>
-                  <Text fontSize="sm" fontWeight="700" color="white" noOfLines={1}>
-                    {user?.fullName || user?.name || "Unknown"}
-                  </Text>
-                  <Text fontSize="xs" color={muted} noOfLines={1}>
-                    {user?.email || "no@email.com"}
-                  </Text>
-                </Box>
-              )}
-            </Flex>
-          </Tooltip>
-        </Box>
+      <Box p={4}>
+        <Flex align="center" gap={3}>
+          <Avatar size="sm" name={user?.fullName} />
+          {!isCollapsed && (
+            <Box>
+              <Text color="white" fontSize="sm">{user?.fullName}</Text>
+              <Text color={muted} fontSize="xs">{user?.email}</Text>
+            </Box>
+          )}
+        </Flex>
       </Box>
     </Box>
   );
 
-  const MobileMenuButton = () => (
-    <IconButton
-      display={{ base: "inline-flex", md: "none" }}
-      onClick={onOpen}
-      variant="ghost"
-      position="fixed"
-      top="14px"
-      left="14px"
-      zIndex={1000}
-      icon={<Bars3Icon className="h-6 w-6" />}
-      aria-label="Open menu"
-      color="white"
-      _hover={{ bg: "rgba(255,255,255,0.08)" }}
-    />
-  );
-
   return (
     <>
-      <MobileMenuButton />
+      {isMobile && (
+        <IconButton
+          icon={<Bars3Icon />}
+          position="fixed"
+          top="14px"
+          left="14px"
+          onClick={onOpen}
+        />
+      )}
 
-      {/* Desktop */}
-      <Box as="aside" display={{ base: "none", md: "block" }}>
+      <Box display={{ base: "none", md: "block" }}>
         <SidebarContent />
       </Box>
 
-      {/* Mobile */}
-      <Box display={{ base: "block", md: "none" }}>
-        <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
-          <DrawerOverlay />
-          <DrawerContent bg={sidebarBg} maxW="86vw">
-            <DrawerCloseButton color="white" />
-            <SidebarContent onDrawerClose={onClose} />
-          </DrawerContent>
-        </Drawer>
-      </Box>
+      <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
+        <DrawerOverlay />
+        <DrawerContent bg={sidebarBg}>
+          <DrawerCloseButton />
+          <SidebarContent />
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

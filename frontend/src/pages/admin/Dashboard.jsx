@@ -30,7 +30,7 @@ import {
   UserGroupIcon,
 } from '@heroicons/react/24/outline'
 import { LineChart, Line, ResponsiveContainer } from 'recharts'
-import PageHeader from '../components/layout/PageHeader'
+import PageHeader from "~/components/layout/admin/PageHeader";
 import PropTypes from 'prop-types'
 
 const activityData = [
