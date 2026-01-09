@@ -72,17 +72,43 @@ export function findScreenByPathname(screens = [], pathname = "") {
 }
 
 /**
- * Quyền vào screen:
- * - không có accessAny => cho vào
- * - có accessAny => chỉ cần 1 permission match
+ * Check quyền vào screen
+ *
+ * @param {string[]} userPermissions
+ * @param {object} screen
+ * @param {object} options
+ * @param {"route"|"menu"} options.mode
  */
-export function canAccessScreen(userPermissions = [], screen) {
+export function canAccessScreen(
+  userPermissions = [],
+  screen,
+  { mode = "route" } = {}
+) {
   const perms = Array.isArray(userPermissions) ? userPermissions : [];
-  const needAny = screen?.accessAny;
 
+  // screen public luôn cho
+  if (screen?.public) return true;
+
+  // ===== MENU: chỉ check quyền VIEW =====
+  if (mode === "menu") {
+    const viewPerms = screen?.actions?.view;
+
+    // nếu screen có khai báo view → bắt buộc có READ
+    if (Array.isArray(viewPerms) && viewPerms.length > 0) {
+      return viewPerms.some((p) => perms.includes(p));
+    }
+
+    // không có view thì ẩn luôn cho chắc
+    return false;
+  }
+
+  // ===== ROUTE / ACTION: accessAny =====
+  const needAny = screen?.accessAny;
   if (!Array.isArray(needAny) || needAny.length === 0) return true;
+
   return needAny.some((p) => perms.includes(p));
 }
+
 
 /**
  * Lấy screen đầu tiên user truy cập được (để redirect /admin)

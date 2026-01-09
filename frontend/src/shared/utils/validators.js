@@ -170,10 +170,13 @@ export function validateUserForm(form = {}, options = {}) {
     errors.phone = "Số điện thoại không đúng định dạng (VD: 0912345678)";
   }
 
-  const roleCodeVal = normalize(form.roleCode);
-  if (isEmpty(roleCodeVal)) {
-    errors.roleCode = "Vui lòng chọn vai trò";
+  // ✅ MULTI ROLE
+  const roleCodesVal = Array.isArray(form.roleCodes) ? form.roleCodes : [];
+  if (roleCodesVal.length === 0) {
+    errors.roleCodes = "Phải chọn ít nhất một vai trò";
   }
+
+
 
   const passwordVal = normalize(form.password);
 
@@ -198,7 +201,7 @@ export function validateUserForm(form = {}, options = {}) {
       fullName: fullNameVal,
       email: emailVal?.toLowerCase?.() ?? emailVal,
       phone: phoneVal,
-      roleCode: roleCodeVal,
+      roleCodes: roleCodesVal,
       password: passwordVal,
       isActive: form.isActive !== false,
     },

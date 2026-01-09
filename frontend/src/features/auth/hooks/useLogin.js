@@ -21,7 +21,6 @@ const getBackendMessage = (err) => {
 
 export function useLogin() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { refreshMe } = useAuth();
 
   const [form, setForm] = useState({ email: "", password: "" });

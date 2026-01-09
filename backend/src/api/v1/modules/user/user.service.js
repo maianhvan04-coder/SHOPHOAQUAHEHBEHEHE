@@ -382,57 +382,75 @@ exports.updateUserAdmin = async (userId, payload) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "UserId không hợp lệ");
   }
 
-  // lấy user + roles để check ADMIN
+  // lấy user + roles hiện tại
   const current = await userRepo.findUserWithRolesById(userId);
   if (!current || current.isDeleted) {
     throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
   }
 
+  // ❌ không cho sửa ADMIN
   const currentRoleCodes = (current.roles || []).map(r => r.code).filter(Boolean);
   if (currentRoleCodes.includes("ADMIN")) {
     throw new ApiError(httpStatus.FORBIDDEN, "Không thể cập nhật tài khoản ADMIN");
   }
 
-  // normalize
-  const fullName = payload.fullName !== undefined ? String(payload.fullName || "").trim() : undefined;
-  const email = payload.email !== undefined ? String(payload.email || "").trim().toLowerCase() : undefined;
-  const phone = payload.phone !== undefined ? String(payload.phone || "").replace(/\D/g, "").slice(0, 10) : undefined;
-  const isActive = payload.isActive !== undefined ? !!payload.isActive : undefined;
+  /* ---------------- normalize payload ---------------- */
 
-  const roleCodes = Array.isArray(payload.roleCodes) ? payload.roleCodes.filter(Boolean) : undefined;
-  const password = payload.password !== undefined ? String(payload.password || "") : undefined;
+  const fullName =
+    payload.fullName !== undefined ? String(payload.fullName || "").trim() : undefined;
 
-  // validate nhẹ
+  const email =
+    payload.email !== undefined ? String(payload.email || "").trim().toLowerCase() : undefined;
+
+  const phone =
+    payload.phone !== undefined
+      ? String(payload.phone || "").replace(/\D/g, "").slice(0, 10)
+      : undefined;
+
+  const isActive =
+    payload.isActive !== undefined ? !!payload.isActive : undefined;
+
+  const roleCodes =
+    Array.isArray(payload.roleCodes) ? payload.roleCodes.filter(Boolean) : undefined;
+
+  const password =
+    payload.password !== undefined ? String(payload.password || "") : undefined;
+
+  /* ---------------- validate nhẹ ---------------- */
+
   if (fullName !== undefined && !fullName) {
     throw new ApiError(httpStatus.BAD_REQUEST, "fullName không hợp lệ");
   }
+
   if (email !== undefined && !email) {
     throw new ApiError(httpStatus.BAD_REQUEST, "email không hợp lệ");
   }
+
   if (password !== undefined && password && password.length < 6) {
     throw new ApiError(httpStatus.BAD_REQUEST, "password min 6 chars");
   }
+
   if (roleCodes && roleCodes.includes("ADMIN")) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Không cho gán ADMIN qua API");
   }
 
-  // build update doc
+  /* ---------------- build update user doc ---------------- */
+
   const updateDoc = {};
   if (fullName !== undefined) updateDoc.fullName = fullName;
   if (email !== undefined) updateDoc.email = email;
-  if (phone !== undefined) updateDoc.phone = phone; // bạn muốn cho xoá phone thì cho phép ""
+  if (phone !== undefined) updateDoc.phone = phone;
   if (isActive !== undefined) updateDoc.isActive = isActive;
 
   if (password) {
     updateDoc.passwordHash = await hashPassword(password, 10);
-    updateDoc.authzVersion = (current.authzVersion || 0) + 1;
   }
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // check unique email
+    /* --------- check unique email --------- */
     if (email !== undefined && email !== current.email) {
       const existed = await userRepo.findByEmail(email, { session });
       if (existed && String(existed._id) !== String(userId)) {
@@ -440,7 +458,7 @@ exports.updateUserAdmin = async (userId, payload) => {
       }
     }
 
-    // check unique phone (skip nếu phone = "" và bạn cho phép xoá phone)
+    /* --------- check unique phone --------- */
     if (phone !== undefined && phone !== (current.phone || "")) {
       if (phone) {
         const existedPhone = await userRepo.findByPhone(phone, { session });
@@ -450,23 +468,50 @@ exports.updateUserAdmin = async (userId, payload) => {
       }
     }
 
-    // update user info
+    /* --------- update user info --------- */
     if (Object.keys(updateDoc).length) {
       await userRepo.updateById(userId, updateDoc, { session });
     }
 
-    // replace roles nếu truyền roleCodes
+    let nextUserType = current.type;
+    let needBumpAuthz = false;
+
+    /* --------- replace roles + sync user.type --------- */
     if (roleCodes) {
       const finalRoleCodes = roleCodes.length ? roleCodes : ["USER"];
-      await userRepo.replaceUserRolesByCodes(
+
+      // replace roles & lấy lại role full (có type)
+      const newRoles = await userRepo.replaceUserRolesByCodes(
         { userId, roleCodes: finalRoleCodes },
+        { session }
+      );
+
+      // role nội bộ quyết định user.type
+      const INTERNAL_ROLE_TYPES = ["owner", "manager", "staff"];
+
+      const hasInternalRole = (newRoles || []).some(r =>
+        INTERNAL_ROLE_TYPES.includes(r.type)
+      );
+
+      nextUserType = hasInternalRole ? "internal" : "client";
+      needBumpAuthz = true;
+    }
+
+    /* --------- bump authzVersion + update type nếu cần --------- */
+    if (needBumpAuthz || password) {
+      await userRepo.updateById(
+        userId,
+        {
+          authzVersion: (current.authzVersion || 0) + 1,
+          ...(nextUserType !== current.type ? { type: nextUserType } : {}),
+        },
         { session }
       );
     }
 
     await session.commitTransaction();
 
-    // trả về user + roles đúng format FE
+    // trả user + roles mới
     const updated = await userRepo.findUserWithRolesById(userId);
     return updated;
   } catch (e) {
@@ -476,6 +521,7 @@ exports.updateUserAdmin = async (userId, payload) => {
     session.endSession();
   }
 };
+
 
 
 

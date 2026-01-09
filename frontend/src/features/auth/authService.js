@@ -26,7 +26,7 @@ export const authService = {
   async me() {
     const res = await authApi.me();
     const data = unwrap(res);
-
+    console.log(data, "Data")
     authStorage.setMe({
       user: data?.user || null,
       roles: Array.isArray(data?.roles) ? data.roles.filter(Boolean) : [],

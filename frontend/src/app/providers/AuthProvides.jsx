@@ -13,6 +13,8 @@ export default function AuthProvider({ children }) {
   const [permissions, setPermissions] = useState(cached?.permissions || []);
   const [roles, setRoles] = useState(cached?.roles || []);
   const [user, setUser] = useState(cached?.user || null);
+  const [userType, setUserType] = useState(cached?.userType || "client");
+
 
   const isAuthed = !!user;
 
@@ -23,12 +25,15 @@ export default function AuthProvider({ children }) {
       const normalized = {
         user: me?.user || null,
         roles: me?.roles || [],
+        userType: me?.user?.type || "client",
+        
         permissions: me?.permissions || [],
       };
-
+      console.log(me?.user)
       setUser(normalized.user);
       setRoles(normalized.roles);
       setPermissions(normalized.permissions);
+      setUserType(normalized.userType);
       authStorage.setMe(normalized);
 
       return normalized;
@@ -37,6 +42,7 @@ export default function AuthProvider({ children }) {
       setUser(null);
       setRoles([]);
       setPermissions([]);
+      setUserType("client");
       return null;
     } finally {
       setLoading(false);
@@ -52,7 +58,6 @@ export default function AuthProvider({ children }) {
     refreshMe();
   }, [refreshMe]);
 
-  // ✅ LOGOUT: gọi backend để xoá session trong MongoDB + clear cookie (nếu có)
   const logout = useCallback(async () => {
     try {
       await authService.logout();
@@ -63,12 +68,13 @@ export default function AuthProvider({ children }) {
       setUser(null);
       setRoles([]);
       setPermissions([]);
+      setUserType("client");
     }
   }, []);
 
   const value = useMemo(
-    () => ({ loading, isAuthed, user, roles, permissions, logout, refreshMe }),
-    [loading, isAuthed, user, roles, permissions, logout, refreshMe]
+    () => ({ loading, isAuthed, user, roles,userType, permissions, logout, refreshMe }),
+    [loading, isAuthed, user, roles,userType, permissions, logout, refreshMe]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

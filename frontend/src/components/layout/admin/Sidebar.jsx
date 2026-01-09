@@ -108,7 +108,10 @@ export default function Sidebar({ groups, screens, userPermissions = [] }) {
   );
 
   const byGroup = useMemo(() => {
-    const allowedScreens = (screens || []).filter((s) =>s.public || canAccessScreen(userPermissions, s));
+   const allowedScreens = (screens || []).filter((s) =>
+  canAccessScreen(userPermissions, s, { mode: "menu" })
+);
+
     const map = {};
     allowedScreens.forEach((s) => {
       const gkey = s.group;

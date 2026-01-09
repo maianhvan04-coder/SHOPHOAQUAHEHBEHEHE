@@ -72,6 +72,21 @@ exports.login = async ({ email, password }, req) => {
   const user = await authRepo.findByEmailForLogin(email);
   if (!user) throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
 
+  //user đăng nhập bằng Google
+  if (user.provider !== "local") {
+    throw new ApiError(
+      httpStatus.UNAUTHORIZED,
+      "Tài khoản này đăng nhập bằng Google"
+    );
+  }
+
+  // 3️⃣ chưa set mật khẩu
+  if (!user.passwordHash) {
+    throw new ApiError(
+      httpStatus.UNAUTHORIZED,
+      "Tài khoản chưa thiết lập mật khẩu"
+    );
+  }
   const ok = await comparePassword(password, user.passwordHash);
   if (!ok) throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
 
@@ -115,6 +130,7 @@ exports.getMe = async (userId, authz) => {
       email: user.email,
       phone: user.phone,
       image: user.image || null,
+      type: user.type,
       isActive: user.isActive,
       authzVersion: user.authzVersion || 0,
       createdAt: user.createdAt,

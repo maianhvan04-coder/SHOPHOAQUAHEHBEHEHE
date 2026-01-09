@@ -384,6 +384,9 @@ const Navbar = ({ onScrollToSection }) => {
                       setOpenUser(false);
                       navigate("/my-orders");
                     }}
+                     onGoAdmin={() => {
+    window.location.href = "/admin";
+  }}
                     onLogout={handleLogout}
                   />
                 </div>

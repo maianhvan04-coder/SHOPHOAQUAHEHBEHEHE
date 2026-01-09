@@ -10,44 +10,48 @@ exports.buildAuthz = async (userId) => {
     const user = await rbacRepo.findUserAuthMeta(userId);
     if (!user || user.isDeleted || user.isActive === false) return null;
 
+    // 1️⃣ load roles
     const urLinks = await rbacRepo.findUserRoleLinks(userId);
-    const roleIds = urLinks.map((x) => x.roleId);
+    const roleIds = urLinks.map(x => x.roleId);
 
-    const roles = roleIds.length ? await rbacRepo.findRolesByIds(roleIds) : [];
-    const activeRoles = (roles || []).filter((r) => r?.isActive !== false);
-    const activeRoleIds = activeRoles.map((r) => r._id);
-
-    const rpLinks = activeRoleIds.length
-        ? await rbacRepo.findRolePermissionLinksByRoleIds(activeRoleIds)
+    const roles = roleIds.length
+        ? await rbacRepo.findRolesByIds(roleIds)
         : [];
 
-    const permIds = Array.from(new Set(rpLinks.map((x) => x.permissionId.toString())))
-        .map((id) => new mongoose.Types.ObjectId(id));
+    const activeRoles = roles.filter(r => r?.isActive !== false);
+    const roleCodes = activeRoles.map(r => r.code);
 
-    const permsFromRoles = permIds.length ? await rbacRepo.findPermissionsByIds(permIds) : [];
-    const set = new Set(permsFromRoles.map((p) => p.key));
+    // 2️⃣ permissions từ roles
+    const rpLinks = activeRoles.length
+        ? await rbacRepo.findRolePermissionLinksByRoleIds(
+            activeRoles.map(r => r._id)
+        )
+        : [];
 
-    // ADMIN => add ALL permissions
-    const roleCodes = activeRoles.map((r) => r.code);
+    const permIds = [...new Set(rpLinks.map(x => x.permissionId.toString()))]
+        .map(id => new mongoose.Types.ObjectId(id));
+
+    const permsFromRoles = permIds.length
+        ? await rbacRepo.findPermissionsByIds(permIds)
+        : [];
+
+    const set = new Set(permsFromRoles.map(p => p.key));
+
+    // 3️⃣ ADMIN full permission
     if (roleCodes.includes("ADMIN")) {
-        const allPerms = await rbacRepo.findAllActivePermissionIds(); // implement in repo
+        const allPerms = await rbacRepo.findAllActivePermissionIds();
         for (const p of allPerms) set.add(p.key);
     }
 
-    // primaryRole by priority (only activeRoles)
-    const primaryRole = activeRoles.reduce((best, r) => {
-        if (!best) return r;
-        return (r.priority || 0) > (best.priority || 0) ? r : best;
-    }, null);
-
-    const type = roleCodes.includes("ADMIN") ? "admin" : (primaryRole?.type || "user");
-
-    // overrides allow/deny
+    // 4️⃣ overrides
     const overrides = await rbacRepo.findOverridesByUserId(userId);
     if (overrides.length) {
-        const ovIds = overrides.map((x) => x.permissionId);
-        const ovPerms = await rbacRepo.findPermissionsByIds(ovIds);
-        const mapIdToKey = new Map(ovPerms.map((p) => [p._id.toString(), p.key]));
+        const ovPerms = await rbacRepo.findPermissionsByIds(
+            overrides.map(o => o.permissionId)
+        );
+        const mapIdToKey = new Map(
+            ovPerms.map(p => [p._id.toString(), p.key])
+        );
 
         for (const ov of overrides) {
             const key = mapIdToKey.get(ov.permissionId.toString());
@@ -57,14 +61,30 @@ exports.buildAuthz = async (userId) => {
         }
     }
 
+    // 5️⃣ primary role CHỈ cho UI
+    const primaryRole = activeRoles.reduce((best, r) => {
+        if (!best) return r;
+        return (r.priority || 0) > (best.priority || 0) ? r : best;
+    }, null);
+
     return {
         userId: user._id.toString(),
         authzVersion: user.authzVersion || 0,
+
+        // 🔑 AUTHZ
         roles: roleCodes,
-        type,
         permissions: Array.from(set),
+
+        // 🔑 KHU VỰC – LẤY TỪ USER
+        userType: user.type, // "internal" | "client"
+
+        // 🎨 UI
+        primaryRole: primaryRole
+            ? { code: primaryRole.code, type: primaryRole.type }
+            : null,
     };
 };
+
 
 
 
@@ -158,6 +178,20 @@ exports.setUserRoles = async (userId, roleCodes) => {
     }
 
     await rbacRepo.replaceUserRoles(userId, roles.map((r) => r._id));
+    const INTERNAL_ROLE_TYPES = ["owner", "manager", "staff"];
+
+    const hasInternalRole = roles.some((r) =>
+        INTERNAL_ROLE_TYPES.includes(r.type)
+    );
+
+    if (hasInternalRole && user.type !== "internal") {
+        await rbacRepo.updateUserType(userId, "internal");
+    }
+
+    if (!hasInternalRole && user.type === "internal") {
+        await rbacRepo.updateUserType(userId, "client");
+    }
+
     await rbacRepo.bumpUserAuthzVersion(userId);
 
     return { userId: userId.toString(), roles: roles.map((r) => r.code) };

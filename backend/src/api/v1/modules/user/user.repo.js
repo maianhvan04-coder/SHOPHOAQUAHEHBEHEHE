@@ -52,7 +52,7 @@ exports.restoreManyByIds = (ids, opts = {}) => {
 
 exports.findPublicById = (id) =>
   User.findById(id)
-    .select("_id fullName email image phone isActive isDeleted authzVersion createdAt updatedAt")
+    .select("_id fullName email image phone type isActive isDeleted authzVersion createdAt updatedAt")
     .lean();
 
 exports.findByEmail = (email, { session } = {}) =>
