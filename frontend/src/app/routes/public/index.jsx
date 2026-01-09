@@ -38,16 +38,15 @@ const routes = [
       { index: true, element: <HomePage /> },
       { path: "details/:slug", element: <ProductDetails /> },
       { path: "category", element: <ShopPage /> },
-
+      { path: "cart", element: <CartPage /> },
       {
         element: <PrivateRoute />,
         children: [
           { path: "profile", element: <ProfilePage /> },
 
-          { path: "cart", element: <CartPage /> },
           { path: "checkout", element: <CheckoutPage /> },
-         {path: "order-detail/:id", element:<OrderDetailPage/>},
-         {path:"my-orders",element:<MyOrdersPage/>}
+          { path: "order-detail/:id", element: <OrderDetailPage /> },
+          { path: "my-orders", element: <MyOrdersPage /> },
         ],
       },
     ],

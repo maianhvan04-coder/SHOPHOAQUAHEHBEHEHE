@@ -13,15 +13,14 @@ import {
   fetchCart,
   updateCartQuantity,
   deleteItemFromCart,
+  updateQuantityLocal,
 } from "../../../features/cart/cart.slice";
 import { useEffect, useState, useMemo } from "react";
-
+import { debounce } from "lodash";
 const CartPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { items, isLoading } = useSelector((state) => state.cart);
-
-
   const [excludedIds, setExcludedIds] = useState(() => {
     const saved = sessionStorage.getItem("excluded_cart_items");
     return saved ? JSON.parse(saved) : [];
@@ -31,10 +30,14 @@ const CartPage = () => {
     dispatch(fetchCart());
   }, [dispatch]);
 
-  // 2. Lưu excludedIds vào sessionStorage mỗi khi nó thay đổi
   useEffect(() => {
-    sessionStorage.setItem("excluded_cart_items", JSON.stringify(excludedIds));
-  }, [excludedIds]);
+    if (items.length > 0) {
+      const currentItemIds = items.map((i) => i.product?._id);
+      setExcludedIds((prev) =>
+        prev.filter((id) => currentItemIds.includes(id))
+      );
+    }
+  }, [items]);
 
   const selectedIds = useMemo(() => {
     return items
@@ -76,15 +79,29 @@ const CartPage = () => {
       setExcludedIds([]);
     }
   };
+  const debouncedUpdateAPI = useMemo(
+    () =>
+      debounce((productId, newQty, dispatch) => {
+        dispatch(updateCartQuantity({ productId, quantity: newQty }))
+          .unwrap()
+          .catch((err) => {
+            message.error(err || "Số lượng không hợp lệ hoặc hết hàng");
 
+            dispatch(fetchCart());
+          });
+      }, 500),
+    []
+  );
+  useEffect(() => {
+    return () => debouncedUpdateAPI.cancel();
+  }, [debouncedUpdateAPI]);
   const handleUpdateQuantity = (productId, currentQty, adjustment) => {
     const newQty = currentQty + adjustment;
     if (newQty < 1) return;
-    dispatch(updateCartQuantity({ productId, quantity: newQty }))
-      .unwrap()
-      .catch((err) =>
-        message.error(typeof err === "string" ? err : "Lỗi cập nhật")
-      );
+
+    dispatch(updateQuantityLocal({ productId, quantity: newQty }));
+
+    debouncedUpdateAPI(productId, newQty, dispatch);
   };
 
   const handleDeleteProduct = (productId) => {
@@ -109,25 +126,29 @@ const CartPage = () => {
     });
   };
   const handleGoToCheckout = () => {
-    
     const selectedProducts = items
       .filter((item) => selectedIds.includes(item.product?._id))
       .map((item) => ({
         product: item.product?._id,
         name: item.product?.name,
-        image: item.product?.image?.url, 
+        image: item.product?.image?.url,
         price: item.product?.price,
         quantity: item.quantity,
+        subTotal: item.subTotal, // Lấy trực tiếp từ Backend trả về
       }));
 
     if (selectedProducts.length === 0) {
-      message.warning("Vui lòng chọn ít nhất một sản phẩm để đặt hàng!");
+      message.warning("Vui lòng chọn ít nhất một sản phẩm để thanh toán!");
       return;
     }
 
-   
     navigate("/checkout", {
-      state: { orderItems: selectedProducts },
+      state: {
+        orderItems: selectedProducts,
+        subTotal: subTotalSelected,
+        shipping: shipping,
+        totalAmount: totalFinal,
+      },
     });
   };
   if (isLoading && items.length === 0) {

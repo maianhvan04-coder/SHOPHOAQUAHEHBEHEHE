@@ -12,7 +12,7 @@ const uploadRoutes = require("../modules/upload/upload.routes");
 const publicProduct = require("../modules/product/public.router");
 const orderUserRouter = require("../modules/order/routes/order.user.routes");
 const orderAdminRoute = require("../modules/order/routes/order.admin.routes");
-
+const cartRoute = require("../modules/cart/cart.route")
 router.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok",
@@ -36,5 +36,6 @@ module.exports = (app) => {
   // public client
   app.use(v1 + "/categories", categoryPublic);
   app.use(v1 + "/order", orderUserRouter);
+  app.use(v1 + "/cart", cartRoute);
 
 };

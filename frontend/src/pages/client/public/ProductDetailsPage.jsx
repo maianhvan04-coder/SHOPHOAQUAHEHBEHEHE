@@ -14,14 +14,14 @@ import {
   clearCurrentProduct,
 } from "~/features/product/product_slice";
 import { addToCart, fetchCart } from "../../../features/cart/cart.slice";
-import { useAuth } from "~/app/providers/AuthProvides";
+
 import { toggleWishlistLocal } from "../../../features/wishlist/wishlist.slice";
 
 const ProductDetails = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const [quantity, setQuantity] = useState(1);
-  const { isAuthed } = useAuth();
+  const [isAdding, setIsAdding] = useState(false);
   const { items } = useSelector((state) => state.wishlist);
   const { currentProduct, isLoading, error } = useSelector(
     (state) => state.product
@@ -37,28 +37,29 @@ const ProductDetails = () => {
   }, [slug, dispatch]);
 
   const handleAddToCart = () => {
-    if (!isAuthed) {
-      message.error("Bạn chưa đăng nhập");
-    } else {
-      if (!currentProduct?._id) return;
+    if (!currentProduct?._id || isAdding) return; // ✅ Chặn nếu đang add
 
-      dispatch(
-        addToCart({
-          product: currentProduct,
-          quantity: quantity,
-        })
-      )
-        .unwrap()
-        .then(() => {
-          message.success(
-            `Đã thêm ${quantity} ${currentProduct.name} vào giỏ hàng!`
-          );
-        })
-        .catch((err) => {
-          message.error(err || "Không thể thêm vào giỏ hàng");
-          dispatch(fetchCart());
-        });
-    }
+    setIsAdding(true); // ✅ Bắt đầu trạng thái chờ
+
+    dispatch(
+      addToCart({
+        product: currentProduct,
+        quantity: quantity,
+      })
+    )
+      .unwrap()
+      .then(() => {
+        message.success(
+          `Đã thêm ${quantity} ${currentProduct.name} vào giỏ hàng!`
+        );
+      })
+      .catch((err) => {
+        message.error(err || "Không thể thêm vào giỏ hàng");
+        dispatch(fetchCart());
+      })
+      .finally(() => {
+        setIsAdding(false);
+      });
   };
   const handleFavoriteToggle = () => {
     if (!currentProduct?._id) return;
@@ -178,10 +179,20 @@ const ProductDetails = () => {
               </div>
 
               <button
+                disabled={isAdding}
                 onClick={handleAddToCart}
-                className="flex-1 bg-[#153a2e] text-white font-bold uppercase py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#1d4d3d] transition-all shadow-lg active:scale-95"
+                className={`flex-1 text-white font-bold uppercase py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  isAdding
+                    ? "bg-gray-500 cursor-not-allowed"
+                    : "bg-[#153a2e] hover:bg-[#1d4d3d] active:scale-95"
+                }`}
               >
-                <FaShoppingCart /> Thêm vào giỏ hàng
+                {isAdding ? (
+                  <Spin size="small" className="brightness-200" /> 
+                ) : (
+                  <FaShoppingCart />
+                )}
+                {isAdding ? " Đang xử lý..." : " Thêm vào giỏ hàng"}
               </button>
 
               <button

@@ -7,6 +7,8 @@ import { validateLogin } from "~/shared/utils/validators";
 import { rbacApi } from "~/api/rbacApi";
 import { canAccessScreen } from "~/shared/utils/ability";
 import { useAuth } from "~/app/providers/AuthProvides";
+import { useDispatch } from "react-redux";
+import { mergeCartOnLogin } from "../../cart/cart.slice";
 
 const unwrap = (res) => res?.data ?? res;
 
@@ -23,7 +25,7 @@ export function useLogin() {
   const navigate = useNavigate();
   const location = useLocation();
   const { refreshMe } = useAuth();
-
+  const dispatch = useDispatch();
   const [form, setForm] = useState({ email: "", password: "" });
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
@@ -58,20 +60,26 @@ export function useLogin() {
       const accessToken =
         loginData?.data?.accessToken || loginData?.accessToken;
 
-      if (!accessToken) throw new Error("Không nhận được accessToken")
+      if (!accessToken) throw new Error("Không nhận được accessToken");
 
       // ✅ toast success
       setSuccess("Đăng nhập thành công");
 
       // 2) ME
       const me = await refreshMe();
+      try {
+        await dispatch(mergeCartOnLogin()).unwrap();
+      } catch (mergeErr) {
+        console.error("❌ Lỗi khi merge giỏ hàng:", mergeErr);
+        // Không 'throw' lỗi ở đây để tránh làm gián đoạn việc login của user
+      }
       const permissions = me?.permissions || [];
 
       const roles = Array.isArray(me?.roles)
         ? me.roles
         : me?.user?.roles
-          ? [me.user.roles]
-          : [];
+        ? [me.user.roles]
+        : [];
 
       const isOnlyUser =
         roles.length > 0 &&
@@ -79,7 +87,6 @@ export function useLogin() {
 
       // ✅ đợi 600ms cho toast kịp hiện rồi mới navigate
       await new Promise((r) => setTimeout(r, 1000));
-
 
       if (isOnlyUser) {
         navigate("/", { replace: true });
@@ -95,12 +102,10 @@ export function useLogin() {
         catalog = {};
       }
 
-
-      const screens = catalog.data.screens
+      const screens = catalog.data.screens;
       const allowedScreens = screens
         .filter((s) => canAccessScreen(permissions, s))
         .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-
 
       if (!allowedScreens.length) {
         navigate("/", { replace: true });
@@ -111,7 +116,6 @@ export function useLogin() {
       if (!firstRoute.startsWith("/")) firstRoute = "/" + firstRoute;
       if (!firstRoute.startsWith("/admin"))
         firstRoute = "/admin" + (firstRoute === "/" ? "" : firstRoute);
-
 
       navigate(firstRoute, { replace: true });
     } catch (err) {
