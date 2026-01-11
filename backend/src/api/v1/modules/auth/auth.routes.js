@@ -6,6 +6,8 @@ const { validate } = require("../../middlewares/validate.middleware");
 const { auth } = require("../../middlewares/auth/auth.middleware");
 
 router.post("/login", loginSlowDown, loginLimiter, validate(schema.login), controller.login);
+router.post("/google-login", loginSlowDown, loginLimiter, controller.googleLogin);
+
 router.post("/register", loginSlowDown, loginLimiter, validate(schema.register), controller.register);
 
 router.get("/me", auth, controller.me);

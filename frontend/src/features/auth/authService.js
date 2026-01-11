@@ -5,39 +5,79 @@ import { authStorage } from "./authStorage";
 const unwrap = (res) => res?.data?.data ?? res?.data;
 
 export const authService = {
+  // ======================
+  // LOCAL LOGIN
+  // ======================
   async login(payload) {
     const res = await authApi.login(payload);
     const data = unwrap(res);
 
-    if (!data?.accessToken) throw new Error("Không nhận được accessToken");
+    if (!data?.accessToken) {
+      throw new Error("Không nhận được accessToken");
+    }
+
+    // ✅ lưu token
+    authStorage.setToken(data.accessToken);
+
+    // ✅ cache me
+    authStorage.setMe({
+      user: data?.user || null,
+      roles: Array.isArray(data?.roles) ? data.roles.filter(Boolean) : [],
+      permissions: Array.isArray(data?.permissions)
+        ? data.permissions.filter(Boolean)
+        : [],
+    });
+
+    return data;
+  },
+
+  // ======================
+  // GOOGLE LOGIN
+  // ======================
+  async googleLogin(credential) {
+    const res = await authApi.googleLogin(credential);
+    const data = unwrap(res);
+
+    if (!data?.accessToken) {
+      throw new Error("Không nhận được accessToken từ Google login");
+    }
 
     authStorage.setToken(data.accessToken);
 
-    // optional cache me luôn nếu backend trả roles/permissions
+    //  cache me giống login thường
     authStorage.setMe({
       user: data?.user || null,
       roles: Array.isArray(data?.roles) ? data.roles.filter(Boolean) : [],
-      permissions: Array.isArray(data?.permissions) ? data.permissions.filter(Boolean) : [],
+      permissions: Array.isArray(data?.permissions)
+        ? data.permissions.filter(Boolean)
+        : [],
     });
 
     return data;
   },
 
+  // ======================
+  // ME
+  // ======================
   async me() {
     const res = await authApi.me();
     const data = unwrap(res);
-    console.log(data, "Data")
+
     authStorage.setMe({
       user: data?.user || null,
       roles: Array.isArray(data?.roles) ? data.roles.filter(Boolean) : [],
-      permissions: Array.isArray(data?.permissions) ? data.permissions.filter(Boolean) : [],
+      permissions: Array.isArray(data?.permissions)
+        ? data.permissions.filter(Boolean)
+        : [],
     });
 
     return data;
   },
 
+  // ======================
+  // LOGOUT
+  // ======================
   async logout() {
-    // ✅ request này đi qua apiClient -> có Bearer -> backend có sid -> xóa session DB
     try {
       await authApi.logout();
     } finally {

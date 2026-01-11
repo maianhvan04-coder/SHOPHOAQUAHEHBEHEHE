@@ -1,21 +1,29 @@
-// src/pages/auth/LoginPage.jsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
-import { useLogin } from "~/features/auth/hooks/useLogin";
+import { GoogleLogin } from "@react-oauth/google";
 
+import { useLogin } from "~/features/auth/hooks/useLogin";
 import bg from "~/assets/backgroud-auth.webp";
 
 export default function LoginPage() {
-  const { form, fieldErrors, error, success, loading, onChange, onSubmit } =
-    useLogin();
+  const {
+    form,
+    fieldErrors,
+    error,
+    success,
+    loading,
+    onChange,
+    onSubmit,
+    onGoogleLogin,
+  } = useLogin();
 
   const [showPassword, setShowPassword] = useState(false);
 
   // Toast
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
-  const [toastType, setToastType] = useState("error"); // error | success
+  const [toastType, setToastType] = useState("error");
 
   useEffect(() => {
     const msg = success || error;
@@ -31,7 +39,6 @@ export default function LoginPage() {
 
   const isSuccess = toastType === "success";
 
-  // ✅ style input bọc border đẹp (glass)
   const inputBase =
     "w-full h-12 px-5 rounded-2xl bg-white/10 backdrop-blur-md " +
     "border outline-none transition text-white placeholder:text-white/60 " +
@@ -45,7 +52,6 @@ export default function LoginPage() {
       className="min-h-screen w-full bg-cover bg-center bg-no-repeat relative flex items-center justify-center px-4"
       style={{ backgroundImage: `url(${bg})` }}
     >
-      {/* overlay */}
       <div className="absolute inset-0 bg-black/35" />
 
       {/* Toast */}
@@ -66,7 +72,6 @@ export default function LoginPage() {
                 {toastMsg}
               </p>
             </div>
-
             <div className="h-1 w-full bg-white/10">
               <div
                 className={isSuccess ? "h-1 bg-emerald-400" : "h-1 bg-red-400"}
@@ -85,7 +90,7 @@ export default function LoginPage() {
           </h1>
 
           <form onSubmit={onSubmit} className="space-y-7">
-            {/* EMAIL */}
+            {/* Email */}
             <div>
               <input
                 type="email"
@@ -101,11 +106,13 @@ export default function LoginPage() {
                 ].join(" ")}
               />
               {fieldErrors.email && (
-                <p className="mt-2 text-xs text-red-200">{fieldErrors.email}</p>
+                <p className="mt-2 text-xs text-red-200">
+                  {fieldErrors.email}
+                </p>
               )}
             </div>
 
-            {/* PASSWORD */}
+            {/* Password */}
             <div>
               <div className="relative">
                 <input
@@ -122,17 +129,14 @@ export default function LoginPage() {
                     fieldErrors.password ? inputErr : inputOk,
                   ].join(" ")}
                 />
-
                 <button
                   type="button"
                   onClick={() => setShowPassword((p) => !p)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white"
                 >
                   {showPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
               </div>
-
               {fieldErrors.password && (
                 <p className="mt-2 text-xs text-red-200">
                   {fieldErrors.password}
@@ -140,38 +144,37 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Remember + Forgot */}
-            <div className="flex items-center justify-between text-sm text-white/90 pt-1">
-              <label className="flex items-center gap-3 select-none">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-white/50 bg-transparent accent-white"
-                />
-                Remember me
-              </label>
-
-              <Link to="/forgot-password" className="hover:underline text-white/90">
-                Forgot password?
-              </Link>
-            </div>
-
-            {/* Button */}
+            {/* Local login button */}
             <button
               type="submit"
               disabled={loading}
-              className={[
-                "w-full h-12 rounded-xl font-semibold text-lg",
-                "bg-white/90 text-gray-900 hover:bg-white transition",
-                "disabled:opacity-70 disabled:cursor-not-allowed",
-              ].join(" ")}
+              className="w-full h-12 rounded-xl font-semibold text-lg bg-white/90 text-gray-900 hover:bg-white disabled:opacity-70"
             >
               {loading ? "Logging in..." : "Log In"}
             </button>
 
-            {/* Register */}
+            {/* Divider */}
+            <div className="flex items-center gap-4 my-4">
+              <div className="flex-1 h-px bg-white/20" />
+              <span className="text-sm text-white/70">OR</span>
+              <div className="flex-1 h-px bg-white/20" />
+            </div>
+
+            {/* Google login */}
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={onGoogleLogin}
+                onError={() => {
+                  setToastType("error");
+                  setToastMsg("Google login failed");
+                  setToastOpen(true);
+                }}
+              />
+            </div>
+
             <p className="text-center text-sm text-white/90">
               Don&apos;t have an account?{" "}
-              <Link to="/register" className="text-white hover:underline">
+              <Link to="/register" className="hover:underline text-white">
                 Register
               </Link>
             </p>
@@ -183,20 +186,6 @@ export default function LoginPage() {
         @keyframes shrink {
           from { width: 100%; }
           to { width: 0%; }
-        }
-
-        /* ✅ Fix nền trắng/xanh do Chrome autofill (giữ đúng style glass) */
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus,
-        input:-webkit-autofill:active {
-          -webkit-text-fill-color: #fff !important;
-          caret-color: #fff !important;
-          transition: background-color 9999s ease-out 0s;
-          -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.10) inset !important;
-          box-shadow: 0 0 0px 1000px rgba(255,255,255,0.10) inset !important;
-          background-color: transparent !important;
-          border-radius: 16px !important;
         }
       `}</style>
     </div>

@@ -1,7 +1,6 @@
 // src/api/v1/modules/auth/auth.controller.js
 const asyncHandler = require("../../../../core/asyncHandler");
 const authService = require("./auth.service");
-const { OAuth2Client } = require("google-auth-library");
 const {
   generateAccessToken,
   signRefreshToken,
@@ -19,93 +18,19 @@ function setRefreshCookie(res, refreshToken, maxAgeMs) {
   });
 }
 
-exports.googleLogin = async (req, res, next) => {
-  try {
-    const { credential } = req.body;
-    if (!credential) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "Thiếu Google credential");
-    }
+// ===== GOOGLE LOGIN =====
+exports.googleLogin = asyncHandler(async (req, res) => {
+  const { credential } = req.body;
+  console.log(typeof credential, "credential")
+  const result = await authService.googleLogin({
+    credential,
+  }, req);
 
-    // 1️⃣ Verify token từ Google
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+  setRefreshCookie(res, result.refreshToken, 7 * 24 * 60 * 60 * 1000);
 
-    const payload = ticket.getPayload();
-
-    const {
-      sub: googleId,
-      email,
-      name,
-      picture,
-    } = payload;
-
-    if (!email) {
-      throw new ApiError(httpStatus.UNAUTHORIZED, "Google account không có email");
-    }
-
-    // 2️⃣ Tìm user theo email
-    let user = await User.findOne({ email });
-
-    // 3️⃣ Chưa có user → tạo mới
-    if (!user) {
-      user = await User.create({
-        email,
-        fullName: name,
-        googleId,
-        provider: "google",
-        passwordHash: null,
-        image: {
-          url: picture || "",
-        },
-      });
-    }
-
-    // 4️⃣ Có user local → link Google
-    if (user.provider === "local") {
-      user.googleId = googleId;
-      user.provider = "google";
-      if (!user.image?.url && picture) {
-        user.image = { url: picture };
-      }
-      await user.save();
-    }
-
-    // 5️⃣ Kiểm tra trạng thái user
-    if (user.isDeleted) {
-      throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
-    }
-
-    if (user.isActive === false) {
-      throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
-    }
-
-    // 6️⃣ Generate JWT
-    const sid = Date.now(); // hoặc uuid
-    const accessToken = generateAccessToken(user, sid);
-    const refreshToken = signRefreshToken({
-      sub: user._id,
-      sid,
-      expiresIn: "7d",
-    });
-
-    return res.json({
-      data: {
-        user: {
-          id: user._id,
-          email: user.email,
-          fullName: user.fullName,
-          image: user.image?.url,
-        },
-        accessToken,
-        refreshToken,
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
-};
+  delete result.refreshToken;
+  res.json({ data: result });
+});
 
 module.exports.login = asyncHandler(async (req, res) => {
   const result = await authService.login(req.body, req);

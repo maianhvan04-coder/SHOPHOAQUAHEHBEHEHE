@@ -4,6 +4,8 @@ import { endpoints } from "~/services/endpoints";
 
 export const authApi = {
   login: (payload) => apiClient.post(endpoints.auth.login, payload),
+  googleLogin: (credential) =>
+    apiClient.post(endpoints.auth.googleLogin, { credential }),
   register: (payload) => apiClient.post(endpoints.auth.register, payload),
   me: () => apiClient.get(endpoints.auth.me),
   refresh: () => apiClient.post(endpoints.auth.refresh),

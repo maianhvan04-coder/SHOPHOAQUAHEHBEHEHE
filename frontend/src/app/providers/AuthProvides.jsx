@@ -22,6 +22,7 @@ export default function AuthProvider({ children }) {
     setLoading(true);
     try {
       const me = await authService.me();
+    
       const normalized = {
         user: me?.user || null,
         roles: me?.roles || [],
@@ -29,7 +30,7 @@ export default function AuthProvider({ children }) {
         
         permissions: me?.permissions || [],
       };
-      console.log(me?.user)
+     
       setUser(normalized.user);
       setRoles(normalized.roles);
       setPermissions(normalized.permissions);

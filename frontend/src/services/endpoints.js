@@ -3,11 +3,12 @@ const v1Admin = "/api/v1/admin";
 export const endpoints = {
   auth: {
     login: `${v1}/auth/login`,
+    googleLogin: `${v1}/auth/google-login`,
     refresh: `${v1}/auth/refresh-token`,
     me: `${v1}/auth/me`,
     register: `${v1}/auth/register`,
     logout: `${v1}/auth/logout`,
-    forgotPassword: `${v1}/auth/forgot-password`, 
+    forgotPassword: `${v1}/auth/forgot-password`,
     resetPassword: `${v1}/auth/reset-password`,
   },
   users: {
@@ -23,20 +24,20 @@ export const endpoints = {
   },
 
   categories: {
-  list: `${v1Admin}/category`,              // GET
-  create: `${v1Admin}/category/create`,     // POST
-  detail: (id) => `${v1Admin}/category/${id}`,
-  update: (id) => `${v1Admin}/category/${id}`, // PATCH
+    list: `${v1Admin}/category`,              // GET
+    create: `${v1Admin}/category/create`,     // POST
+    detail: (id) => `${v1Admin}/category/${id}`,
+    update: (id) => `${v1Admin}/category/${id}`, // PATCH
 
-  // soft delete -> vào thùng rác
-  remove: (id) => `${v1Admin}/category/${id}`, // DELETE
+    // soft delete -> vào thùng rác
+    remove: (id) => `${v1Admin}/category/${id}`, // DELETE
 
-  // ✅ restore từ thùng rác
-  restore: (id) => `${v1Admin}/category/${id}/restore`, // PATCH
+    // ✅ restore từ thùng rác
+    restore: (id) => `${v1Admin}/category/${id}/restore`, // PATCH
 
-  // ✅ hard delete (xóa vĩnh viễn) - chỉ khi isDeleted=true
-  hardDelete: (id) => `${v1Admin}/category/${id}/hard`,  // DELETE
-},
+    // ✅ hard delete (xóa vĩnh viễn) - chỉ khi isDeleted=true
+    hardDelete: (id) => `${v1Admin}/category/${id}/hard`,  // DELETE
+  },
 
   products: {
     list: `${v1Admin}/product`,
@@ -68,6 +69,6 @@ export const endpoints = {
     signature: `${v1Admin}/upload/signature`,
   },
   chat: {
-  send: `${v1}/chat`,
-},
+    send: `${v1}/chat`,
+  },
 };

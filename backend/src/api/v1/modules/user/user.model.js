@@ -16,36 +16,22 @@ const userSchema = new Schema({
     email: { type: String, trim: true, unique: true, sparse: true },
     phone: { type: String, trim: true, unique: true, sparse: true },
 
-    // local auth
-    passwordHash: { type: String, default: null },
-
-    // social auth
-    provider: {
-        type: String,
-        enum: ["local", "google"],
-        default: "local",
-    },
-    googleId: { type: String, unique: true, sparse: true },
-
-    authzVersion: { type: Number, default: 0 },
-
-    //  reset password (chỉ local)
-    passwordResetTokenHash: { type: String, default: null },
-    passwordResetExpires: { type: Date, default: null },
-
     image: {
         url: { type: String, trim: true, default: "" },
         publicId: { type: String, trim: true, default: "" },
     },
 
-    //PHÂN LOẠI USER
+    // PHÂN LOẠI USER (business)
     type: {
         type: String,
         enum: ["internal", "client"],
-        default: "client", // user đăng ký bình thường
+        default: "client",
         index: true,
     },
+
     addresses: [addressSchema],
+
+    authzVersion: { type: Number, default: 0 },
 
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },

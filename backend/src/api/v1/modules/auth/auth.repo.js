@@ -1,30 +1,39 @@
-// src/api/v1/modules/auth/auth.repo.js
+const AuthProvider = require("../user/authProvider.model");
 const User = require("../user/user.model");
 
-// login: chỉ user chưa xoá
-exports.findByEmailForLogin = (email) => {
-  return User.findOne({ email, isDeleted: false });
-};
+// ===== LOCAL LOGIN =====
+exports.findLocalAuthByEmail = (email) =>
+  AuthProvider.findOne({
+    provider: "local",
+    email,
+  });
 
-// register: tìm mọi user theo email (kể cả đã xoá)
-exports.findAnyByEmail = (email) => {
-  return User.findOne({ email }); // không filter isDeleted
-};
+// ===== GOOGLE LOGIN =====
+exports.findGoogleAuthByProviderId = (googleId) =>
+  AuthProvider.findOne({
+    provider: "google",
+    providerId: googleId,
+  });
 
-// refresh: chỉ user chưa xoá
-exports.findById = (id) => {
-  return User.findOne({ _id: id, isDeleted: false });
-};
+// ===== USER =====
+exports.findUserByEmail = (email) =>
+  User.findOne({ email });
 
-// tạo user mới
-exports.createUser = (payload) => {
-  return User.create(payload);
-};
+exports.findUserById = (id) =>
+  User.findOne({ _id: id, isDeleted: false });
 
-//quyên password
-exports.findByResetTokenHash = (tokenHash) =>
-  User.findOne({
+// ===== CREATE =====
+exports.createUser = (payload) =>
+  User.create(payload);
+
+exports.createAuthProvider = (payload) =>
+  AuthProvider.create(payload);
+
+
+// chỉ local mới reset password
+exports.findLocalByResetTokenHash = (tokenHash) =>
+  AuthProvider.findOne({
+    provider: "local",
     passwordResetTokenHash: tokenHash,
     passwordResetExpires: { $gt: new Date() },
-    isDeleted: false,
   });
