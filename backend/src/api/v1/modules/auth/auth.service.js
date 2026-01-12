@@ -74,7 +74,7 @@ exports.login = async ({ email, password }, req) => {
   //  tìm auth provider local
 
   const auth = await authRepo.findLocalAuthByEmail(email);
-  console.log(auth)
+
   if (!auth) {
     throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
   }

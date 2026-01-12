@@ -13,7 +13,7 @@ router.post(
     "/",
     ...guard({ any: [PERMISSIONS.PRODUCT_WRITE] }),
     validate(validator.create),
-    controller.adminCreate
+    controller.createProduct
 );
 
 // PATCH /api/v1/admin/product/update/:id

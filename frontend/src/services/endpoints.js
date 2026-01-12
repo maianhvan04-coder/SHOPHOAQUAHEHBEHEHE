@@ -32,10 +32,10 @@ export const endpoints = {
     // soft delete -> vào thùng rác
     remove: (id) => `${v1Admin}/category/${id}`, // DELETE
 
-    // ✅ restore từ thùng rác
+    // restore từ thùng rác
     restore: (id) => `${v1Admin}/category/${id}/restore`, // PATCH
 
-    // ✅ hard delete (xóa vĩnh viễn) - chỉ khi isDeleted=true
+    // hard delete (xóa vĩnh viễn) - chỉ khi isDeleted=true
     hardDelete: (id) => `${v1Admin}/category/${id}/hard`,  // DELETE
   },
 

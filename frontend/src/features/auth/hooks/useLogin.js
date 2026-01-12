@@ -121,19 +121,22 @@ export function useLogin() {
 
     const permissions = me?.permissions || [];
 
-    const userType = Array.isArray(me?.userType)
-    const isOnlyUser = userType !== "internal"
+    const userType = me?.userType
+    console.log(userType)
 
 
     // // đợi toast hiện
     await new Promise((r) => setTimeout(r, 1000));
 
-    if (isOnlyUser) {
+    if (userType !== "internal") {
+
+
       navigate("/", { replace: true });
       return;
     }
 
-    // RBAC catalog
+
+    // // RBAC catalog
     let catalog = {};
     try {
       const catalogRes = await rbacApi.catalog();

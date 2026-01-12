@@ -306,6 +306,7 @@ const normEmail = (email = "") => String(email).trim().toLowerCase();
 
 exports.createUserAdmin = async (payload) => {
 
+  console.log("Vào Đến Đây")
 
   const fullName = String(payload.fullName || "").trim();
   const email = String(payload.email || "").trim().toLowerCase();

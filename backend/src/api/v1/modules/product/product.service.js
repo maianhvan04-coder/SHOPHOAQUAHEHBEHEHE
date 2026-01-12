@@ -15,13 +15,19 @@ const parsePaging = require("../../../../helpers/query.util.js");
 const Category = require("../category/category.model.js");
 const Product = require("./product.model.js");
 
-exports.productAdminCreate = async (payload) => {
+exports.createProduct = async (payload, id) => {
   const { name } = payload;
   const category = payload.categoryId || payload.category; // hỗ trợ cả 2
 
   if (!mongoose.Types.ObjectId.isValid(category)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Category không hợp lệ");
   }
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Người dùng không hợp lệ");
+  }
+
+  payload.createdBy = id;
 
   const cat = await categoryRepo.findByIdAdmin(category);
   if (!cat) throw new ApiError(httpStatus.NOT_FOUND, "Category không tồn tại");
