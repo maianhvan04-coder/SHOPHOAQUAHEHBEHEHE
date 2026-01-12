@@ -116,7 +116,7 @@ function Roles() {
         onClose={permsDisc.onClose}
         role={vm.selectedRole}
         allPermissions={vm.permissions}
-        initialSelectedKeys={vm.rolePermissionKeys}
+        initialPermissions={vm.rolePermissionKeys} // ✅ ĐÚNG FORMAT
         onSave={handleSavePermissions}
         saving={vm.saving}
       />

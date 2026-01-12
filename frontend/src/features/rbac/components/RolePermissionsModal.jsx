@@ -26,6 +26,8 @@ import {
 const SCOPES = [
   { value: "all", label: "All" },
   { value: "own", label: "Own" },
+  { value: "department", label: "Department" },
+  { value: "organization", label: "Organization" },
 ];
 
 export default function RolePermissionsModal({
@@ -33,23 +35,40 @@ export default function RolePermissionsModal({
   onClose,
   role,
   allPermissions = [],
-  initialPermissions = [],
   onSave,
-  saving,
+  saving = false,
+  /**
+   * initialPermissions format:
+   * [
+   *   { key, scope, field }
+   * ]
+   */
+  initialPermissions = [],
 }) {
+  /**
+   * permissionsMap:
+   * {
+   *   [permissionKey]: { scope, field }
+   * }
+   */
   const [permissionsMap, setPermissionsMap] = useState({});
-  const initRef = useRef(false);
 
-  // ✅ INIT 1 LẦN KHI OPEN
+  // 🔐 tránh init lại nhiều lần → tránh infinite loop
+  const initializedRef = useRef(false);
+
+  // =====================
+  // INIT ON OPEN (SAFE)
+  // =====================
   useEffect(() => {
     if (!isOpen) {
-      initRef.current = false;
+      initializedRef.current = false;
       return;
     }
-    if (initRef.current) return;
+
+    if (initializedRef.current) return;
 
     const map = {};
-    initialPermissions.forEach((p) => {
+    (initialPermissions || []).forEach((p) => {
       map[p.key] = {
         scope: p.scope || "all",
         field: p.field || null,
@@ -57,25 +76,51 @@ export default function RolePermissionsModal({
     });
 
     setPermissionsMap(map);
-    initRef.current = true;
+    initializedRef.current = true;
   }, [isOpen, initialPermissions]);
 
+  // =====================
   // GROUP PERMISSIONS
+  // =====================
   const groups = useMemo(() => {
-    const m = new Map();
-    allPermissions.forEach((p) => {
-      const g = p.groupKey || "OTHER";
-      if (!m.has(g)) m.set(g, { label: p.groupLabel, items: [] });
-      m.get(g).items.push(p);
+    const map = new Map();
+
+    (allPermissions || [])
+      .filter((p) => p?.isActive !== false)
+      .forEach((p) => {
+        const groupKey = p.groupKey || "OTHER";
+        const groupLabel = p.groupLabel || groupKey;
+
+        if (!map.has(groupKey)) {
+          map.set(groupKey, {
+            groupKey,
+            groupLabel,
+            items: [],
+          });
+        }
+        map.get(groupKey).items.push(p);
+      });
+
+    const arr = Array.from(map.values());
+
+    arr.forEach((g) => {
+      g.items.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
     });
-    return Array.from(m.entries());
+
+    return arr;
   }, [allPermissions]);
 
-  const toggle = (key, checked) => {
+  // =====================
+  // HANDLERS
+  // =====================
+  const togglePermission = (key, checked) => {
     setPermissionsMap((prev) => {
       const next = { ...prev };
-      if (!checked) delete next[key];
-      else next[key] = { scope: "all", field: null };
+      if (!checked) {
+        delete next[key];
+      } else {
+        next[key] = { scope: "all", field: null };
+      }
       return next;
     });
   };
@@ -97,56 +142,103 @@ export default function RolePermissionsModal({
     }));
   };
 
+  const isChecked = (key) => Boolean(permissionsMap[key]);
+
+  const isGroupAllSelected = (group) =>
+    group.items.length > 0 &&
+    group.items.every((p) => permissionsMap[p.key]);
+
+  const toggleGroupAll = (group) => {
+    setPermissionsMap((prev) => {
+      const next = { ...prev };
+      const keys = group.items.map((p) => p.key);
+
+      const hasAll = keys.every((k) => next[k]);
+      if (hasAll) {
+        keys.forEach((k) => delete next[k]);
+        return next;
+      }
+
+      keys.forEach((k) => {
+        if (!next[k]) next[k] = { scope: "all", field: null };
+      });
+      return next;
+    });
+  };
+
   const onSubmit = async () => {
-    const permissions = Object.entries(permissionsMap).map(([key, v]) => ({
+    const payload = Object.entries(permissionsMap).map(([key, v]) => ({
       key,
       scope: v.scope,
       field: v.scope === "own" ? v.field : null,
     }));
-    await onSave({ roleCode: role.code, permissions });
+
+    await onSave?.(payload);
   };
 
+  // =====================
+  // RENDER
+  // =====================
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="4xl">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>
-          <HStack>
+          <HStack spacing={3}>
             <Heading size="md">Manage Permissions</Heading>
-            <Tag><TagLabel>{role?.code}</TagLabel></Tag>
+            <Tag colorScheme="blue" variant="subtle">
+              <TagLabel>{role?.code || "ROLE"}</TagLabel>
+            </Tag>
           </HStack>
+          <Text fontSize="sm" opacity={0.7} mt={1}>
+            Chọn permission và scope áp dụng
+          </Text>
         </ModalHeader>
+
         <ModalCloseButton />
 
         <ModalBody>
           <Stack spacing={6}>
-            {groups.map(([groupKey, g]) => (
-              <Box key={groupKey} borderWidth="1px" rounded="lg" p={4}>
-                <Heading size="sm">{g.label}</Heading>
+            {groups.map((g) => (
+              <Box key={g.groupKey} borderWidth="1px" rounded="lg" p={4}>
+                <Flex justify="space-between" align="center">
+                  <Heading size="sm">{g.groupLabel}</Heading>
+                  <Button
+                    size="xs"
+                    variant="link"
+                    onClick={() => toggleGroupAll(g)}
+                  >
+                    {isGroupAllSelected(g) ? "Clear All" : "Select All"}
+                  </Button>
+                </Flex>
+
                 <Divider my={3} />
+
                 <Stack spacing={3}>
                   {g.items.map((p) => {
-                    const checked = !!permissionsMap[p.key];
-                    const val = permissionsMap[p.key];
+                    const checked = isChecked(p.key);
+                    const value = permissionsMap[p.key];
 
                     return (
-                      <HStack key={p.key} spacing={4}>
+                      <HStack key={p.key} spacing={4} align="center">
                         <Checkbox
                           isChecked={checked}
-                          onChange={(e) => toggle(p.key, e.target.checked)}
+                          onChange={(e) =>
+                            togglePermission(p.key, e.target.checked)
+                          }
                         >
-                          <Text>{p.label}</Text>
+                          <Text fontWeight="500">{p.label}</Text>
                         </Checkbox>
 
                         {checked && (
                           <Select
                             size="sm"
-                            w="120px"
-                            value={val.scope}
+                            w="140px"
+                            value={value.scope}
                             onChange={(e) =>
                               updateScope(p.key, e.target.value)
                             }
-                            isDisabled={p.key.endsWith(":read")}
+                          
                           >
                             {SCOPES.map((s) => (
                               <option key={s.value} value={s.value}>
@@ -156,11 +248,12 @@ export default function RolePermissionsModal({
                           </Select>
                         )}
 
-                        {checked && val.scope === "own" && (
+                        {checked && value.scope === "own" && (
                           <Input
                             size="sm"
                             w="160px"
-                            value={val.field || ""}
+                            placeholder="createdBy"
+                            value={value.field || ""}
                             onChange={(e) =>
                               updateField(p.key, e.target.value)
                             }
@@ -176,15 +269,19 @@ export default function RolePermissionsModal({
         </ModalBody>
 
         <ModalFooter>
-          <Button onClick={onClose} variant="outline">Cancel</Button>
-          <Button
-            ml={3}
-            colorScheme="blue"
-            onClick={onSubmit}
-            isLoading={saving}
-          >
-            Save
-          </Button>
+          <HStack spacing={3}>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={onSubmit}
+              isLoading={saving}
+              isDisabled={!role}
+            >
+              Save ({Object.keys(permissionsMap).length})
+            </Button>
+          </HStack>
         </ModalFooter>
       </ModalContent>
     </Modal>

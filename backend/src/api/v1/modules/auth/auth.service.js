@@ -246,7 +246,7 @@ exports.refreshToken = async (req) => {
     throw new ApiError(httpStatus.UNAUTHORIZED, "Refresh token reuse detected");
   }
 
-  const user = await authRepo.findById(payload.sub);
+  const user = await authRepo.findUserById(payload.sub);
   if (!user || user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
   if (user.isActive === false) throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
 

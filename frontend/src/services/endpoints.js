@@ -40,6 +40,7 @@ export const endpoints = {
   },
 
   products: {
+    listCategory: `${v1Admin}/product/list-category`,
     list: `${v1Admin}/product`,
     create: `${v1Admin}/product`,
     detail: (id) => `${v1Admin}/product/${id}`,

@@ -5,5 +5,5 @@ const { PERMISSIONS } = require("../../../../constants/permissions.js");
 
 
 // POST /api/v1/admin/upload/signature
-router.post("/signature", ...guard({ any: [PERMISSIONS.PRODUCT_WRITE] }), controller.getSignature)
+router.post("/signature", ...guard({ any: [PERMISSIONS.PRODUCT_WRITE, PERMISSIONS.PRODUCT_CREATE] }), controller.getSignature)
 module.exports = router
