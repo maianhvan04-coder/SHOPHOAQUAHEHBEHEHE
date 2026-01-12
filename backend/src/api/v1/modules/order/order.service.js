@@ -1,8 +1,9 @@
+const mongoose = require("mongoose");
 const Order = require("./order.model");
 const Product = require("../product/product.model");
-const { sendOrderConfirmationEmail } = require("../../../../helpers/mailer");
-const User = require("../user/user.model");
+
 module.exports.createOrderService = async (userId, data) => {
+
   const {
     orderItems,
     shippingAddress,
@@ -62,19 +63,7 @@ module.exports.createOrderService = async (userId, data) => {
       isDelivered: false,
     },
   });
-  try {
-    const user = await User.findById(userId);
-    if (user && user.email) {
 
-      sendOrderConfirmationEmail({
-        to: user.email,
-        order: newOrder,
-     
-      }).catch((err) => console.error("Background Mail Error:", err));
-    }
-  } catch (mailError) {
-    console.error("Lấy thông tin User gửi mail thất bại:", mailError);
-  }
   return newOrder;
 };
 
@@ -83,17 +72,24 @@ module.exports.getMyOrdersService = async (userId, status) => {
     throw new Error("UserId là bắt buộc.");
   }
 
-  const query = { user: userId };
+  const query = {
+    user: userId
+  };
 
   if (status) {
     query["status.orderStatus"] = status;
   }
-  const orders = await Order.find(query).sort({ createdAt: -1 });
+  const orders = await Order.find(query).sort({
+    createdAt: -1
+  });
 
   return orders;
 };
 module.exports.getOrderDetailService = async (userId, orderId) => {
-  const order = await Order.findOne({ _id: orderId, user: userId });
+  const order = await Order.findOne({
+    _id: orderId,
+    user: userId
+  });
   if (!order) {
     throw new Error(
       "Không tìm thấy đơn hàng hoặc bạn không có quyền xem đơn hàng này."
@@ -101,21 +97,11 @@ module.exports.getOrderDetailService = async (userId, orderId) => {
   }
   return order;
 };
-module.exports.getMyOrdersService = async (userId, status) => {
-  if (!userId) {
-    throw new Error("UserId là bắt buộc.");
-  }
-
-  const query = { user: userId };
-  if (status) {
-    query["status.orderStatus"] = status;
-  }
-  const orders = await Order.find(query).sort({ createdAt: -1 });
-
-  return orders;
-};
 module.exports.cancelOrderService = async (userId, orderId) => {
-  const order = await Order.findOne({ _id: orderId, user: userId });
+  const order = await Order.findOne({
+    _id: orderId,
+    user: userId
+  });
 
   if (!order) {
     throw new Error(
@@ -136,8 +122,12 @@ module.exports.cancelOrderService = async (userId, orderId) => {
   return cancelledOrder;
 };
 
+
 module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
-  const { orderStatus, shopNote } = statusData;
+  const {
+    orderStatus,
+    shopNote
+  } = statusData;
 
   const order = await Order.findById(orderId);
   if (!order) throw new Error("Không tìm thấy đơn hàng.");
@@ -155,7 +145,13 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
   if (orderStatus) {
     order.status.orderStatus = orderStatus;
 
+
     if (orderStatus === "Delivered") {
+      // ✅ CHẶN: đơn chưa có staff thì không cho Delivered
+      if (!order.staff) {
+        throw new Error("Đơn chưa có staff (chưa claim), không thể đánh dấu Delivered.");
+      }
+
       if (order.status.isDelivered) {
         throw new Error("Đơn hàng đã được đánh dấu Delivered trước đó.");
       }
@@ -171,7 +167,9 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
       // 2) update hàng loạt Product.sold += qty
       const ops = Array.from(qtyByProduct.entries()).map(([pid, qty]) => ({
         updateOne: {
-          filter: { _id: pid },
+          filter: {
+            _id: pid
+          },
           update: {
             $inc: {
               sold: qty,
@@ -197,27 +195,366 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
   return await order.save();
 };
 
+
 module.exports.getAllOrdersAdmin = async (query) => {
-  const { status, limit = 10, page = 1, orderId } = query;
+  const {
+    status,
+    limit = 10,
+    page = 1,
+    orderId
+  } = query;
   const filter = {};
   if (status) filter["status.orderStatus"] = status;
   if (orderId && orderId.trim().length > 0) {
     const searchStr = orderId.trim().toLowerCase();
     const allOrders = await Order.find(
-      status ? { "status.orderStatus": status } : {}
+      status ? {
+        "status.orderStatus": status
+      } : {}
     ).select("_id");
     const matchedIds = allOrders
       .filter((order) => order._id.toString().toLowerCase().includes(searchStr))
       .map((order) => order._id);
 
-    filter["_id"] = { $in: matchedIds };
+    filter["_id"] = {
+      $in: matchedIds
+    };
   }
   const totalItems = await Order.countDocuments(filter);
   const orders = await Order.find(filter)
     .populate("user", "fullName phone")
-    .sort({ createdAt: -1 })
+    .populate("staff", "fullName phone")
+    .sort({
+      createdAt: -1
+    })
     .limit(Number(limit))
     .skip((Number(page) - 1) * Number(limit));
 
-  return { orders, totalItems };
+  return {
+    orders,
+    totalItems
+  };
+};
+
+//xem đơn
+module.exports.getMyStaffOrdersService = async (staffId, query) => {
+  if (!staffId) throw new Error("staffId là bắt buộc.");
+
+  const filter = { staff: staffId };
+
+  if (query && query.status) filter["status.orderStatus"] = query.status;
+
+  if (query && query.month) {
+    const [y, m] = query.month.split("-").map(Number);
+    const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+    filter.createdAt = { $gte: start, $lt: end };
+  }
+
+  return Order.find(filter).sort({ createdAt: -1 });
+};
+
+//staff nhận đơn chưa có staff
+
+module.exports.claimOrderService = async (orderId, staffId) => {
+  if (!orderId) throw new Error("Thiếu orderId");
+  if (!staffId) throw new Error("Thiếu staffId");
+
+  const updated = await Order.findOneAndUpdate({
+    _id: orderId,
+    "status.orderStatus": "Pending", // ✅ chặn claim nếu không Pending
+    $or: [{
+      staff: null
+    }, {
+      staff: {
+        $exists: false
+      }
+    }],
+  }, {
+    $set: {
+      staff: staffId
+    }
+  }, {
+    new: true
+  });
+
+  if (!updated) throw new Error("Đơn không tồn tại / không Pending / đã có staff");
+  return updated;
+};
+
+
+//dashboard
+function monthToRange(month) {
+  const [y, m] = month.split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+  const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+  return {
+    start,
+    end
+  };
+}
+
+module.exports.getDashboardMonthService = async ({
+  month,
+  role,
+  userId,
+  staffId,
+  compare
+}) => {
+  if (!month) throw new Error("month is required (YYYY-MM)");
+
+  const {
+    start,
+    end
+  } = monthToRange(month);
+  const isAdmin = role === "ADMIN";
+  const isCompare = isAdmin && compare === "1";
+
+  // ✅ scope theo quyền
+  let scopeStaff = null;
+  if (isAdmin) {
+    if (staffId) scopeStaff = new mongoose.Types.ObjectId(staffId);
+  } else if (role === "STAFF") {
+    scopeStaff = new mongoose.Types.ObjectId(userId); // staff chỉ xem của mình
+  } else {
+    throw new Error("Forbidden");
+  }
+
+  const match = {
+    createdAt: {
+      $gte: start,
+      $lt: end
+    },
+    ...(scopeStaff ? {
+      staff: scopeStaff
+    } : {}),
+  };
+
+  // ✅ success rule theo schema bạn:
+  // COD => Delivered, non-COD => isPaid
+  const successExpr = {
+    $cond: [{
+        $eq: ["$paymentMethod", "COD"]
+      },
+      {
+        $eq: ["$status.orderStatus", "Delivered"]
+      },
+      {
+        $eq: ["$status.isPaid", true]
+      },
+    ],
+  };
+
+  const cancelledExpr = {
+    $eq: ["$status.orderStatus", "Cancelled"]
+  };
+
+  const pipeline = [{
+      $match: match
+    },
+    {
+      $facet: {
+        kpi: [{
+            $group: {
+              _id: null,
+              revenue: {
+                $sum: {
+                  $cond: [successExpr, "$totalPrice", 0]
+                }
+              },
+              ordersTotal: {
+                $sum: 1
+              },
+              ordersCancelled: {
+                $sum: {
+                  $cond: [cancelledExpr, 1, 0]
+                }
+              },
+              ordersSuccess: {
+                $sum: {
+                  $cond: [successExpr, 1, 0]
+                }
+              },
+              customers: {
+                $addToSet: "$user"
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              revenue: 1,
+              ordersTotal: 1,
+              ordersCancelled: 1,
+              ordersValid: {
+                $subtract: ["$ordersTotal", "$ordersCancelled"]
+              },
+              ordersSuccess: 1,
+              aov: {
+                $cond: [{
+                    $gt: ["$ordersSuccess", 0]
+                  },
+                  {
+                    $divide: ["$revenue", "$ordersSuccess"]
+                  },
+                  0,
+                ],
+              },
+              uniqueCustomers: {
+                $size: "$customers"
+              },
+            },
+          },
+        ],
+
+        revenueByDay: [{
+            $group: {
+              _id: {
+                day: {
+                  $dateToString: {
+                    format: "%Y-%m-%d",
+                    date: "$createdAt",
+                    timezone: "Asia/Ho_Chi_Minh",
+                  },
+                },
+              },
+              revenue: {
+                $sum: {
+                  $cond: [successExpr, "$totalPrice", 0]
+                }
+              },
+              ordersSuccess: {
+                $sum: {
+                  $cond: [successExpr, 1, 0]
+                }
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              day: "$_id.day",
+              revenue: 1,
+              ordersSuccess: 1
+            }
+          },
+          {
+            $sort: {
+              day: 1
+            }
+          },
+        ],
+
+        ordersByStatus: [{
+            $group: {
+              _id: "$status.orderStatus",
+              count: {
+                $sum: 1
+              }
+            }
+          },
+          {
+            $project: {
+              _id: 0,
+              status: "$_id",
+              count: 1
+            }
+          },
+          {
+            $sort: {
+              count: -1
+            }
+          },
+        ],
+
+        compareByStaff: isCompare ?
+          [{
+              $match: {
+                staff: {
+                  $exists: true,
+                  $ne: null
+                }
+              }
+            },
+            {
+              $group: {
+                _id: "$staff",
+                revenue: {
+                  $sum: {
+                    $cond: [successExpr, "$totalPrice", 0]
+                  }
+                },
+                ordersSuccess: {
+                  $sum: {
+                    $cond: [successExpr, 1, 0]
+                  }
+                },
+              },
+            },
+
+            // ✅ lấy info staff (tên collection thường là "users")
+            {
+              $lookup: {
+                from: "users", // nếu bạn đặt collection khác thì đổi
+                localField: "_id",
+                foreignField: "_id",
+                as: "staff",
+              },
+            },
+            {
+              $unwind: {
+                path: "$staff",
+                preserveNullAndEmptyArrays: true
+              }
+            },
+
+            {
+              $project: {
+                _id: 0,
+                staffId: "$_id",
+                staffName: "$staff.fullName",
+                staffPhone: "$staff.phone",
+                revenue: 1,
+                ordersSuccess: 1,
+              },
+            },
+
+            {
+              $sort: {
+                revenue: -1
+              }
+            },
+          ] :
+          [],
+
+      },
+    },
+  ];
+
+  const [result] = await Order.aggregate(pipeline);
+
+return {
+  range: { start, end },
+  kpi: (result && result.kpi && result.kpi[0]) || {
+    revenue: 0,
+    ordersTotal: 0,
+    ordersCancelled: 0,
+    ordersValid: 0,
+    ordersSuccess: 0,
+    aov: 0,
+    uniqueCustomers: 0,
+  },
+  revenueByDay: (result && result.revenueByDay) || [],
+  ordersByStatus: (result && result.ordersByStatus) || [],
+  compareByStaff: (result && result.compareByStaff) || [],
+};
+};
+
+// staff xem danh sách đơn chưa có staff (inbox)
+module.exports.getUnassignedOrdersService = async (query) => {
+  const filter = { $or: [{ staff: null }, { staff: { $exists: false } }] };
+
+  if (query && query.status) filter["status.orderStatus"] = query.status;
+
+  return Order.find(filter).sort({ createdAt: -1 }).limit(50);
 };

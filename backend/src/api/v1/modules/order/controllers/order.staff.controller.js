@@ -25,3 +25,12 @@ module.exports.claimOrder = async (req, res) => {
     return res.status(400).json({ success: false, message: e.message });
   }
 };
+
+module.exports.getUnassignedOrders = async (req, res) => {
+  try {
+    const orders = await orderService.getUnassignedOrdersService(req.query);
+    return res.status(200).json({ success: true, data: orders });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
