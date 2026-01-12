@@ -1,8 +1,11 @@
 // src/api/v1/modules/auth/auth.controller.js
 const asyncHandler = require("../../../../core/asyncHandler");
 const authService = require("./auth.service");
-
-const COOKIE_PATH = "/api/v1/auth"; // ✅ rộng
+const {
+  generateAccessToken,
+  signRefreshToken,
+} = require("../../../../helpers/jwt.auth");
+const COOKIE_PATH = "/api/v1/auth";
 const isProd = process.env.NODE_ENV === "production";
 
 function setRefreshCookie(res, refreshToken, maxAgeMs) {
@@ -14,6 +17,20 @@ function setRefreshCookie(res, refreshToken, maxAgeMs) {
     maxAge: Math.max(0, maxAgeMs),
   });
 }
+
+// ===== GOOGLE LOGIN =====
+exports.googleLogin = asyncHandler(async (req, res) => {
+  const { credential } = req.body;
+  console.log(typeof credential, "credential")
+  const result = await authService.googleLogin({
+    credential,
+  }, req);
+
+  setRefreshCookie(res, result.refreshToken, 7 * 24 * 60 * 60 * 1000);
+
+  delete result.refreshToken;
+  res.json({ data: result });
+});
 
 module.exports.login = asyncHandler(async (req, res) => {
   const result = await authService.login(req.body, req);
@@ -43,6 +60,7 @@ module.exports.refreshToken = asyncHandler(async (req, res) => {
 module.exports.me = asyncHandler(async (req, res) => {
   const userId = req.user?.sub;
   const data = await authService.getMe(userId, req.user);
+  console.log(data)
   res.json({ data });
 });
 

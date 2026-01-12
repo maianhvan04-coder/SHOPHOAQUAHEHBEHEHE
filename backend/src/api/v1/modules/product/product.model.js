@@ -55,7 +55,7 @@ const productSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-productSchema.index({ name: "text" }, { default_language: "none" });
+
 productSchema.index(
   { name: 1 },
   {
@@ -63,7 +63,6 @@ productSchema.index(
     collation: { locale: "vi", strength: 2 },
   }
 );
-
 
 // index như schema mới
 productSchema.index({ isFeatured: -1, featuredRank: 1, createdAt: -1 });

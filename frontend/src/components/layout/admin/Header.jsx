@@ -136,20 +136,7 @@ function Header() {
           >
             Dashboard
           </Text>
-          <Badge
-            display={{ base: "none", md: "inline-flex" }}
-            bg="whiteAlpha.100"
-            color="whiteAlpha.800"
-            border="1px solid"
-            borderColor="whiteAlpha.200"
-            borderRadius="full"
-            px={3}
-            py={1}
-            fontWeight="600"
-            fontSize="xs"
-          >
-            Admin
-          </Badge>
+          
         </Flex>
 
         {/* Right */}

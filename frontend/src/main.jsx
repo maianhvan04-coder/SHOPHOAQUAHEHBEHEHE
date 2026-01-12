@@ -5,6 +5,7 @@ import { Provider } from "react-redux";
 
 import App from "./App.jsx";
 import "./index.css";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import ScrollToTop from "./features/product/hooks/ScrollToTop.jsx";
 import { store } from "./app/store/store.js";
@@ -16,7 +17,8 @@ import ToastProvider from "./shared/ui/Toast/ToastProvider";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <Provider store={store}>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <Provider store={store}>
       <AuthProvider>
         <UserAuthWrapper>        
             <BrowserRouter>
@@ -28,6 +30,7 @@ createRoot(document.getElementById("root")).render(
         </UserAuthWrapper>
       </AuthProvider>
     </Provider>
+    </GoogleOAuthProvider>
   </StrictMode>
 );
 

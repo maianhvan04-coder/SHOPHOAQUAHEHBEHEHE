@@ -1,5 +1,6 @@
 // src/api/v1/modules/auth/auth.service.js
 const crypto = require("crypto");
+const { OAuth2Client } = require("google-auth-library");
 
 const ApiError = require("../../../../core/apiError");
 const httpStatus = require("../../../../core/httpStatus");
@@ -18,6 +19,7 @@ const Session = require("./session.model");
 
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 const SESSION_SEC = Math.floor(SESSION_MS / 1000);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const remainingSec = (expiresAt) => {
   const sec = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
@@ -69,38 +71,131 @@ const buildLoginResult = async (user, req) => {
 
 // LOGIN
 exports.login = async ({ email, password }, req) => {
-  const user = await authRepo.findByEmailForLogin(email);
-  if (!user) throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
+  //  tìm auth provider local
 
-  const ok = await comparePassword(password, user.passwordHash);
-  if (!ok) throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
+  const auth = await authRepo.findLocalAuthByEmail(email);
+  console.log(auth)
+  if (!auth) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
+  }
 
-  if (user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
-  if (user.isActive === false) throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
+  //  so sánh password
+  const ok = await comparePassword(password, auth.passwordHash);
+  if (!ok) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
+  }
 
-  return buildLoginResult(user, req);
-};
+  // load user
+  const user = await authRepo.findUserById(auth.userId);
+  if (!user || user.isDeleted) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
+  }
 
-// REGISTER
-exports.register = async ({ fullName, email, password }, req) => {
-  const existing = await authRepo.findAnyByEmail(email);
-  if (existing && !existing.isDeleted) throw new ApiError(httpStatus.CONFLICT, "Email đã tồn tại");
-
-  const passwordHash = await hashPassword(password);
-
-  let user;
-  if (existing && existing.isDeleted) {
-    existing.fullName = fullName;
-    existing.passwordHash = passwordHash;
-    existing.isDeleted = false;
-    existing.isActive = true;
-    user = await existing.save();
-  } else {
-    user = await authRepo.createUser({ fullName, email, passwordHash });
+  if (!user.isActive) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
   }
 
   return buildLoginResult(user, req);
 };
+
+// ===== GOOGLE LOGIN SERVICE =====
+exports.googleLogin = async ({ credential }, req) => {
+  if (!credential) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Thiếu Google credential");
+  }
+
+  const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+  console.log(ticket)
+  const { sub: googleId, email, name, picture } = ticket.getPayload();
+  if (!email) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Google account không có email");
+  }
+
+  // 1️⃣ tìm google auth
+  let auth = await authRepo.findGoogleAuthByProviderId(googleId);
+  let user;
+
+  if (auth) {
+    user = await userRepo.findById(auth.userId);
+  } else {
+    // 2️⃣ tìm user theo email
+    user = await userRepo.findByEmail(email);
+
+    if (!user) {
+      user = await userRepo.createOne({
+        email,
+        fullName: name,
+        emailVerified: true,
+        image: { url: picture || "" },
+      });
+    }
+
+    if (user.emailVerified === false) {
+      throw new ApiError(
+        httpStatus.FORBIDDEN,
+        "Email chưa được xác thực"
+      );
+    }
+
+    await authRepo.createAuthProvider({
+      userId: user._id,
+      provider: "google",
+      providerId: googleId,
+      email,
+    });
+  }
+
+  if (!user || user.isDeleted) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
+  }
+  if (!user.isActive) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
+  }
+
+  // ✅ CHỈ DÙNG CHUNG HÀM NÀY
+  return buildLoginResult(user, req);
+};
+
+
+
+
+// REGISTER
+exports.register = async ({ fullName, email, password }, req) => {
+  let user = await authRepo.findUserByEmail(email);
+  if (user && !user.isDeleted) {
+    throw new ApiError(httpStatus.CONFLICT, "Email đã tồn tại");
+  }
+
+  const passwordHash = await hashPassword(password);
+
+  if (!user) {
+    user = await authRepo.createUser({
+      fullName,
+      email,
+      isActive: true,
+      isDeleted: false,
+    });
+  } else {
+    user.fullName = fullName;
+    user.isDeleted = false;
+    user.isActive = true;
+    await user.save();
+  }
+
+  await authRepo.createAuthProvider({
+    userId: user._id,
+    provider: "local",
+    providerId: email,
+    email,
+    passwordHash,
+  });
+
+  return buildLoginResult(user, req);
+};
+
 
 // ME
 exports.getMe = async (userId, authz) => {
@@ -115,6 +210,7 @@ exports.getMe = async (userId, authz) => {
       email: user.email,
       phone: user.phone,
       image: user.image || null,
+      type: user.type,
       isActive: user.isActive,
       authzVersion: user.authzVersion || 0,
       createdAt: user.createdAt,
@@ -194,53 +290,63 @@ const baseClientUrl = () =>
   (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
 
 exports.forgotPassword = async (email) => {
-  const user = await authRepo.findAnyByEmail(email);
-  // ✅ luôn return ok để không lộ email tồn tại
-  if (!user || user.isDeleted) return { ok: true };
-  if (user.isActive === false) return { ok: true };
+  const user = await authRepo.findUserByEmail(email);
+  if (!user || user.isDeleted || !user.isActive) return { ok: true };
+
+  const auth = await authRepo.findLocalAuthByEmail(email);
+  if (!auth) return { ok: true }; // Google user → bỏ qua
 
   const rawToken = crypto.randomBytes(32).toString("hex");
-  user.passwordResetTokenHash = sha256(rawToken);
-  user.passwordResetExpires = new Date(Date.now() + RESET_MS);
-  await user.save();
+
+  auth.passwordResetTokenHash = sha256(rawToken);
+  auth.passwordResetExpires = new Date(Date.now() + RESET_MS);
+  await auth.save();
 
   const resetUrl = `${baseClientUrl()}/reset-password?token=${rawToken}`;
-
-  // ✅ gửi mail thật
-  await sendResetPasswordEmail({ to: user.email, resetUrl });
+  await sendResetPasswordEmail({ to: email, resetUrl });
 
   return { ok: true };
 };
 
+
 // ===== RESET PASSWORD =====
-// ✅ đúng theo controller gọi: resetPassword(token, newPassword)
 exports.resetPassword = async (token, newPassword) => {
   const tokenHash = sha256(token);
 
-  const user = await authRepo.findByResetTokenHash(tokenHash);
-  if (!user) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Token không hợp lệ hoặc đã hết hạn", "INVALID_RESET_TOKEN");
+  const auth = await authRepo.findLocalByResetTokenHash(tokenHash);
+  if (!auth) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Token không hợp lệ hoặc đã hết hạn",
+      "INVALID_RESET_TOKEN"
+    );
   }
-  if (user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
-  if (user.isActive === false) throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
 
-  // ✅ cập nhật mật khẩu
-  user.passwordHash = await hashPassword(newPassword);
+  const user = await authRepo.findUserById(auth.userId);
+  if (!user || user.isDeleted) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
+  }
 
-  // ✅ tăng version để access token cũ die (nếu auth middleware check)
-  user.authzVersion = (user.authzVersion || 0) + 1;
+  if (!user.isActive) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
+  }
 
-  // ✅ clear reset token
-  user.passwordResetTokenHash = null;
-  user.passwordResetExpires = null;
+  // cập nhật password
+  auth.passwordHash = await hashPassword(newPassword);
+  auth.passwordResetTokenHash = null;
+  auth.passwordResetExpires = null;
+  await auth.save();
 
-  await user.save();
-
-  // ✅ revoke toàn bộ session (logout mọi thiết bị)
+  // revoke tất cả session
   await Session.updateMany(
     { userId: user._id, revokedAt: null },
     { revokedAt: new Date() }
   );
 
+  // bump authzVersion
+  user.authzVersion = (user.authzVersion || 0) + 1;
+  await user.save();
+
   return { ok: true };
 };
+

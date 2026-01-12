@@ -1,6 +1,18 @@
-import { FaUserCircle, FaSignOutAlt, FaUser, FaShoppingBag } from "react-icons/fa";
+import {
+  FaUserCircle,
+  FaSignOutAlt,
+  FaUser,
+  FaShoppingBag,
+  FaUserShield,
+} from "react-icons/fa";
 
-const UserPopup = ({ user, onProfile,onMyOrders, onLogout }) => {
+const UserPopup = ({
+  user,
+  onProfile,
+  onMyOrders,
+  onGoAdmin,
+  onLogout,
+}) => {
   if (!user || !user.email) return null;
 
   return (
@@ -29,25 +41,42 @@ const UserPopup = ({ user, onProfile,onMyOrders, onLogout }) => {
         </div>
       </div>
 
-      {/* Nút bấm dạng danh sách dọc cho gọn */}
+      {/* Actions */}
       <div className="space-y-1">
         <button
           onClick={onProfile}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-green-50 hover:text-green-600 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                     text-sm text-gray-600 hover:bg-green-50 hover:text-green-600 transition-all"
         >
           <FaUser className="opacity-70" />
           Tài khoản
         </button>
+
         <button
           onClick={onMyOrders}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-green-50 hover:text-green-600 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                     text-sm text-gray-600 hover:bg-green-50 hover:text-green-600 transition-all"
         >
           <FaShoppingBag className="opacity-70" />
           Đơn hàng của tôi
         </button>
+
+        {/* 👉 CHỈ INTERNAL USER MỚI THẤY */}
+        {user?.type === "internal" && (
+          <button
+            onClick={onGoAdmin}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                       text-sm text-blue-600 hover:bg-blue-50 transition-all"
+          >
+            <FaUserShield className="opacity-70" />
+            Vào trang Admin
+          </button>
+        )}
+
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                     text-sm text-red-500 hover:bg-red-50 transition-all"
         >
           <FaSignOutAlt className="opacity-70" />
           Đăng xuất

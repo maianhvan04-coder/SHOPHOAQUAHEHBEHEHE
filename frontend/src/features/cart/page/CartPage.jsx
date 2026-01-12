@@ -61,7 +61,7 @@ const CartPage = () => {
     };
   }, [items, selectedIds]);
 
-  const shipping = totalQtySelected > 0 ? 5000 : 0;
+  const shipping = totalQtySelected > 0 ? 15000 : 0;
   const totalFinal = subTotalSelected + shipping;
 
   const toggleSelectProduct = (productId) => {
@@ -303,7 +303,7 @@ const CartPage = () => {
                   </span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>Phí vận chuyển</span>
+                  <span>Phí vận chuyển (Tạm tính)</span>
                   <span className="font-semibold text-gray-800">
                     {shipping.toLocaleString()}đ
                   </span>

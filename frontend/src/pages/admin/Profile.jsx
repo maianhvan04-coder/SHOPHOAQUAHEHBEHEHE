@@ -26,6 +26,8 @@ import {
 } from "@heroicons/react/24/outline";
 import PageHeader from "~/components/layout/admin/PageHeader";
 import { Link } from "react-router-dom";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { useAuth } from "~/app/providers/AuthProvides";
 
 import ProfileField from "~/features/profile/profileAdmin/components/ProfileField";
 import { useProfileData } from "~/features/profile/profileAdmin/hooks/useProfileData";
@@ -44,12 +46,13 @@ export default function Profile() {
     name,
     email,
     phone,
-   
+
     role,
-     avatarUrl,
+    avatarUrl,
     joinDateText,
     lastActiveText,
   } = useProfileData();
+  const { user } = useAuth();
 
   const bgGradient = useColorModeValue(
     "linear(to-br, blue.50, cyan.50, blue.100)",
@@ -59,7 +62,7 @@ export default function Profile() {
   const subTextColor = useColorModeValue("gray.600", "gray.400");
   const borderColor = useColorModeValue("blue.100", "gray.700");
   const accentColor = useColorModeValue("blue.500", "cyan.400");
-  
+
   const cardShadow = useColorModeValue(
     "0 10px 30px -5px rgba(59, 130, 246, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
     "0 10px 30px -5px rgba(34, 197, 211, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.3)"
@@ -68,10 +71,10 @@ export default function Profile() {
   const hoverTransition = "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
 
   return (
-    <Box 
-      minH="100vh" 
+    <Box
+      minH="100vh"
       bgGradient={bgGradient}
-      p={{ base: 4, md: 8 }} 
+      p={{ base: 4, md: 8 }}
       position="relative"
       _before={{
         content: '""',
@@ -95,11 +98,11 @@ export default function Profile() {
 
         <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={8} mt={8}>
           {/* CỘT 1: Profile Overview */}
-          <Card 
-            bg={cardBg} 
-            shadow={cardShadow} 
-            borderRadius="2xl" 
-            border="1px solid" 
+          <Card
+            bg={cardBg}
+            shadow={cardShadow}
+            borderRadius="2xl"
+            border="1px solid"
             borderColor={borderColor}
             overflow="hidden"
             transition={hoverTransition}
@@ -120,7 +123,7 @@ export default function Profile() {
           >
             <CardBody py={10}>
               <VStack spacing={5}>
-                <Box 
+                <Box
                   position="relative"
                   transition={hoverTransition}
                   _hover={{ transform: "scale(1.05)" }}
@@ -134,9 +137,9 @@ export default function Profile() {
                     opacity={0.4}
                     zIndex={0}
                   />
-                  <Avatar 
-                    size="2xl" 
-                    name={name} 
+                  <Avatar
+                    size="2xl"
+                    name={name}
                     src={avatarUrl}
                     border="4px solid"
                     borderColor={accentColor}
@@ -145,7 +148,7 @@ export default function Profile() {
                     bg="linear-gradient(to-br, blue.400, cyan.400)"
                   />
                 </Box>
-                
+
                 <VStack spacing={2}>
                   <Text fontSize="2xl" fontWeight="bold" letterSpacing="tight">
                     {name}
@@ -172,15 +175,15 @@ export default function Profile() {
                 <Divider borderColor={borderColor} />
 
                 <Link to="/settings" style={{ width: "100%" }}>
-                  <Button 
+                  <Button
                     leftIcon={<Icon as={PencilSquareIcon} w={4} h={4} />}
                     bgGradient="linear(to-r, blue.500, cyan.400)"
                     color="white"
-                    size="md" 
+                    size="md"
                     width="full"
                     fontWeight="bold"
                     transition={hoverTransition}
-                    _hover={{ 
+                    _hover={{
                       bgGradient: "linear(to-r, blue.600, cyan.500)",
                       transform: "translateY(-2px)",
                       shadow: "0 8px 20px -4px rgba(59, 130, 246, 0.4)",
@@ -190,16 +193,32 @@ export default function Profile() {
                     Chỉnh sửa hồ sơ
                   </Button>
                 </Link>
+                {user?.type === "internal" && (
+                  <Button
+                    leftIcon={<Icon as={ArrowLeftIcon} w={4} h={4} />}
+                    variant="outline"
+                    colorScheme="gray"
+                    size="md"
+                    width="full"
+                    mt={3}
+                    onClick={() => {
+                      window.location.href = "/";
+                    }}
+                  >
+                    Về trang Client
+                  </Button>
+                )}
+
               </VStack>
             </CardBody>
           </Card>
 
           {/* CỘT 2: Personal Information */}
-          <Card 
-            bg={cardBg} 
-            shadow={cardShadow} 
-            borderRadius="2xl" 
-            border="1px solid" 
+          <Card
+            bg={cardBg}
+            shadow={cardShadow}
+            borderRadius="2xl"
+            border="1px solid"
             borderColor={borderColor}
             overflow="hidden"
             transition={hoverTransition}
@@ -220,10 +239,10 @@ export default function Profile() {
           >
             <CardBody>
               <HStack mb={6} spacing={3}>
-                <Box 
-                  w={1} 
-                  h={8} 
-                  bgGradient="linear(to-b, cyan.400, blue.500)" 
+                <Box
+                  w={1}
+                  h={8}
+                  bgGradient="linear(to-b, cyan.400, blue.500)"
                   borderRadius="full"
                 />
                 <Text fontSize="lg" fontWeight="bold" color={accentColor}>
@@ -237,17 +256,17 @@ export default function Profile() {
                 <Divider borderColor={borderColor} opacity={0.5} />
                 <ProfileField icon={PhoneIcon} label="Số điện thoại" value={phone} />
                 <Divider borderColor={borderColor} opacity={0.5} />
-                
+
               </Stack>
             </CardBody>
           </Card>
 
           {/* CỘT 3: Work Information */}
-          <Card 
-            bg={cardBg} 
-            shadow={cardShadow} 
-            borderRadius="2xl" 
-            border="1px solid" 
+          <Card
+            bg={cardBg}
+            shadow={cardShadow}
+            borderRadius="2xl"
+            border="1px solid"
             borderColor={borderColor}
             overflow="hidden"
             transition={hoverTransition}
@@ -268,10 +287,10 @@ export default function Profile() {
           >
             <CardBody>
               <HStack mb={6} spacing={3}>
-                <Box 
-                  w={1} 
-                  h={8} 
-                  bgGradient="linear(to-b, purple.400, blue.500)" 
+                <Box
+                  w={1}
+                  h={8}
+                  bgGradient="linear(to-b, purple.400, blue.500)"
                   borderRadius="full"
                 />
                 <Text fontSize="lg" fontWeight="bold" color={accentColor}>
@@ -281,13 +300,13 @@ export default function Profile() {
               <Stack spacing={5}>
                 <ProfileField icon={KeyIcon} label="Chức vụ" value={role} />
                 <Divider borderColor={borderColor} opacity={0.5} />
-              
+
                 <Divider borderColor={borderColor} opacity={0.5} />
                 <ProfileField icon={CalendarIcon} label="Ngày gia nhập" value={joinDateText} />
 
-                <Box 
-                  mt={4} 
-                  p={4} 
+                <Box
+                  mt={4}
+                  p={4}
                   bgGradient={useColorModeValue(
                     "linear(to-br, blue.50, cyan.50)",
                     "linear(to-br, gray.700, gray.600)"
@@ -298,11 +317,11 @@ export default function Profile() {
                   transition={hoverTransition}
                   _hover={{ shadow: "0 4px 12px -2px rgba(59, 130, 246, 0.2)" }}
                 >
-                  <Text 
-                    fontSize="xs" 
-                    fontWeight="bold" 
-                    color={subTextColor} 
-                    mb={2} 
+                  <Text
+                    fontSize="xs"
+                    fontWeight="bold"
+                    color={subTextColor}
+                    mb={2}
                     textTransform="uppercase"
                   >
                     ⏱️ Trạng thái hoạt động

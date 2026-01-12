@@ -5,8 +5,8 @@ import { findScreenByPathname, canAccessScreen, firstAccessibleScreen } from "~/
 import { useAuth } from "~/app/providers/AuthProvides";
 import { useRbacCatalog } from "~/features/rbac/hooks/useRbacCatalog";
 
-//  chỉ allow RBAC pages thôi (nếu cần)
-const ALWAYS_ALLOW_PREFIX = ["/admin/rbac","/admin/profile"];
+// //  chỉ allow RBAC pages thôi (nếu cần)
+// const ALWAYS_ALLOW_PREFIX = ["/admin/rbac","/admin/profile"];
 
 const adminTheme = extendTheme({
   config: { initialColorMode: "light", useSystemColorMode: false },
@@ -27,16 +27,16 @@ const adminTheme = extendTheme({
 });
 export default function AdminRoute() {
   const { pathname } = useLocation();
-  const { isAuthed, permissions, loading: authLoading } = useAuth();
+  const { isAuthed, permissions,userType, loading: authLoading } = useAuth();
 
   const {
     groups,
     screens,
+
     loading: catalogLoading,
     ready: catalogReady, // ✅
     error,
   } = useRbacCatalog(isAuthed);
-
   //  quan trọng: chờ catalogReady
   const loading = authLoading || (isAuthed && !catalogReady) || catalogLoading;
  
@@ -50,14 +50,23 @@ export default function AdminRoute() {
         </Center>
       ) : (() => {
         if (!isAuthed) return <Navigate to="/login" replace />;
+        if (userType !== "internal") {
+  return (
+    <Navigate
+      to="/403"
+      replace
+      state={{ reason: "Tài khoản không thuộc hệ thống nội bộ" }}
+    />
+  );
+}
 
         if (error) return <Navigate to="/403" replace state={{ reason: error }} />;
 
         if (pathname === "/403") return <Outlet context={{ groups, screens }} />;
 
-        if (ALWAYS_ALLOW_PREFIX.some((p) => pathname.startsWith(p))) {
-          return <Outlet context={{ groups, screens }} />;
-        }
+        // if (ALWAYS_ALLOW_PREFIX.some((p) => pathname.startsWith(p))) {
+        //   return <Outlet context={{ groups, screens }} />;
+        // }
 
         if (pathname === "/admin" || pathname === "/admin/") {
           const nextPath = firstAccessibleScreen(groups, screens, permissions);
