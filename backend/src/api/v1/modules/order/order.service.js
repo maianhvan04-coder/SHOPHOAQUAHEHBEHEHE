@@ -1,8 +1,8 @@
 const Order = require("./order.model");
 const Product = require("../product/product.model");
-
+const { sendOrderConfirmationEmail } = require("../../../../helpers/mailer");
+const User = require("../user/user.model");
 module.exports.createOrderService = async (userId, data) => {
-
   const {
     orderItems,
     shippingAddress,
@@ -62,7 +62,19 @@ module.exports.createOrderService = async (userId, data) => {
       isDelivered: false,
     },
   });
+  try {
+    const user = await User.findById(userId);
+    if (user && user.email) {
 
+      sendOrderConfirmationEmail({
+        to: user.email,
+        order: newOrder,
+     
+      }).catch((err) => console.error("Background Mail Error:", err));
+    }
+  } catch (mailError) {
+    console.error("Lấy thông tin User gửi mail thất bại:", mailError);
+  }
   return newOrder;
 };
 
@@ -124,7 +136,6 @@ module.exports.cancelOrderService = async (userId, orderId) => {
   return cancelledOrder;
 };
 
-
 module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
   const { orderStatus, shopNote } = statusData;
 
@@ -144,15 +155,10 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
   if (orderStatus) {
     order.status.orderStatus = orderStatus;
 
-
     if (orderStatus === "Delivered") {
-
-
       if (order.status.isDelivered) {
         throw new Error("Đơn hàng đã được đánh dấu Delivered trước đó.");
       }
-
-
 
       const qtyByProduct = new Map();
       for (const item of order.orderItems || []) {
@@ -190,9 +196,6 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
 
   return await order.save();
 };
-
-
-
 
 module.exports.getAllOrdersAdmin = async (query) => {
   const { status, limit = 10, page = 1, orderId } = query;
