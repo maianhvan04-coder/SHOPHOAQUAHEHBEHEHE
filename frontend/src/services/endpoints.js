@@ -62,6 +62,7 @@ export const endpoints = {
       `${v1Admin}/rbac/roles/${encodeURIComponent(roleCode)}/permissions`,
 
     roleById: (id) => `${v1Admin}/rbac/roles/${encodeURIComponent(id)}`,
+    
     rolesStatus: ({ id }) => `${v1Admin}/rbac/roles/${id}/status`,
   },
 
