@@ -10,6 +10,7 @@ export const getMyOrdersAPI = (status) => {
     params: {
       status: status,
     },
+
   });
 };
 export const getOrderDetailAPI = (orderId) => {
@@ -27,4 +28,30 @@ export const getAllOrdersAPI = (query) => {
 export const updateOrderStatusAPI = (orderId, data) => {
   const URL_API = `api/v1/admin/order/update-status/${orderId}`;
   return apiClient.patch(URL_API, data);
+};
+
+// ====================== DASHBOARD ======================
+// GET /api/v1/dashboard/order/month?month=2026-01&compare=1&staffId=...
+export const getDashboardMonthAPI = (params) => {
+  const URL_API = "/api/v1/dashboard/order/month";
+  return apiClient.get(URL_API, { params });
+};
+
+// ====================== STAFF ======================
+// inbox đơn chưa gán staff: /api/v1/staff/order/unassigned?status=Pending
+export const getUnassignedOrdersAPI = (params) => {
+  const URL_API = "/api/v1/staff/order/unassigned";
+  return apiClient.get(URL_API, { params });
+};
+
+// staff claim: PATCH /api/v1/staff/order/:id/claim
+export const claimOrderAPI = (orderId) => {
+  const URL_API = `/api/v1/staff/order/${orderId}/claim`;
+  return apiClient.patch(URL_API);
+};
+
+// staff xem đơn của mình: GET /api/v1/staff/order?status=Pending&month=2026-01
+export const getMyStaffOrdersAPI = (params) => {
+  const URL_API = "/api/v1/staff/order";
+  return apiClient.get(URL_API, { params });
 };

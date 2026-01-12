@@ -12,6 +12,9 @@ const uploadRoutes = require("../modules/upload/upload.routes");
 const publicProduct = require("../modules/product/public.router");
 const orderUserRouter = require("../modules/order/routes/order.user.routes");
 const orderAdminRoute = require("../modules/order/routes/order.admin.routes");
+const orderStaffRoute = require("../modules/order/routes/order.staff.routes");
+const orderDashboardRoute = require("../modules/order/routes/order.dashboard.routes");
+
 const chatRoutes = require("../modules/chat/chat.route");
 const { guard } = require("../middlewares/auth");
 const { PERMISSIONS } = require("../../../constants/permissions");
@@ -35,6 +38,12 @@ module.exports = (app) => {
 
   app.use(v1 + "/admin/upload", uploadRoutes);
   app.use(v1 + "/admin/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderAdminRoute);
+  // staff (xem đơn của mình + claim)
+  app.use(v1 + "/staff/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderStaffRoute);
+
+  // dashboard (staff xem của mình, admin xem all + compare)
+  app.use(v1 + "/dashboard/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderDashboardRoute);
+  
   // public client
   app.use(v1 + "/products", publicProduct);
   app.use(v1 + "/categories", categoryPublic);
