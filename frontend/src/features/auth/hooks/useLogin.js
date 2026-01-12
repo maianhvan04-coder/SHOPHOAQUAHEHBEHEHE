@@ -5,7 +5,7 @@ import axios from "axios";
 import { authService } from "../authService";
 import { validateLogin } from "~/shared/utils/validators";
 import { rbacApi } from "~/api/rbacApi";
-import { authApi } from "~/api/authApi";
+
 import { canAccessScreen } from "~/shared/utils/ability";
 import { useAuth } from "~/app/providers/AuthProvides";
 
@@ -119,21 +119,24 @@ export function useLogin() {
   const handleAfterLogin = async () => {
     const me = await refreshMe();
 
-    const permissions = me?.permissions || [];
+    const permissions = me?.permissions || {};
 
-    const userType = Array.isArray(me?.userType)
-    const isOnlyUser = userType !== "internal"
+    const userType = me?.userType
+    console.log(userType)
 
 
     // // đợi toast hiện
     await new Promise((r) => setTimeout(r, 1000));
 
-    if (isOnlyUser) {
+    if (userType !== "internal") {
+
+
       navigate("/", { replace: true });
       return;
     }
 
-    // RBAC catalog
+
+    // // RBAC catalog
     let catalog = {};
     try {
       const catalogRes = await rbacApi.catalog();

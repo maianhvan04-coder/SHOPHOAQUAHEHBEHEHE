@@ -21,7 +21,6 @@ function setRefreshCookie(res, refreshToken, maxAgeMs) {
 // ===== GOOGLE LOGIN =====
 exports.googleLogin = asyncHandler(async (req, res) => {
   const { credential } = req.body;
-  console.log(typeof credential, "credential")
   const result = await authService.googleLogin({
     credential,
   }, req);

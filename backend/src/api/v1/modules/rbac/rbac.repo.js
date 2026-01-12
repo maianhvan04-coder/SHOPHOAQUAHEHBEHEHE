@@ -57,16 +57,26 @@ exports.findPermissionsByKeys = (keys) => Permission.find({ key: { $in: keys }, 
 exports.findPermissionsByIds = (ids) => Permission.find({ _id: { $in: ids }, isActive: true }).lean();
 exports.findPermissionByKey = (key) => Permission.findOne({ key, isActive: true }).lean();
 
-// ===== RolePermission =====
-exports.replaceRolePermissions = async (roleId, permissionIds) => {
+// rbac.repo.js
+exports.replaceRolePermissions = async (roleId, permissionDocs) => {
     await RolePermission.deleteMany({ roleId });
-    if (!permissionIds?.length) return;
-    await RolePermission.insertMany(permissionIds.map((permissionId) => ({ roleId, permissionId })));
+
+    if (permissionDocs.length) {
+        await RolePermission.insertMany(
+            permissionDocs.map((p) => ({
+                roleId,
+                permissionKey: p.permissionKey,
+                scope: p.scope || "all",
+                field: p.scope === "own" ? p.field || "createdBy" : null,
+            }))
+        );
+    }
 };
+
+
 // ===== RolePermission (thêm) =====
 exports.findRolePermissionIdsByRoleId = async (roleId) => {
-    const links = await RolePermission.find({ roleId }).select("permissionId").lean();
-    return links.map((x) => x.permissionId);
+    return RolePermission.find({ roleId }).lean()
 };
 
 

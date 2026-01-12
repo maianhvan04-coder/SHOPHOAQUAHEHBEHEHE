@@ -26,7 +26,6 @@ exports.create = Joi.object({
     category: objectId.required().messages({
         "any.required": "Danh mục là bắt buộc",
     }),
-
     description: Joi.string().allow("").max(2000).optional().messages({
         "string.base": "Mô tả phải là chuỗi",
         "string.max": "Mô tả tối đa {#limit} ký tự",

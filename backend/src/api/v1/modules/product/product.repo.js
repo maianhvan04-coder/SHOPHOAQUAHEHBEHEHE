@@ -4,7 +4,8 @@ exports.listAdminProduct = async ({ page, limit, filter, sort }) => {
     const skip = (page - 1) * limit;
 
     const items = await Product.find(filter)
-        .populate("category", "name slug") // ✅ đúng schema
+        .populate("category", "name slug")
+        .populate("createdBy", "fullName email")
         .sort(sort)
         .skip(skip)
         .limit(limit);

@@ -1,9 +1,11 @@
+const { sendOrderConfirmationEmail } = require("../../../../../helpers/mailer");
 const {
   createOrderService,
   getMyOrdersService,
   cancelOrderService,
   getOrderDetailService,
 } = require("../order.service");
+
 module.exports.createOrder = async (req, res) => {
   try {
     const userId = req.user?.sub;
@@ -16,7 +18,7 @@ module.exports.createOrder = async (req, res) => {
     }
 
     const newOrder = await createOrderService(userId, req.body);
-
+  
     return res.status(201).json({
       success: true,
       message: "Đặt hàng thành công!",
