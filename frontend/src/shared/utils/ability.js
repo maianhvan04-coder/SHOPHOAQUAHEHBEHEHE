@@ -16,6 +16,11 @@ export function normalizePattern(pattern = "") {
   return pattern;
 }
 
+function hasPermission(perms, key) {
+  return !!perms?.[key];
+}
+
+
 /**
  * Match RRv6 chuẩn:
  * - end:false => "/admin/user" match "/admin/user/123"
@@ -80,11 +85,12 @@ export function findScreenByPathname(screens = [], pathname = "") {
  * @param {"route"|"menu"} options.mode
  */
 export function canAccessScreen(
-  userPermissions = [],
+  userPermissions = {},
   screen,
   { mode = "route" } = {}
 ) {
-  const perms = Array.isArray(userPermissions) ? userPermissions : [];
+
+
 
   // screen public luôn cho
   if (screen?.public) return true;
@@ -95,7 +101,7 @@ export function canAccessScreen(
 
     // nếu screen có khai báo view → bắt buộc có READ
     if (Array.isArray(viewPerms) && viewPerms.length > 0) {
-      return viewPerms.some((p) => perms.includes(p));
+      return viewPerms.some((p) => hasPermission(userPermissions, p));
     }
 
     // không có view thì ẩn luôn cho chắc
@@ -106,41 +112,31 @@ export function canAccessScreen(
   const needAny = screen?.accessAny;
   if (!Array.isArray(needAny) || needAny.length === 0) return true;
 
-  return needAny.some((p) => perms.includes(p));
+  return needAny.some((p) => hasPermission(userPermissions, p));
 }
 
 
 /**
  * Lấy screen đầu tiên user truy cập được (để redirect /admin)
  */
-export function firstAccessibleScreen(groups = [], screens = [], userPermissions = []) {
+export function firstAccessibleScreen(groups = [], screens = [], userPermissions = {}) {
   const groupOrder = new Map(
-    (Array.isArray(groups) ? groups : []).map((g) => [g.key, Number(g.order ?? 9999)])
+    (groups || []).map((g) => [g.key, Number(g.order ?? 9999)])
   );
 
-  const sorted = (Array.isArray(screens) ? screens : [])
-    .slice()
-    .sort((a, b) => {
-      const ga = groupOrder.get(a.group) ?? 9999;
-      const gb = groupOrder.get(b.group) ?? 9999;
-      if (ga !== gb) return ga - gb;
-
-      const oa = Number(a.order ?? 9999);
-      const ob = Number(b.order ?? 9999);
-      if (oa !== ob) return oa - ob;
-
-      return String(a.label || "").localeCompare(String(b.label || ""));
-    });
+  const sorted = (screens || []).slice().sort((a, b) => {
+    const ga = groupOrder.get(a.group) ?? -1;
+    const gb = groupOrder.get(b.group) ?? -1;
+    if (ga !== gb) return ga - gb;
+    return (a.order ?? 9999) - (b.order ?? 9999);
+  });
 
   const first = sorted.find((s) => canAccessScreen(userPermissions, s));
   if (!first) return null;
 
-  const routes = Array.isArray(first.routes) ? first.routes : [];
-  const uiRoute =
-    routes.find((r) => typeof r === "string" && r.startsWith("/admin")) || null;
-
-  return uiRoute ? normalizePattern(uiRoute) : null;
+  return first.routes?.[0] || null;
 }
+
 
 
 /**
@@ -148,21 +144,14 @@ export function firstAccessibleScreen(groups = [], screens = [], userPermissions
  * - không có actionKey hoặc action không khai báo => cho phép
  * - có action => chỉ cần 1 permission match (OR)
  */
-export function canAccessAction(userPermissions = [], screen, actionKey) {
-  const perms = Array.isArray(userPermissions) ? userPermissions : [];
-
-  // Không tìm thấy screen => không cho phép action
-  if (!screen) return false;
+export function canAccessAction(userPermissions = {}, screen, actionKey) {
+  if (!screen || !actionKey) return false;
 
   const need = screen?.actions?.[actionKey];
 
-  // nếu action không khai báo thì tuỳ bạn:
-  // - an toàn: return false
-  // - dễ dãi: return true
-  // mình khuyên an toàn:
   if (!actionKey) return true;
   if (!Array.isArray(need) || need.length === 0) return false;
 
-  return need.some((p) => perms.includes(p));
+  return need.some((p) => hasPermission(userPermissions, p));
 }
 

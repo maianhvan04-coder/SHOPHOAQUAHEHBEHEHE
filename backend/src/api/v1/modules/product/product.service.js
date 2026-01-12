@@ -14,6 +14,7 @@ const categoryRepo = require("../category/category.repo");
 const parsePaging = require("../../../../helpers/query.util.js");
 const Category = require("../category/category.model.js");
 const Product = require("./product.model.js");
+const assertOwnership = require("./assertOwnership.helper")
 
 exports.createProduct = async (payload, id) => {
   const { name } = payload;
@@ -55,18 +56,31 @@ exports.createProduct = async (payload, id) => {
   return productRepo.create({ ...payload, slug });
 };
 
-exports.productAdminUpdate = async (id, payload) => {
+exports.productAdminUpdate = async (authz, userId, id, payload) => {
+  const { scope, field = "createdBy" } = authz;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Người dùng không hợp lệ");
+  }
+
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "ProductId không hợp lệ");
   }
+
+
 
   const current = await productRepo.findByIdAdmin(id);
   if (!current)
     throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
 
+
+  assertOwnership({ scope, entity: current, userId, field });
+
+
+
   const updateData = { ...payload };
 
-  // ✅ validate category nếu có đổi
+  // validate category nếu có đổi
   if (payload.category) {
     if (!mongoose.Types.ObjectId.isValid(payload.category)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Category không hợp lệ");
@@ -76,7 +90,7 @@ exports.productAdminUpdate = async (id, payload) => {
       throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy danh mục");
   }
 
-  // ✅ name đổi -> slug đổi
+  //  name đổi -> slug đổi
   if (payload.name) {
     const newSlug = makeSlug(payload.name);
     const existed = await productRepo.findAnyByIdSlug(newSlug);
@@ -92,19 +106,29 @@ exports.productAdminUpdate = async (id, payload) => {
   return updated;
 };
 
-exports.productAdminList = async (query) => {
+exports.productAdminList = async (query, user) => {
+  const { permissions } = user;
+  const authz = permissions["product:read"]
   const { limit, page } = parsePagination(query);
   const { isDeleted } = query;
   const search = query.search?.trim();
-  const category = query.category; // ✅ dùng category
+  const category = query.category;
   let isActive = parseBoolean(query.isActive);
+  console.log("userId", user.sub)
+  if (!authz) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Không có quyền xem sản phẩm")
+  }
 
   if (isActive === "true") isActive = true;
   else if (isActive === "false") isActive = false;
   else isActive = undefined;
 
   const filter = { isDeleted };
-  console.log(filter);
+
+  if (authz.scope === "own") {
+    filter.createdBy = user.sub;
+  }
+  console.log(authz.scope, "CreateBy")
   if (typeof isActive === "boolean") filter.isActive = isActive;
   if (category && mongoose.Types.ObjectId.isValid(category))
     filter.category = category;

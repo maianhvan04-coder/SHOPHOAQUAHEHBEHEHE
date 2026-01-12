@@ -57,12 +57,14 @@ export const endpoints = {
     removeUserOverride: `${v1Admin}/rbac/user-override`,
     catalog: `${v1Admin}/rbac/catalog`,
 
+    createRole: `${v1Admin}/rbac/roles/create`,
+    updateRole: (id) => `${v1Admin}/rbac/roles/update/${id}`,
     // ROLES
     getPermissionByRole: ({ roleCode }) =>
       `${v1Admin}/rbac/roles/${encodeURIComponent(roleCode)}/permissions`,
 
     roleById: (id) => `${v1Admin}/rbac/roles/${encodeURIComponent(id)}`,
-    
+
     rolesStatus: ({ id }) => `${v1Admin}/rbac/roles/${id}/status`,
   },
 

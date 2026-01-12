@@ -19,8 +19,8 @@ export const rbacApi = {
         apiClient.get(endpoints.rbac.getPermissionByRole({ roleCode })),
 
     // CRUD roles
-    createRole: (payload) => apiClient.post(endpoints.rbac.roles, payload),
-    updateRole: ({ id, ...payload }) => apiClient.patch(endpoints.rbac.roleById(id), payload),
+    createRole: (payload) => apiClient.post(endpoints.rbac.createRole, payload),
+    updateRole: ({ id, ...payload }) => apiClient.patch(endpoints.rbac.updateRole(id), payload),
     deleteRole: ({ id }) => apiClient.delete(endpoints.rbac.roleById(id)),
     toggleRoleStatus: ({ id }) => apiClient.patch(endpoints.rbac.rolesStatus({ id })),
 

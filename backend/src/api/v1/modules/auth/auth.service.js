@@ -28,7 +28,7 @@ const remainingSec = (expiresAt) => {
 
 const buildLoginResult = async (user, req) => {
   const authz = await rbacService.buildAuthz(user._id);
-
+  console.log(authz)
   const expiresAt = new Date(Date.now() + SESSION_MS);
 
   // ✅ tạo session trước
@@ -108,7 +108,6 @@ exports.googleLogin = async ({ credential }, req) => {
     idToken: credential,
     audience: process.env.GOOGLE_CLIENT_ID,
   });
-  console.log(ticket)
   const { sub: googleId, email, name, picture } = ticket.getPayload();
   if (!email) {
     throw new ApiError(httpStatus.UNAUTHORIZED, "Google account không có email");

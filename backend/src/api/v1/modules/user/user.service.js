@@ -7,17 +7,34 @@ const { mongoose } = require("mongoose");
 const Role = require("../rbac/model/role.model")
 const UserRole = require("../rbac/model/UserRole.model");
 const { hashPassword, comparePassword } = require("../../../../helpers/password.auth")
-
+const authRepo = require("../auth/auth.repo");
 const roleRepo = require("../rbac/repo/role.repo");
 const userRoleRepo = require("../rbac/repo/userRole.repo");
+const AuthProvider = require("./authProvider.model")
 
 
-
-
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PHONE_REGEX = /^0\d{9}$/;
 function normalizeIds(ids) {
   const unique = Array.from(new Set(ids || []))
   const valid = unique.filter((id) => mongoose.Types.ObjectId.isValid(id))
   return { unique, valid }
+}
+function normalizePhone(v) {
+  let digits = String(v || "").replace(/\D/g, "");
+  if (!digits) return "";
+
+  // 84xxxxxxxxx -> 0xxxxxxxxx
+  if (digits.startsWith("84")) digits = "0" + digits.slice(2);
+
+  // chỉ nhận 0xxxxxxxxx (10 số)
+  if (!PHONE_REGEX.test(digits)) return "";
+  return digits;
+}
+
+function normalizeEmail(v) {
+  const s = String(v || "").trim().toLowerCase();
+  return s;
 }
 
 exports.getUsers = async (query) => {
@@ -132,7 +149,6 @@ exports.deleteUser = async (id) => {
 
       // 1) Check user tồn tại
       const user = await userRepo.findById(userId, { session });
-      console.log(user, ">>>>>>>>>>>>User")
       if (!user) {
         throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
       }
@@ -306,8 +322,6 @@ const normEmail = (email = "") => String(email).trim().toLowerCase();
 
 exports.createUserAdmin = async (payload) => {
 
-  console.log("Vào Đến Đây")
-
   const fullName = String(payload.fullName || "").trim();
   const email = String(payload.email || "").trim().toLowerCase();
   const phone = payload.phone ? String(payload.phone).replace(/\D/g, "").slice(0, 10) : "";
@@ -333,20 +347,21 @@ exports.createUserAdmin = async (payload) => {
     const phoneExits = await userRepo.findByPhone(phone, { session })
     if (phoneExits) throw new Error("Số điện thoại đã tồn tại");
 
+
+    // 2) tạo User (KHÔNG lưu passwordHash ở đây)
+    const user = await userRepo.createOne({ fullName, email, phone, isActive, type: "client" })
+
+    // 3) tạo AuthProvider local để lưu passwordHash
+    // providerId local = email
     const passwordHash = await hashPassword(password, 10);
 
-    const user = await userRepo.createOne(
-      {
-        fullName,
-        email,
-        phone,
-        passwordHash,
-        isActive,
-        isDeleted: false,
-      },
-      { session }
-    );
-
+    await authRepo.createAuthProvider({
+      userId: user._id,
+      provider: "local",
+      providerId: email,
+      email,
+      passwordHash,
+    })
     const roles = await userRepo.replaceUserRolesByCodes(
       { userId: user._id, roleCodes: finalRoleCodes },
       { session }
@@ -378,6 +393,7 @@ exports.createUserAdmin = async (payload) => {
   }
 };
 
+
 exports.updateUserAdmin = async (userId, payload) => {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "UserId không hợp lệ");
@@ -389,69 +405,70 @@ exports.updateUserAdmin = async (userId, payload) => {
     throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy user");
   }
 
-  // ❌ không cho sửa ADMIN
-  const currentRoleCodes = (current.roles || []).map(r => r.code).filter(Boolean);
+  // không cho sửa ADMIN
+  const currentRoleCodes = (current.roles || []).map((r) => r.code).filter(Boolean);
   if (currentRoleCodes.includes("ADMIN")) {
     throw new ApiError(httpStatus.FORBIDDEN, "Không thể cập nhật tài khoản ADMIN");
   }
 
   /* ---------------- normalize payload ---------------- */
-
   const fullName =
     payload.fullName !== undefined ? String(payload.fullName || "").trim() : undefined;
 
   const email =
-    payload.email !== undefined ? String(payload.email || "").trim().toLowerCase() : undefined;
+    payload.email !== undefined ? normalizeEmail(payload.email) : undefined;
 
   const phone =
-    payload.phone !== undefined
-      ? String(payload.phone || "").replace(/\D/g, "").slice(0, 10)
-      : undefined;
+    payload.phone !== undefined ? normalizePhone(payload.phone) : undefined;
 
   const isActive =
     payload.isActive !== undefined ? !!payload.isActive : undefined;
 
+  // roleCodes: nếu client gửi [] => hiểu là reset về USER
   const roleCodes =
-    Array.isArray(payload.roleCodes) ? payload.roleCodes.filter(Boolean) : undefined;
+    payload.roleCodes !== undefined
+      ? (Array.isArray(payload.roleCodes) ? payload.roleCodes.filter(Boolean) : [])
+      : undefined;
 
-  const password =
+  // password: nếu gửi "" => coi như không đổi
+  const passwordRaw =
     payload.password !== undefined ? String(payload.password || "") : undefined;
+  const password = passwordRaw !== undefined && passwordRaw.trim() !== "" ? passwordRaw : undefined;
 
   /* ---------------- validate nhẹ ---------------- */
-
   if (fullName !== undefined && !fullName) {
     throw new ApiError(httpStatus.BAD_REQUEST, "fullName không hợp lệ");
   }
 
-  if (email !== undefined && !email) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "email không hợp lệ");
+  if (email !== undefined) {
+    if (!email) throw new ApiError(httpStatus.BAD_REQUEST, "email không hợp lệ");
+    if (!EMAIL_REGEX.test(email)) throw new ApiError(httpStatus.BAD_REQUEST, "email không đúng định dạng");
   }
 
-  if (password !== undefined && password && password.length < 6) {
+  if (phone !== undefined) {
+    if (!phone) throw new ApiError(httpStatus.BAD_REQUEST, "phone không hợp lệ (0xxxxxxxxx)");
+  }
+
+  if (password !== undefined && password.length < 6) {
     throw new ApiError(httpStatus.BAD_REQUEST, "password min 6 chars");
   }
 
-  if (roleCodes && roleCodes.includes("ADMIN")) {
+  if (roleCodes !== undefined && roleCodes.includes("ADMIN")) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Không cho gán ADMIN qua API");
   }
 
   /* ---------------- build update user doc ---------------- */
-
-  const updateDoc = {};
-  if (fullName !== undefined) updateDoc.fullName = fullName;
-  if (email !== undefined) updateDoc.email = email;
-  if (phone !== undefined) updateDoc.phone = phone;
-  if (isActive !== undefined) updateDoc.isActive = isActive;
-
-  if (password) {
-    updateDoc.passwordHash = await hashPassword(password, 10);
-  }
+  const updateUserDoc = {};
+  if (fullName !== undefined) updateUserDoc.fullName = fullName;
+  if (email !== undefined) updateUserDoc.email = email;
+  if (phone !== undefined) updateUserDoc.phone = phone;
+  if (isActive !== undefined) updateUserDoc.isActive = isActive;
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    /* --------- check unique email --------- */
+    /* --------- check unique email (User) --------- */
     if (email !== undefined && email !== current.email) {
       const existed = await userRepo.findByEmail(email, { session });
       if (existed && String(existed._id) !== String(userId)) {
@@ -459,38 +476,88 @@ exports.updateUserAdmin = async (userId, payload) => {
       }
     }
 
-    /* --------- check unique phone --------- */
+    /* --------- check unique phone (User) --------- */
     if (phone !== undefined && phone !== (current.phone || "")) {
-      if (phone) {
-        const existedPhone = await userRepo.findByPhone(phone, { session });
-        if (existedPhone && String(existedPhone._id) !== String(userId)) {
-          throw new ApiError(httpStatus.CONFLICT, "Phone already exists");
-        }
+      const existedPhone = await userRepo.findByPhone(phone, { session });
+      if (existedPhone && String(existedPhone._id) !== String(userId)) {
+        throw new ApiError(httpStatus.CONFLICT, "Phone already exists");
       }
     }
 
+    /* --------- nếu đổi email: sync AuthProvider local providerId/email --------- */
+    if (email !== undefined && email !== current.email) {
+      // tránh trùng providerId ở AuthProvider (unique index provider+providerId)
+      const existedLocal = await AuthProvider.findOne({
+        provider: "local",
+        providerId: email,
+        userId: { $ne: new mongoose.Types.ObjectId(userId) },
+      }).session(session).lean();
+
+      if (existedLocal) {
+        throw new ApiError(httpStatus.CONFLICT, "Email already exists (auth provider)");
+      }
+
+      await AuthProvider.updateOne(
+        { userId, provider: "local" },
+        { $set: { providerId: email, email } },
+        { session }
+      );
+    }
+
     /* --------- update user info --------- */
-    if (Object.keys(updateDoc).length) {
-      await userRepo.updateById(userId, updateDoc, { session });
+    if (Object.keys(updateUserDoc).length) {
+      await userRepo.updateById(userId, updateUserDoc, { session });
+    }
+
+    /* --------- password: lưu vào AuthProvider (local) --------- */
+    let passwordChanged = false;
+    if (password !== undefined) {
+      const finalEmail = email !== undefined ? email : (current.email || "");
+      const passwordHash = await hashPassword(password, 10);
+
+      const ap = await AuthProvider.findOne({ userId, provider: "local" })
+        .session(session)
+        .lean();
+
+      if (ap) {
+        await AuthProvider.updateOne(
+          { _id: ap._id },
+          { $set: { passwordHash, email: finalEmail, providerId: finalEmail } },
+          { session }
+        );
+      } else {
+        // user trước đó login Google/Facebook… giờ set mật khẩu local
+        await AuthProvider.create(
+          [
+            {
+              userId,
+              provider: "local",
+              providerId: finalEmail,
+              email: finalEmail,
+              passwordHash,
+            },
+          ],
+          { session }
+        );
+      }
+
+      passwordChanged = true;
     }
 
     let nextUserType = current.type;
     let needBumpAuthz = false;
 
     /* --------- replace roles + sync user.type --------- */
-    if (roleCodes) {
+    if (roleCodes !== undefined) {
       const finalRoleCodes = roleCodes.length ? roleCodes : ["USER"];
 
-      // replace roles & lấy lại role full (có type)
       const newRoles = await userRepo.replaceUserRolesByCodes(
         { userId, roleCodes: finalRoleCodes },
         { session }
       );
 
-      // role nội bộ quyết định user.type
       const INTERNAL_ROLE_TYPES = ["owner", "manager", "staff"];
-
-      const hasInternalRole = (newRoles || []).some(r =>
+      const hasInternalRole = (newRoles || []).some((r) =>
         INTERNAL_ROLE_TYPES.includes(r.type)
       );
 
@@ -499,7 +566,7 @@ exports.updateUserAdmin = async (userId, payload) => {
     }
 
     /* --------- bump authzVersion + update type nếu cần --------- */
-    if (needBumpAuthz || password) {
+    if (needBumpAuthz || passwordChanged) {
       await userRepo.updateById(
         userId,
         {
@@ -508,11 +575,13 @@ exports.updateUserAdmin = async (userId, payload) => {
         },
         { session }
       );
+    } else if (nextUserType !== current.type) {
+      // nếu không bump mà type đổi (ít xảy ra), vẫn update type
+      await userRepo.updateById(userId, { type: nextUserType }, { session });
     }
 
     await session.commitTransaction();
 
-    // trả user + roles mới
     const updated = await userRepo.findUserWithRolesById(userId);
     return updated;
   } catch (e) {

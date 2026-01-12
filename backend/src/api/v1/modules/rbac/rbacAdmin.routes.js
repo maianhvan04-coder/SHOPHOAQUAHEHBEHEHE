@@ -55,6 +55,24 @@ router.delete(
     controller.removeUserOverride
 );
 
+router.post(
+    "roles/create",
+    ...RBAC_SYNC_ADMIN,
+    validate(validator.createRole),
+    controller.createRole
+);
+router.delete(
+    "/roles/:id",
+    ...RBAC_SYNC_ADMIN,
+    // validate(validator.createRole),
+    controller.deleteRole
+);
+router.patch(
+    "/roles/update/:id",
+    ...RBAC_SYNC_ADMIN,
+    validate(validator.updateRoleSchema),
+    controller.updateRole
+);
 // sync (admin only)
 router.post("/sync-admin", ...RBAC_SYNC_ADMIN, controller.syncAdminAllPermissions);
 

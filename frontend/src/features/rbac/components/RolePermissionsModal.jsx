@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -8,6 +8,7 @@ import {
   Flex,
   Heading,
   HStack,
+  Input,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -15,90 +16,94 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  Select,
   Stack,
   Tag,
   TagLabel,
   Text,
 } from "@chakra-ui/react";
 
+const SCOPES = [
+  { value: "all", label: "All" },
+  { value: "own", label: "Own" },
+];
+
 export default function RolePermissionsModal({
   isOpen,
   onClose,
   role,
   allPermissions = [],
+  initialPermissions = [],
   onSave,
-  saving = false,
-  initialSelectedKeys = [],
+  saving,
 }) {
-  const [selected, setSelected] = useState([]);
+  const [permissionsMap, setPermissionsMap] = useState({});
+  const initRef = useRef(false);
 
+  // ✅ INIT 1 LẦN KHI OPEN
   useEffect(() => {
-    if (!isOpen) return;
-    setSelected(Array.isArray(initialSelectedKeys) ? initialSelectedKeys : []);
-  }, [isOpen, initialSelectedKeys]);
+    if (!isOpen) {
+      initRef.current = false;
+      return;
+    }
+    if (initRef.current) return;
 
-  // ✅ group theo groupKey/groupLabel, sort theo order
-  const groups = useMemo(() => {
-    const map = new Map();
-
-    (allPermissions || [])
-      .filter((p) => p?.isActive !== false)
-      .forEach((p) => {
-        const groupKey = p.groupKey || p.group || "OTHER";
-        const groupLabel = p.groupLabel || groupKey;
-
-        if (!map.has(groupKey)) {
-          map.set(groupKey, {
-            groupKey,
-            groupLabel,
-            items: [],
-          });
-        }
-        map.get(groupKey).items.push(p);
-      });
-
-    const arr = Array.from(map.values());
-
-    // sort item theo order trước, fallback key
-    arr.forEach((g) => {
-      g.items.sort((a, b) => {
-        const ao = a.order ?? 999999;
-        const bo = b.order ?? 999999;
-        if (ao !== bo) return ao - bo;
-        return (a.key || "").localeCompare(b.key || "");
-      });
+    const map = {};
+    initialPermissions.forEach((p) => {
+      map[p.key] = {
+        scope: p.scope || "all",
+        field: p.field || null,
+      };
     });
 
-    // sort group theo groupKey (hoặc nếu bạn có group order thì gán vào DB rồi sort theo đó)
-    arr.sort((a, b) => (a.groupKey || "").localeCompare(b.groupKey || ""));
+    setPermissionsMap(map);
+    initRef.current = true;
+  }, [isOpen, initialPermissions]);
 
-    return arr;
+  // GROUP PERMISSIONS
+  const groups = useMemo(() => {
+    const m = new Map();
+    allPermissions.forEach((p) => {
+      const g = p.groupKey || "OTHER";
+      if (!m.has(g)) m.set(g, { label: p.groupLabel, items: [] });
+      m.get(g).items.push(p);
+    });
+    return Array.from(m.entries());
   }, [allPermissions]);
 
-  const toggle = (key) => {
-    setSelected((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    );
+  const toggle = (key, checked) => {
+    setPermissionsMap((prev) => {
+      const next = { ...prev };
+      if (!checked) delete next[key];
+      else next[key] = { scope: "all", field: null };
+      return next;
+    });
   };
 
-  const isGroupAllSelected = (group) =>
-    group.items.length > 0 && group.items.every((p) => selected.includes(p.key));
+  const updateScope = (key, scope) => {
+    setPermissionsMap((prev) => ({
+      ...prev,
+      [key]: {
+        scope,
+        field: scope === "own" ? prev[key]?.field || "createdBy" : null,
+      },
+    }));
+  };
 
-  const toggleGroupAll = (group) => {
-    const keys = group.items.map((p) => p.key).filter(Boolean);
-
-    setSelected((prev) => {
-      const hasAll = keys.every((k) => prev.includes(k));
-      if (hasAll) return prev.filter((k) => !keys.includes(k)); // clear group
-
-      const set = new Set(prev);
-      keys.forEach((k) => set.add(k));
-      return Array.from(set);
-    });
+  const updateField = (key, field) => {
+    setPermissionsMap((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], field },
+    }));
   };
 
   const onSubmit = async () => {
-    await onSave?.(selected);
+    const permissions = Object.entries(permissionsMap).map(([key, v]) => ({
+      key,
+      scope: v.scope,
+      field: v.scope === "own" ? v.field : null,
+    }));
+    await onSave({ roleCode: role.code, permissions });
   };
 
   return (
@@ -106,73 +111,80 @@ export default function RolePermissionsModal({
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>
-          <HStack spacing={3}>
+          <HStack>
             <Heading size="md">Manage Permissions</Heading>
-            <Tag colorScheme="vrv" variant="subtle">
-              <TagLabel>{role?.code || role?.name || "ROLE"}</TagLabel>
-            </Tag>
+            <Tag><TagLabel>{role?.code}</TagLabel></Tag>
           </HStack>
-          <Text fontSize="sm" opacity={0.7} mt={1}>
-            Chọn permissions theo nhóm
-          </Text>
         </ModalHeader>
-
         <ModalCloseButton />
 
         <ModalBody>
           <Stack spacing={6}>
-            {groups.length === 0 ? (
-              <Text>Không có permission nào.</Text>
-            ) : (
-              groups.map((g) => (
-                <Box key={g.groupKey} borderWidth="1px" rounded="lg" p={4}>
-                  <Flex justify="space-between" align="center">
-                    {/* ✅ giống ảnh: User Management / Role Management... */}
-                    <Heading size="sm">{g.groupLabel}</Heading>
+            {groups.map(([groupKey, g]) => (
+              <Box key={groupKey} borderWidth="1px" rounded="lg" p={4}>
+                <Heading size="sm">{g.label}</Heading>
+                <Divider my={3} />
+                <Stack spacing={3}>
+                  {g.items.map((p) => {
+                    const checked = !!permissionsMap[p.key];
+                    const val = permissionsMap[p.key];
 
-                    <Button
-                      size="xs"
-                      variant="link"
-                      onClick={() => toggleGroupAll(g)}
-                    >
-                      {isGroupAllSelected(g) ? "Clear All" : "Select All"}
-                    </Button>
-                  </Flex>
+                    return (
+                      <HStack key={p.key} spacing={4}>
+                        <Checkbox
+                          isChecked={checked}
+                          onChange={(e) => toggle(p.key, e.target.checked)}
+                        >
+                          <Text>{p.label}</Text>
+                        </Checkbox>
 
-                  <Divider my={3} />
+                        {checked && (
+                          <Select
+                            size="sm"
+                            w="120px"
+                            value={val.scope}
+                            onChange={(e) =>
+                              updateScope(p.key, e.target.value)
+                            }
+                            isDisabled={p.key.endsWith(":read")}
+                          >
+                            {SCOPES.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </Select>
+                        )}
 
-                  <Stack spacing={2}>
-                    {g.items.map((p) => (
-                      <Checkbox
-                        key={p._id || p.key}
-                        isChecked={selected.includes(p.key)}
-                        onChange={() => toggle(p.key)}
-                      >
-                        {/* ✅ giống ảnh: View Users / Create Users... */}
-                        <Text fontWeight="500">{p.label || p.key}</Text>
-                      </Checkbox>
-                    ))}
-                  </Stack>
-                </Box>
-              ))
-            )}
+                        {checked && val.scope === "own" && (
+                          <Input
+                            size="sm"
+                            w="160px"
+                            value={val.field || ""}
+                            onChange={(e) =>
+                              updateField(p.key, e.target.value)
+                            }
+                          />
+                        )}
+                      </HStack>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            ))}
           </Stack>
         </ModalBody>
 
         <ModalFooter>
-          <HStack spacing={3}>
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              colorScheme="vrv"
-              onClick={onSubmit}
-              isLoading={saving}
-              isDisabled={!role}
-            >
-              Save ({selected.length})
-            </Button>
-          </HStack>
+          <Button onClick={onClose} variant="outline">Cancel</Button>
+          <Button
+            ml={3}
+            colorScheme="blue"
+            onClick={onSubmit}
+            isLoading={saving}
+          >
+            Save
+          </Button>
         </ModalFooter>
       </ModalContent>
     </Modal>

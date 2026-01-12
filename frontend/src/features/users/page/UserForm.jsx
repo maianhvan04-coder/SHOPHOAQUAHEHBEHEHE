@@ -9,25 +9,23 @@ import {
   FormErrorMessage,
   FormLabel,
   HStack,
-  Icon,
   IconButton,
   Input,
   InputGroup,
   InputLeftAddon,
   InputRightElement,
   SimpleGrid,
-  Stack,
   Switch,
   Text,
   VStack,
   useColorModeValue,
   useToast,
+  Tooltip,
 } from "@chakra-ui/react";
 import { ViewIcon, ViewOffIcon, InfoOutlineIcon } from "@chakra-ui/icons";
 import { userService } from "~/features/users/userService";
 import { validateUserForm } from "~/shared/utils/validators";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE_REGEX = /^0\d{9}$/;
 
 function UserForm({ user, onSubmit, onCancel }) {
@@ -89,14 +87,38 @@ function UserForm({ user, onSubmit, onCancel }) {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const val = type === "checkbox" ? checked : value;
+
     setFormData((p) => ({ ...p, [name]: val }));
     setErrors((p) => ({ ...p, [name]: undefined }));
   };
 
+  const validatePasswordInline = () => {
+    if (isEdit && !formData.password) return null;
+    if (!isEdit && !formData.password) return "Mật khẩu là bắt buộc khi tạo mới";
+    if (formData.password && formData.password.length < 6) return "Mật khẩu tối thiểu 6 ký tự";
+    if (formData.password && formData.password.length > 64) return "Mật khẩu tối đa 64 ký tự";
+    return null;
+  };
+
+  const validatePhoneInline = () => {
+    const p = (formData.phone || "").trim();
+    if (!p) return null; // phone optional
+    if (!PHONE_REGEX.test(p)) return "SĐT phải đúng định dạng 0xxxxxxxxx (10 số)";
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const { isValid, errors: newErrors } = validateUserForm(formData, { isEdit });
-    if (!isValid) {
+
+    const pwErr = validatePasswordInline();
+    if (pwErr) newErrors.password = pwErr;
+
+    const phoneErr = validatePhoneInline();
+    if (phoneErr) newErrors.phone = phoneErr;
+
+    if (!isValid || pwErr || phoneErr) {
       setErrors(newErrors);
       return;
     }
@@ -109,9 +131,16 @@ function UserForm({ user, onSubmit, onCancel }) {
         isActive: formData.isActive,
         roleCodes: formData.roleCodes,
       };
-      if (formData.phone) payload.phone = formData.phone;
+
+      const phone = formData.phone.trim();
+      if (phone) payload.phone = phone;
+
       if (formData.password) payload.password = formData.password;
+
       await onSubmit?.(payload);
+
+      setFormData((p) => ({ ...p, password: "" }));
+      setShowPassword(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -130,15 +159,14 @@ function UserForm({ user, onSubmit, onCancel }) {
       boxShadow="sm"
     >
       <VStack spacing={6} align="stretch">
-        {/* HEADER */}
         <Text fontSize="lg" fontWeight="bold" color="blue.500">
           Thông tin người dùng
         </Text>
 
-        {/* BASIC INFO */}
+        {/* BASIC INFO (2 cột) */}
         <SimpleGrid columns={{ base: 1, md: 2 }} spacingX={8} spacingY={5}>
           <FormControl isInvalid={!!errors.fullName} isRequired>
-            <FormLabel fontSize="xs" fontWeight="bold" color={labelColor}>
+            <FormLabel fontSize="xs" fontWeight="bold" color={labelColor} mb={2}>
               Họ và tên
             </FormLabel>
             <Input name="fullName" value={formData.fullName} onChange={handleChange} />
@@ -146,17 +174,86 @@ function UserForm({ user, onSubmit, onCancel }) {
           </FormControl>
 
           <FormControl isInvalid={!!errors.email} isRequired>
-            <FormLabel fontSize="xs" fontWeight="bold" color={labelColor}>
+            <FormLabel fontSize="xs" fontWeight="bold" color={labelColor} mb={2}>
               Email
             </FormLabel>
             <Input name="email" value={formData.email} onChange={handleChange} />
             <FormErrorMessage>{errors.email}</FormErrorMessage>
           </FormControl>
+
+          {/* ✅ PHONE */}
+          <FormControl isInvalid={!!errors.phone}>
+            <FormLabel fontSize="xs" fontWeight="bold" color={labelColor} mb={2}>
+              Số điện thoại
+            </FormLabel>
+            <Input
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="VD: 0987654321"
+              inputMode="numeric"
+            />
+            <FormErrorMessage>{errors.phone}</FormErrorMessage>
+          </FormControl>
+
+          {/* ✅ PASSWORD: span full hàng */}
+          <FormControl
+            isInvalid={!!errors.password}
+            isRequired={!isEdit}
+            gridColumn={{ base: "auto", md: "1 / -1" }}
+          >
+            <HStack justify="space-between" mb={1}>
+              <FormLabel fontSize="xs" fontWeight="bold" color={labelColor} mb={2}>
+                {isEdit ? "Đổi mật khẩu (tuỳ chọn)" : "Mật khẩu"}
+              </FormLabel>
+
+              {isEdit ? (
+                <Tooltip label="Để trống nếu không đổi mật khẩu" placement="top" hasArrow>
+                  <span>
+                    <InfoOutlineIcon fontSize="sm" color={labelColor} />
+                  </span>
+                </Tooltip>
+              ) : null}
+            </HStack>
+
+            <InputGroup w="full">
+              <InputLeftAddon children="🔒" />
+
+              <Input
+                flex="1"
+                w="full"
+                pr="44px"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleChange}
+                placeholder={isEdit ? "Nhập mật khẩu mới..." : "Nhập mật khẩu..."}
+              />
+
+              <InputRightElement w="44px">
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
+                  onClick={() => setShowPassword((s) => !s)}
+                />
+              </InputRightElement>
+            </InputGroup>
+
+            <FormErrorMessage>{errors.password}</FormErrorMessage>
+
+            <Text mt={1} fontSize="xs" color={labelColor}>
+              {isEdit
+                ? "Nếu nhập mật khẩu mới, hệ thống sẽ cập nhật mật khẩu cho user."
+                : "Mật khẩu tối thiểu 6 ký tự."}
+            </Text>
+          </FormControl>
         </SimpleGrid>
 
         <Divider />
 
-        {/* ===== VAI TRÒ (HÀNG 1) ===== */}
+        {/* ===== VAI TRÒ ===== */}
         <FormControl isInvalid={!!errors.roleCodes}>
           <FormLabel fontSize="xs" fontWeight="bold" color={labelColor} mb={3}>
             Vai trò hệ thống
@@ -195,7 +292,7 @@ function UserForm({ user, onSubmit, onCancel }) {
           <FormErrorMessage>{errors.roleCodes}</FormErrorMessage>
         </FormControl>
 
-        {/* ===== TRẠNG THÁI (HÀNG 2) ===== */}
+        {/* ===== TRẠNG THÁI ===== */}
         <FormControl>
           <FormLabel fontSize="xs" fontWeight="bold" color={labelColor}>
             Trạng thái tài khoản

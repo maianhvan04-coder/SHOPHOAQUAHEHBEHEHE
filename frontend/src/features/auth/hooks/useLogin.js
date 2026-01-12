@@ -5,7 +5,7 @@ import axios from "axios";
 import { authService } from "../authService";
 import { validateLogin } from "~/shared/utils/validators";
 import { rbacApi } from "~/api/rbacApi";
-import { authApi } from "~/api/authApi";
+
 import { canAccessScreen } from "~/shared/utils/ability";
 import { useAuth } from "~/app/providers/AuthProvides";
 
@@ -119,7 +119,7 @@ export function useLogin() {
   const handleAfterLogin = async () => {
     const me = await refreshMe();
 
-    const permissions = me?.permissions || [];
+    const permissions = me?.permissions || {};
 
     const userType = me?.userType
     console.log(userType)

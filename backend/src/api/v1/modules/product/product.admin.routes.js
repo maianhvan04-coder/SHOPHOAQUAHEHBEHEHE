@@ -21,7 +21,7 @@ router.patch(
     "/update/:id",
     ...guard({ any: [PERMISSIONS.PRODUCT_WRITE] }),
     validate(validator.update),
-    controller.adminUpdate
+    controller.updateProduct
 );
 
 // DELETE /api/v1/admin/product/delete/:id

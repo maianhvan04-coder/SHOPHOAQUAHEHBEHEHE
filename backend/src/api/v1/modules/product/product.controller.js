@@ -7,9 +7,13 @@ const {
   getAllCategoriesService,
   getCategoryById,
 } = require("../category/category.service");
+
+
+
 module.exports.adminList = asyncHandler(async (req, res) => {
 
-  const data = await productService.productAdminList(req.query);
+
+  const data = await productService.productAdminList(req.query, req.user);
   // console.log(data)
   res.json({ data });
 });
@@ -20,8 +24,9 @@ module.exports.createProduct = asyncHandler(async (req, res) => {
   res.json({ message: "Tạo sản phẩm thành công", data });
 });
 
-module.exports.adminUpdate = asyncHandler(async (req, res) => {
-  const data = await productService.productAdminUpdate(req.params.id, req.body);
+module.exports.updateProduct = asyncHandler(async (req, res) => {
+  const userId = req.user.sub;
+  const data = await productService.productAdminUpdate(req.authz, userId, req.params.id, req.body);
   res.json({ message: "Cập nhật sản phẩm thành công" });
 });
 
