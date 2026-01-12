@@ -7,6 +7,15 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    
+    // ✅ staff phụ trách / tạo đơn
+    staff: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+      // required: true, // bật sau khi migrate
+    },
+
     orderItems: [
       {
         product: {
@@ -50,6 +59,10 @@ const orderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+orderSchema.index({ staff: 1, createdAt: 1 });                         // staff xem theo tháng
+orderSchema.index({ "status.orderStatus": 1, createdAt: 1 });          // lọc status theo tháng (admin)
+orderSchema.index({ staff: 1, "status.orderStatus": 1, createdAt: 1 }); // staff + status + tháng (query KPI)
 
 const Order = mongoose.model("Order", orderSchema);
 module.exports = Order;
