@@ -4,7 +4,12 @@ const { Schema, model, Types } = require("mongoose")
 
 const schema = new Schema({
     roleId: { type: Types.ObjectId, ref: "Role", required: true, index: true },
-    permissionId: { type: Types.ObjectId, ref: "Permission", index: true, required: true }
+    permissionId: { type: Types.ObjectId, ref: "Permission", index: true, required: true },
+    scope: {
+        type: String,
+        enum: ["all", "own"],
+        default: "all",
+    }
 }, {
     timestamps: true
 })

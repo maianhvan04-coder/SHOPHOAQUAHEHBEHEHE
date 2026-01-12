@@ -15,6 +15,12 @@ const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
 
+    createdBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: "User",
+      require: true,
+      index: true,
+    },
     // vẫn dùng slug-updater như bạn đang làm
     slug: { type: String, slug: "name", index: true, trim: true },
 

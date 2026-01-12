@@ -181,12 +181,15 @@ export function useLogin() {
     // // đợi toast hiện
     await new Promise((r) => setTimeout(r, 1000));
 
-    if (isOnlyUser) {
+    if (userType !== "internal") {
+
+
       navigate("/", { replace: true });
       return;
     }
 
-    // RBAC catalog
+
+    // // RBAC catalog
     let catalog = {};
     try {
       const catalogRes = await rbacApi.catalog();
