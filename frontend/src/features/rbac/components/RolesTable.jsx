@@ -40,8 +40,8 @@ import {
 } from "@heroicons/react/24/outline";
 
 export default function RolesTable({
-  roles,
-  rolePermMap,
+  roles = [],
+  rolePermMap = {}, // { [roleCode]: [{ key, scope, field }] }
   loading,
   loadingPerms,
   selectedRoleCode,
@@ -72,6 +72,7 @@ export default function RolesTable({
       shadow="sm"
       overflow="hidden"
     >
+      {/* ================= HEADER ================= */}
       <CardHeader pb={0} pt={6} px={6}>
         <Flex gap={4} direction={{ base: "column", md: "row" }} align="center" mb={4}>
           <InputGroup size="md" maxW={{ base: "full", md: "360px" }}>
@@ -81,7 +82,9 @@ export default function RolesTable({
             <Input
               placeholder="Search by role name or code..."
               value={filters.search}
-              onChange={(e) => onChangeFilters({ ...filters, search: e.target.value })}
+              onChange={(e) =>
+                onChangeFilters({ ...filters, search: e.target.value })
+              }
               variant="filled"
               bg={useColorModeValue("gray.100", "gray.700")}
               _focus={{ bg: "transparent", borderColor: "blue.400" }}
@@ -93,11 +96,12 @@ export default function RolesTable({
             size="md"
             maxW={{ base: "full", md: "200px" }}
             value={filters.active}
-            onChange={(e) => onChangeFilters({ ...filters, active: e.target.value })}
+            onChange={(e) =>
+              onChangeFilters({ ...filters, active: e.target.value })
+            }
             variant="filled"
             bg={useColorModeValue("gray.100", "gray.700")}
             borderRadius="xl"
-            cursor="pointer"
           >
             <option value="">All Statuses</option>
             <option value="active">Active</option>
@@ -105,7 +109,6 @@ export default function RolesTable({
           </Select>
 
           <Spacer />
-
           <Button onClick={onAddRole}>Add Role</Button>
         </Flex>
 
@@ -114,16 +117,27 @@ export default function RolesTable({
         </Badge>
       </CardHeader>
 
+      {/* ================= TABLE ================= */}
       <CardBody px={0} py={2}>
         <Box overflowX="auto">
           <Table variant="simple" size="md">
             <Thead bg={tableHeaderBg}>
               <Tr>
-                <Th color={tableHeaderColor} py={4} pl={6}>Role Identity</Th>
-                <Th color={tableHeaderColor} py={4}>Permissions</Th>
-                <Th color={tableHeaderColor} py={4}>Status</Th>
-                <Th color={tableHeaderColor} py={4} isNumeric>Users</Th>
-                <Th color={tableHeaderColor} py={4} textAlign="right" pr={6}>Actions</Th>
+                <Th color={tableHeaderColor} py={4} pl={6}>
+                  Role Identity
+                </Th>
+                <Th color={tableHeaderColor} py={4}>
+                  Permissions
+                </Th>
+                <Th color={tableHeaderColor} py={4}>
+                  Status
+                </Th>
+                <Th color={tableHeaderColor} py={4} isNumeric>
+                  Users
+                </Th>
+                <Th color={tableHeaderColor} py={4} textAlign="right" pr={6}>
+                  Actions
+                </Th>
               </Tr>
             </Thead>
 
@@ -143,63 +157,108 @@ export default function RolesTable({
                   <Td colSpan={5} py={16}>
                     <Center flexDirection="column">
                       <Icon as={InboxIcon} boxSize={12} color="gray.300" mb={3} />
-                      <Text color={subText} fontWeight="medium">No roles match your search.</Text>
+                      <Text color={subText} fontWeight="medium">
+                        No roles match your search.
+                      </Text>
                     </Center>
                   </Td>
                 </Tr>
               ) : (
                 roles.map((role) => {
-                  const keys = rolePermMap?.[role.code] || [];
-                  const preview = keys.slice(0, 2);
-                  const more = keys.length - preview.length;
+                  const perms = rolePermMap?.[role.code] || [];
+                  const preview = perms.slice(0, 2);
+                  const more = perms.length - preview.length;
                   const roleColor = getRoleColorScheme(role.code);
 
                   return (
-                    <Tr key={role._id || role.code} _hover={{ bg: rowHoverBg }} transition="background 0.2s">
+                    <Tr
+                      key={role._id || role.code}
+                      _hover={{ bg: rowHoverBg }}
+                      transition="background 0.2s"
+                    >
+                      {/* ===== ROLE INFO ===== */}
                       <Td pl={6} py={4}>
                         <HStack spacing={4}>
                           <Flex
-                            w="48px" h="48px"
-                            align="center" justify="center"
+                            w="48px"
+                            h="48px"
+                            align="center"
+                            justify="center"
                             rounded="2xl"
                             bg={`${roleColor}.100`}
                             color={`${roleColor}.600`}
-                            _dark={{ bg: `${roleColor}.900`, color: `${roleColor}.200` }}
+                            _dark={{
+                              bg: `${roleColor}.900`,
+                              color: `${roleColor}.200`,
+                            }}
                           >
                             <Icon as={ShieldCheckIcon} boxSize={6} />
                           </Flex>
 
                           <Box>
                             <HStack mb={1}>
-                              <Text fontWeight="bold">{role.name || role.code}</Text>
-                              <Badge variant="outline" colorScheme={roleColor} fontSize="xx-small" rounded="md">
+                              <Text fontWeight="bold">
+                                {role.name || role.code}
+                              </Text>
+                              <Badge
+                                variant="outline"
+                                colorScheme={roleColor}
+                                fontSize="xx-small"
+                                rounded="md"
+                              >
                                 {role.code}
                               </Badge>
                             </HStack>
-                            <Text fontSize="xs" color={subText} noOfLines={1} maxW="200px">
+                            <Text
+                              fontSize="xs"
+                              color={subText}
+                              noOfLines={1}
+                              maxW="200px"
+                            >
                               {role.description || "No description provided"}
                             </Text>
                           </Box>
                         </HStack>
                       </Td>
 
+                      {/* ===== PERMISSIONS ===== */}
                       <Td py={4}>
-                        {keys.length === 0 ? (
-                          <Text fontSize="xs" color="gray.400" fontStyle="italic">
+                        {perms.length === 0 ? (
+                          <Text
+                            fontSize="xs"
+                            color="gray.400"
+                            fontStyle="italic"
+                          >
                             No permissions assigned
                           </Text>
                         ) : (
                           <Wrap spacing={2}>
-                            {preview.map((k) => (
-                              <WrapItem key={k}>
-                                <Badge variant="subtle" colorScheme="gray" rounded="md" px={2} py={1} fontSize="xs">
-                                  {k}
+                            {preview.map((p) => (
+                              <WrapItem key={p.key}>
+                                <Badge
+                                  variant="subtle"
+                                  colorScheme="gray"
+                                  rounded="md"
+                                  px={2}
+                                  py={1}
+                                  fontSize="xs"
+                                >
+                                  {p.key}
+                                  {p.scope !== "all" && ` (${p.scope})`}
                                 </Badge>
                               </WrapItem>
                             ))}
+
                             {more > 0 && (
                               <WrapItem>
-                                <Badge rounded="md" px={2} py={1} fontSize="xs" bg="gray.200" color="gray.600">
+                                <Badge
+                                  rounded="md"
+                                  px={2}
+                                  py={1}
+                                  fontSize="xs"
+                                  bg="gray.200"
+                                  color="gray.600"
+                                >
                                   +{more}
                                 </Badge>
                               </WrapItem>
@@ -208,27 +267,35 @@ export default function RolesTable({
                         )}
                       </Td>
 
+                      {/* ===== STATUS ===== */}
                       <Td py={4}>
-                       <Badge
-  variant="subtle"
-  colorScheme={role.isActive ? "green" : "red"}
-  rounded="full"
-  px={3}
-  cursor="pointer"
-  onClick={() => onToggleStatus(role)}
->
-  {role.isActive ? "Active" : "Inactive"}
-</Badge>
-
+                        <Badge
+                          variant="subtle"
+                          colorScheme={role.isActive ? "green" : "red"}
+                          rounded="full"
+                          px={3}
+                          cursor="pointer"
+                          onClick={() => onToggleStatus(role)}
+                        >
+                          {role.isActive ? "Active" : "Inactive"}
+                        </Badge>
                       </Td>
 
+                      {/* ===== USERS COUNT ===== */}
                       <Td isNumeric py={4}>
                         <HStack justify="flex-end" spacing={2}>
-                          <Text fontWeight="600" fontSize="sm">{role.usersCount ?? 0}</Text>
-                          <Icon as={UserGroupIcon} boxSize={4} color="gray.400" />
+                          <Text fontWeight="600" fontSize="sm">
+                            {role.usersCount ?? 0}
+                          </Text>
+                          <Icon
+                            as={UserGroupIcon}
+                            boxSize={4}
+                            color="gray.400"
+                          />
                         </HStack>
                       </Td>
 
+                      {/* ===== ACTIONS ===== */}
                       <Td textAlign="right" pr={6} py={4}>
                         <HStack justify="flex-end" spacing={1}>
                           <Tooltip label="Manage Permissions" hasArrow>
@@ -239,7 +306,10 @@ export default function RolesTable({
                               icon={<KeyIcon className="h-4 w-4" />}
                               aria-label="Permissions"
                               onClick={() => onOpenPermissions(role)}
-                              isLoading={loadingPerms && selectedRoleCode === role.code}
+                              isLoading={
+                                loadingPerms &&
+                                selectedRoleCode === role.code
+                              }
                               rounded="full"
                             />
                           </Tooltip>

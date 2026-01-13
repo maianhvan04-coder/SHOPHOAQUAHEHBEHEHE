@@ -12,7 +12,7 @@ export const productApi = {
     remove: (id) => apiClient.delete(endpoints.products.delete(id)),
 
     getById: (id) => apiClient.get(endpoints.products.detail(id)),
-
+    listCategory: () => apiClient.get(endpoints.products.listCategory),
     changeStatus: (id, isActive) =>
         apiClient.patch(endpoints.products.changeStatus(id), { isActive }),
 };

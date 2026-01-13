@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -8,6 +8,7 @@ import {
   Flex,
   Heading,
   HStack,
+  Input,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -15,11 +16,19 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  Select,
   Stack,
   Tag,
   TagLabel,
   Text,
 } from "@chakra-ui/react";
+
+const SCOPES = [
+  { value: "all", label: "All" },
+  { value: "own", label: "Own" },
+  { value: "department", label: "Department" },
+  { value: "organization", label: "Organization" },
+];
 
 export default function RolePermissionsModal({
   isOpen,
@@ -28,23 +37,58 @@ export default function RolePermissionsModal({
   allPermissions = [],
   onSave,
   saving = false,
-  initialSelectedKeys = [],
+  /**
+   * initialPermissions format:
+   * [
+   *   { key, scope, field }
+   * ]
+   */
+  initialPermissions = [],
 }) {
-  const [selected, setSelected] = useState([]);
+  /**
+   * permissionsMap:
+   * {
+   *   [permissionKey]: { scope, field }
+   * }
+   */
+  const [permissionsMap, setPermissionsMap] = useState({});
 
+  // 🔐 tránh init lại nhiều lần → tránh infinite loop
+  const initializedRef = useRef(false);
+
+  // =====================
+  // INIT ON OPEN (SAFE)
+  // =====================
   useEffect(() => {
-    if (!isOpen) return;
-    setSelected(Array.isArray(initialSelectedKeys) ? initialSelectedKeys : []);
-  }, [isOpen, initialSelectedKeys]);
+    if (!isOpen) {
+      initializedRef.current = false;
+      return;
+    }
 
-  // ✅ group theo groupKey/groupLabel, sort theo order
+    if (initializedRef.current) return;
+
+    const map = {};
+    (initialPermissions || []).forEach((p) => {
+      map[p.key] = {
+        scope: p.scope || "all",
+        field: p.field || null,
+      };
+    });
+
+    setPermissionsMap(map);
+    initializedRef.current = true;
+  }, [isOpen, initialPermissions]);
+
+  // =====================
+  // GROUP PERMISSIONS
+  // =====================
   const groups = useMemo(() => {
     const map = new Map();
 
     (allPermissions || [])
       .filter((p) => p?.isActive !== false)
       .forEach((p) => {
-        const groupKey = p.groupKey || p.group || "OTHER";
+        const groupKey = p.groupKey || "OTHER";
         const groupLabel = p.groupLabel || groupKey;
 
         if (!map.has(groupKey)) {
@@ -59,48 +103,82 @@ export default function RolePermissionsModal({
 
     const arr = Array.from(map.values());
 
-    // sort item theo order trước, fallback key
     arr.forEach((g) => {
-      g.items.sort((a, b) => {
-        const ao = a.order ?? 999999;
-        const bo = b.order ?? 999999;
-        if (ao !== bo) return ao - bo;
-        return (a.key || "").localeCompare(b.key || "");
-      });
+      g.items.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
     });
-
-    // sort group theo groupKey (hoặc nếu bạn có group order thì gán vào DB rồi sort theo đó)
-    arr.sort((a, b) => (a.groupKey || "").localeCompare(b.groupKey || ""));
 
     return arr;
   }, [allPermissions]);
 
-  const toggle = (key) => {
-    setSelected((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    );
+  // =====================
+  // HANDLERS
+  // =====================
+  const togglePermission = (key, checked) => {
+    setPermissionsMap((prev) => {
+      const next = { ...prev };
+      if (!checked) {
+        delete next[key];
+      } else {
+        next[key] = { scope: "all", field: null };
+      }
+      return next;
+    });
   };
 
+  const updateScope = (key, scope) => {
+    setPermissionsMap((prev) => ({
+      ...prev,
+      [key]: {
+        scope,
+        field: scope === "own" ? prev[key]?.field || "createdBy" : null,
+      },
+    }));
+  };
+
+  const updateField = (key, field) => {
+    setPermissionsMap((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], field },
+    }));
+  };
+
+  const isChecked = (key) => Boolean(permissionsMap[key]);
+
   const isGroupAllSelected = (group) =>
-    group.items.length > 0 && group.items.every((p) => selected.includes(p.key));
+    group.items.length > 0 &&
+    group.items.every((p) => permissionsMap[p.key]);
 
   const toggleGroupAll = (group) => {
-    const keys = group.items.map((p) => p.key).filter(Boolean);
+    setPermissionsMap((prev) => {
+      const next = { ...prev };
+      const keys = group.items.map((p) => p.key);
 
-    setSelected((prev) => {
-      const hasAll = keys.every((k) => prev.includes(k));
-      if (hasAll) return prev.filter((k) => !keys.includes(k)); // clear group
+      const hasAll = keys.every((k) => next[k]);
+      if (hasAll) {
+        keys.forEach((k) => delete next[k]);
+        return next;
+      }
 
-      const set = new Set(prev);
-      keys.forEach((k) => set.add(k));
-      return Array.from(set);
+      keys.forEach((k) => {
+        if (!next[k]) next[k] = { scope: "all", field: null };
+      });
+      return next;
     });
   };
 
   const onSubmit = async () => {
-    await onSave?.(selected);
+    const payload = Object.entries(permissionsMap).map(([key, v]) => ({
+      key,
+      scope: v.scope,
+      field: v.scope === "own" ? v.field : null,
+    }));
+
+    await onSave?.(payload);
   };
 
+  // =====================
+  // RENDER
+  // =====================
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="4xl">
       <ModalOverlay />
@@ -108,12 +186,12 @@ export default function RolePermissionsModal({
         <ModalHeader>
           <HStack spacing={3}>
             <Heading size="md">Manage Permissions</Heading>
-            <Tag colorScheme="vrv" variant="subtle">
-              <TagLabel>{role?.code || role?.name || "ROLE"}</TagLabel>
+            <Tag colorScheme="blue" variant="subtle">
+              <TagLabel>{role?.code || "ROLE"}</TagLabel>
             </Tag>
           </HStack>
           <Text fontSize="sm" opacity={0.7} mt={1}>
-            Chọn permissions theo nhóm
+            Chọn permission và scope áp dụng
           </Text>
         </ModalHeader>
 
@@ -121,41 +199,72 @@ export default function RolePermissionsModal({
 
         <ModalBody>
           <Stack spacing={6}>
-            {groups.length === 0 ? (
-              <Text>Không có permission nào.</Text>
-            ) : (
-              groups.map((g) => (
-                <Box key={g.groupKey} borderWidth="1px" rounded="lg" p={4}>
-                  <Flex justify="space-between" align="center">
-                    {/* ✅ giống ảnh: User Management / Role Management... */}
-                    <Heading size="sm">{g.groupLabel}</Heading>
+            {groups.map((g) => (
+              <Box key={g.groupKey} borderWidth="1px" rounded="lg" p={4}>
+                <Flex justify="space-between" align="center">
+                  <Heading size="sm">{g.groupLabel}</Heading>
+                  <Button
+                    size="xs"
+                    variant="link"
+                    onClick={() => toggleGroupAll(g)}
+                  >
+                    {isGroupAllSelected(g) ? "Clear All" : "Select All"}
+                  </Button>
+                </Flex>
 
-                    <Button
-                      size="xs"
-                      variant="link"
-                      onClick={() => toggleGroupAll(g)}
-                    >
-                      {isGroupAllSelected(g) ? "Clear All" : "Select All"}
-                    </Button>
-                  </Flex>
+                <Divider my={3} />
 
-                  <Divider my={3} />
+                <Stack spacing={3}>
+                  {g.items.map((p) => {
+                    const checked = isChecked(p.key);
+                    const value = permissionsMap[p.key];
 
-                  <Stack spacing={2}>
-                    {g.items.map((p) => (
-                      <Checkbox
-                        key={p._id || p.key}
-                        isChecked={selected.includes(p.key)}
-                        onChange={() => toggle(p.key)}
-                      >
-                        {/* ✅ giống ảnh: View Users / Create Users... */}
-                        <Text fontWeight="500">{p.label || p.key}</Text>
-                      </Checkbox>
-                    ))}
-                  </Stack>
-                </Box>
-              ))
-            )}
+                    return (
+                      <HStack key={p.key} spacing={4} align="center">
+                        <Checkbox
+                          isChecked={checked}
+                          onChange={(e) =>
+                            togglePermission(p.key, e.target.checked)
+                          }
+                        >
+                          <Text fontWeight="500">{p.label}</Text>
+                        </Checkbox>
+
+                        {checked && (
+                          <Select
+                            size="sm"
+                            w="140px"
+                            value={value.scope}
+                            onChange={(e) =>
+                              updateScope(p.key, e.target.value)
+                            }
+                          
+                          >
+                            {SCOPES.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </Select>
+                        )}
+
+                        {checked && value.scope === "own" && (
+                          <Input
+                            size="sm"
+                            w="160px"
+                            placeholder="createdBy"
+                            value={value.field || ""}
+                            onChange={(e) =>
+                              updateField(p.key, e.target.value)
+                            }
+                          />
+                        )}
+                      </HStack>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            ))}
           </Stack>
         </ModalBody>
 
@@ -165,12 +274,12 @@ export default function RolePermissionsModal({
               Cancel
             </Button>
             <Button
-              colorScheme="vrv"
+              colorScheme="blue"
               onClick={onSubmit}
               isLoading={saving}
               isDisabled={!role}
             >
-              Save ({selected.length})
+              Save ({Object.keys(permissionsMap).length})
             </Button>
           </HStack>
         </ModalFooter>

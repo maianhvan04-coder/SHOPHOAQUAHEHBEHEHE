@@ -37,7 +37,7 @@ export async function uploadToCloudinarySigned(file, { type = "product", product
 
     if (folder) form.append("folder", folder);
 
-    // ✅ QUAN TRỌNG: backend ký public_id thì frontend PHẢI gửi public_id
+    //  QUAN TRỌNG: backend ký public_id thì frontend PHẢI gửi public_id
     if (publicId) form.append("public_id", publicId);
 
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;

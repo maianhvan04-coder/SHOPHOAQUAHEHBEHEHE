@@ -15,9 +15,12 @@ exports.listRoles = asyncHandler(async (req, res) => {
 exports.getRbacCatalog = asyncHandler(async (req, res) => {
     // tuỳ dự án bạn lưu permission ở đâu
     // ví dụ: req.user.permissionKeys hoặc req.auth.permissions...
-    const permissionKeys = req.user?.permissions || req.auth?.permissionKeys || [];
+    const permissions = req.user?.permissions || req.auth?.permissionKeys || {};
 
-    const isSystemViewer = permissionKeys.includes(PERMISSIONS.RBAC_MANAGE);
+    const hasPermission = (key) => !!permissions[key];
+
+    // chỉ system viewer mới thấy SYSTEM + RBAC
+    const isSystemViewer = hasPermission(PERMISSIONS.RBAC_MANAGE);
 
     // data gốc
     let groups = Object.values(PERMISSION_GROUPS);
@@ -54,7 +57,9 @@ exports.syncAdminAllPermissions = asyncHandler(async (req, res) => {
 });
 
 exports.setRolePermissions = asyncHandler(async (req, res) => {
+
     const { roleCode, permissionKeys } = req.body;
+
     const data = await rbacService.setRolePermissions(roleCode, permissionKeys);
     res.json({ data });
 });
@@ -81,6 +86,7 @@ exports.removeUserOverride = asyncHandler(async (req, res) => {
 exports.getPermissionByRole = asyncHandler(async (req, res) => {
     const { roleCode } = req.params;
     const data = await rbacService.getRolePermissions(roleCode)
+    console.log(data)
     return res.json({ data })
 })
 
@@ -90,11 +96,14 @@ exports.getPermissionByRole = asyncHandler(async (req, res) => {
 const roleService = require("./service/role.service");
 
 exports.createRole = asyncHandler(async (req, res) => {
+
+
     const role = await roleService.createRole(req.body);
     res.json({ data: role });
 });
 
 exports.updateRole = asyncHandler(async (req, res) => {
+
     const role = await roleService.updateRole(req.params.id, req.body);
     res.json({ data: role });
 });

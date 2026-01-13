@@ -3,8 +3,24 @@ const { Schema, Types, model } = require("mongoose");
 const schema = new Schema(
     {
         userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
-        permissionId: { type: Types.ObjectId, ref: "Permission", required: true, index: true },
+        // permissionId: { type: Types.ObjectId, ref: "Permission", required: true, index: true },
         effect: { type: String, enum: ["ALLOW", "DENY"], required: true },
+        scope: {
+            type: String,
+            enum: ["all", "own", "department", "organization"],
+
+            default: "all",
+
+        },
+        permissionKey: {
+            type: String,
+            require: true,
+            index: true
+        },
+        field: {
+            type: String,
+            default: null
+        }
     },
     { timestamps: true }
 );

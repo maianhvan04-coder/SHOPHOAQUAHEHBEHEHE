@@ -5,11 +5,9 @@ import axios from "axios";
 import { authService } from "../authService";
 import { validateLogin } from "~/shared/utils/validators";
 import { rbacApi } from "~/api/rbacApi";
-import { authApi } from "~/api/authApi";
+
 import { canAccessScreen } from "~/shared/utils/ability";
 import { useAuth } from "~/app/providers/AuthProvides";
-import { useDispatch } from "react-redux";
-import { mergeCartOnLogin } from "../../cart/cart.slice";
 
 const unwrap = (res) => res?.data ?? res;
 
@@ -25,7 +23,7 @@ const getBackendMessage = (err) => {
 export function useLogin() {
   const navigate = useNavigate();
   const { refreshMe } = useAuth();
-  const dispatch = useDispatch();
+
   const [form, setForm] = useState({ email: "", password: "" });
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
@@ -71,59 +69,6 @@ export function useLogin() {
 
       setSuccess("Đăng nhập thành công");
 
-      // 2) ME
-      const me = await refreshMe();
-      try {
-        await dispatch(mergeCartOnLogin()).unwrap();
-      } catch (mergeErr) {
-        console.error("❌ Lỗi khi merge giỏ hàng:", mergeErr);
-        // Không 'throw' lỗi ở đây để tránh làm gián đoạn việc login của user
-      }
-      const permissions = me?.permissions || [];
-
-      const roles = Array.isArray(me?.roles)
-        ? me.roles
-        : me?.user?.roles
-        ? [me.user.roles]
-        : [];
-
-      const isOnlyUser =
-        roles.length > 0 &&
-        roles.every((r) => String(r).toUpperCase() === "USER");
-
-      // ✅ đợi 600ms cho toast kịp hiện rồi mới navigate
-      await new Promise((r) => setTimeout(r, 1000));
-
-      if (isOnlyUser) {
-        navigate("/", { replace: true });
-        return;
-      }
-
-      // 3) CATALOG
-      let catalog = {};
-      try {
-        const catalogRes = await rbacApi.catalog();
-        catalog = unwrap(catalogRes) || {};
-      } catch {
-        catalog = {};
-      }
-
-      const screens = catalog.data.screens;
-      const allowedScreens = screens
-        .filter((s) => canAccessScreen(permissions, s))
-        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-
-      if (!allowedScreens.length) {
-        navigate("/", { replace: true });
-        return;
-      }
-
-      let firstRoute = allowedScreens[0]?.routes?.[0] || "/admin";
-      if (!firstRoute.startsWith("/")) firstRoute = "/" + firstRoute;
-      if (!firstRoute.startsWith("/admin"))
-        firstRoute = "/admin" + (firstRoute === "/" ? "" : firstRoute);
-
-      navigate(firstRoute, { replace: true });
       await handleAfterLogin();
     } catch (err) {
       setSuccess("");
@@ -147,7 +92,8 @@ export function useLogin() {
         throw new Error("Không nhận được Google credential");
       }
 
-      const res = await authService.googleLogin(credential);
+
+      const res = await authService.googleLogin(credential)
 
       const result = unwrap(res)?.data || unwrap(res);
 
@@ -173,20 +119,24 @@ export function useLogin() {
   const handleAfterLogin = async () => {
     const me = await refreshMe();
 
-    const permissions = me?.permissions || [];
+    const permissions = me?.permissions || {};
 
-    const userType = Array.isArray(me?.userType);
-    const isOnlyUser = userType !== "internal";
+    const userType = me?.userType
+    console.log(userType)
+
 
     // // đợi toast hiện
     await new Promise((r) => setTimeout(r, 1000));
 
-    if (isOnlyUser) {
+    if (userType !== "internal") {
+
+
       navigate("/", { replace: true });
       return;
     }
 
-    // RBAC catalog
+
+    // // RBAC catalog
     let catalog = {};
     try {
       const catalogRes = await rbacApi.catalog();

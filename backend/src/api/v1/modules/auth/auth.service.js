@@ -28,7 +28,7 @@ const remainingSec = (expiresAt) => {
 
 const buildLoginResult = async (user, req) => {
   const authz = await rbacService.buildAuthz(user._id);
-
+  console.log(authz)
   const expiresAt = new Date(Date.now() + SESSION_MS);
 
   // ✅ tạo session trước
@@ -74,7 +74,7 @@ exports.login = async ({ email, password }, req) => {
   //  tìm auth provider local
 
   const auth = await authRepo.findLocalAuthByEmail(email);
-  console.log(auth)
+
   if (!auth) {
     throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
   }
@@ -108,7 +108,6 @@ exports.googleLogin = async ({ credential }, req) => {
     idToken: credential,
     audience: process.env.GOOGLE_CLIENT_ID,
   });
-  console.log(ticket)
   const { sub: googleId, email, name, picture } = ticket.getPayload();
   if (!email) {
     throw new ApiError(httpStatus.UNAUTHORIZED, "Google account không có email");
@@ -247,7 +246,7 @@ exports.refreshToken = async (req) => {
     throw new ApiError(httpStatus.UNAUTHORIZED, "Refresh token reuse detected");
   }
 
-  const user = await authRepo.findById(payload.sub);
+  const user = await authRepo.findUserById(payload.sub);
   if (!user || user.isDeleted) throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
   if (user.isActive === false) throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
 

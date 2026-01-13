@@ -67,8 +67,13 @@ export function useProductsPage() {
 
   const loadCategories = useCallback(async () => {
     try {
-     const { items: categoryItems } = await categoryApi.list({ page: 1, limit: 999 });
-setCategories(categoryItems); // <-- array chắc chắn
+     const res= await productApi.listCategory({ page: 1, limit: 999 });
+     // unwrap theo format { EC, EM, DT }
+const categories =
+  res?.DT?.categories ||
+  res?.data?.DT?.categories ||
+  [];
+setCategories(Array.isArray(categories) ? categories : []); // <-- array chắc chắn
 
     } catch {
       setCategories([]);

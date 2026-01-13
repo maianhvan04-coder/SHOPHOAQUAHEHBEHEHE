@@ -32,14 +32,15 @@ export const endpoints = {
     // soft delete -> vào thùng rác
     remove: (id) => `${v1Admin}/category/${id}`, // DELETE
 
-    // ✅ restore từ thùng rác
+    // restore từ thùng rác
     restore: (id) => `${v1Admin}/category/${id}/restore`, // PATCH
 
-    // ✅ hard delete (xóa vĩnh viễn) - chỉ khi isDeleted=true
+    // hard delete (xóa vĩnh viễn) - chỉ khi isDeleted=true
     hardDelete: (id) => `${v1Admin}/category/${id}/hard`,  // DELETE
   },
 
   products: {
+    listCategory: `${v1Admin}/product/list-category`,
     list: `${v1Admin}/product`,
     create: `${v1Admin}/product`,
     detail: (id) => `${v1Admin}/product/${id}`,
@@ -57,11 +58,14 @@ export const endpoints = {
     removeUserOverride: `${v1Admin}/rbac/user-override`,
     catalog: `${v1Admin}/rbac/catalog`,
 
+    createRole: `${v1Admin}/rbac/roles/create`,
+    updateRole: (id) => `${v1Admin}/rbac/roles/update/${id}`,
     // ROLES
     getPermissionByRole: ({ roleCode }) =>
       `${v1Admin}/rbac/roles/${encodeURIComponent(roleCode)}/permissions`,
 
     roleById: (id) => `${v1Admin}/rbac/roles/${encodeURIComponent(id)}`,
+
     rolesStatus: ({ id }) => `${v1Admin}/rbac/roles/${id}/status`,
   },
 
