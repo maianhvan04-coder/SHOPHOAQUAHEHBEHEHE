@@ -1,29 +1,78 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { Spin, Empty, Tabs, Tag } from "antd";
-import { FaShoppingBag, FaBox, FaTruck, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { Spin, Empty, Tabs, Tag, Button } from "antd";
+import {
+  FaShoppingBag,
+  FaBox,
+  FaTruck,
+  FaCheckCircle,
+  FaTimesCircle,
+} from "react-icons/fa";
 import { fetchMyOrders } from "../order.slice";
-
+import { checkFeedbackByOrderAndProduct } from "../../feedback/feedback.thunk";
+import { StarFilled, EyeOutlined } from "@ant-design/icons";
 const MyOrdersPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [activeStatus, setActiveStatus] = useState(""); 
-
+  const [activeStatus, setActiveStatus] = useState("");
   const { orders, isLoading } = useSelector((state) => state.order);
-
- 
   useEffect(() => {
     dispatch(fetchMyOrders(activeStatus));
   }, [dispatch, activeStatus]);
+  const [feedbackMap, setFeedbackMap] = useState({});
+  const handleCheckFeedback = async (orderId, productId) => {
+    console.log(productId);
+    const key = `${orderId}_${productId}`;
 
+    if (feedbackMap[key] !== undefined) return;
 
+    const res = await dispatch(
+      checkFeedbackByOrderAndProduct({ orderId, productId })
+    );
+
+    if (res.meta.requestStatus === "fulfilled") {
+      setFeedbackMap((prev) => ({
+        ...prev,
+        [key]: res.payload,
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (!orders || orders.length === 0) return;
+
+    orders.forEach((order) => {
+      if (order.status.orderStatus === "Delivered") {
+        const productId = order.orderItems[0]?.product;
+        if (productId) {
+          handleCheckFeedback(order._id, productId);
+        }
+      }
+    });
+  }, [orders]);
   const statusTabs = [
     { key: "", label: "Tất cả", icon: <FaShoppingBag /> },
-    { key: "Pending", label: "Chờ xác nhận", icon: <FaBox className="text-orange-400" /> },
-    { key: "Shipped", label: "Đang giao", icon: <FaTruck className="text-blue-400" /> },
-    { key: "Delivered", label: "Đã giao", icon: <FaCheckCircle className="text-green-500" /> },
-    { key: "Cancelled", label: "Đã hủy", icon: <FaTimesCircle className="text-red-400" /> },
+    {
+      key: "Pending",
+      label: "Chờ xác nhận",
+      icon: <FaBox className="text-orange-400" />,
+    },
+    {
+      key: "Shipped",
+      label: "Đang giao",
+      icon: <FaTruck className="text-blue-400" />,
+    },
+    {
+      key: "Delivered",
+      label: "Đã giao",
+      icon: <FaCheckCircle className="text-green-500" />,
+    },
+    {
+      key: "Cancelled",
+      label: "Đã hủy",
+      icon: <FaTimesCircle className="text-red-400" />,
+    },
   ];
 
   return (
@@ -33,7 +82,6 @@ const MyOrdersPage = () => {
           <FaShoppingBag /> ĐƠN HÀNG CỦA TÔI
         </h1>
 
-     
         <div className="bg-white rounded-2xl shadow-sm mb-6 p-2 overflow-x-auto">
           <div className="flex justify-between min-w-[500px]">
             {statusTabs.map((tab) => (
@@ -55,7 +103,9 @@ const MyOrdersPage = () => {
 
         {/* Nội dung danh sách */}
         {isLoading ? (
-          <div className="flex justify-center py-20"><Spin size="large" /></div>
+          <div className="flex justify-center py-20">
+            <Spin size="large" />
+          </div>
         ) : orders?.length === 0 ? (
           <div className="bg-white p-20 rounded-3xl shadow-sm text-center">
             <Empty description="Bạn không có đơn hàng nào ở trạng thái này." />
@@ -71,12 +121,22 @@ const MyOrdersPage = () => {
                 {/* Header đơn hàng */}
                 <div className="flex justify-between items-start mb-4 border-b border-gray-50 pb-3">
                   <div>
-                    <span className="text-[10px] font-mono text-gray-400">ID: {order._id.toUpperCase()}</span>
+                    <span className="text-[10px] font-mono text-gray-400">
+                      ID: {order._id.toUpperCase()}
+                    </span>
                     <p className="text-xs text-gray-500 font-medium">
-                      Ngày đặt: {new Date(order.createdAt).toLocaleDateString("vi-VN")}
+                      Ngày đặt:{" "}
+                      {new Date(order.createdAt).toLocaleDateString("vi-VN")}
                     </p>
                   </div>
-                  <Tag color={order.status.orderStatus === "Delivered" ? "green" : "orange"} className="rounded-full px-3 font-bold uppercase text-[10px]">
+                  <Tag
+                    color={
+                      order.status.orderStatus === "Delivered"
+                        ? "green"
+                        : "orange"
+                    }
+                    className="rounded-full px-3 font-bold uppercase text-[10px]"
+                  >
                     {order.status.orderStatus}
                   </Tag>
                 </div>
@@ -96,23 +156,98 @@ const MyOrdersPage = () => {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="font-bold text-gray-800 line-clamp-1">{order.orderItems[0]?.name}</p>
+                    <p className="font-bold text-gray-800 line-clamp-1">
+                      {order.orderItems[0]?.name}
+                    </p>
                     <p className="text-xs text-gray-400 italic">
                       Phương thức: {order.paymentMethod}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-400 uppercase font-medium">Tổng tiền</p>
+                    <p className="text-xs text-gray-400 uppercase font-medium">
+                      Tổng tiền
+                    </p>
                     <p className="text-lg font-black text-red-600">
                       {order.totalPrice.toLocaleString()}đ
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 flex justify-end">
-                   <span className="text-[#49a760] text-xs font-bold group-hover:translate-x-1 transition-transform">
-                     Xem chi tiết đơn hàng →
-                   </span>
+                <div className="mt-4 flex justify-between items-center">
+                  {order.status.orderStatus === "Delivered" && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ marginTop: "8px" }}
+                    >
+                      {(() => {
+                        const key = `${order._id}_${order.orderItems[0].product}`;
+                        const feedback = feedbackMap[key];
+
+                        if (feedback === undefined) return null;
+
+                        // Style chung cho các nút để trông "organic" hơn
+                        const commonButtonStyle = {
+                          borderRadius: "20px", // Bo tròn mềm mại
+                          fontWeight: "500",
+                          display: "flex",
+                          alignItems: "center",
+                          border: "none",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                        };
+
+                        if (feedback === null) {
+                          return (
+                            <Button
+                              size="middle"
+                              type="primary"
+                              icon={<StarFilled style={{ color: "#fff" }} />}
+                              style={{
+                                ...commonButtonStyle,
+                                backgroundColor: "#52c41a", // Màu xanh lá tươi (màu táo/rau củ)
+                                color: "#fff",
+                              }}
+                              onClick={() =>
+                                navigate(`/feedback/order/${order._id}`, {
+                                  state: {
+                                    orderItems: order.orderItems,
+                                    orderId: order._id,
+                                  },
+                                })
+                              }
+                            >
+                              Viết đánh giá
+                            </Button>
+                          );
+                        }
+
+                        return (
+                          <Button
+                            size="middle"
+                            icon={<EyeOutlined style={{ color: "#52c41a" }} />}
+                            style={{
+                              ...commonButtonStyle,
+                              backgroundColor: "#f6ffed", // Nền xanh lá cực nhạt
+                              color: "#52c41a",
+                              border: "1px solid #b7eb8f",
+                            }}
+                            onClick={() =>
+                              navigate(`/feedback/order/${order._id}`, {
+                                state: {
+                                  orderItems: order.orderItems,
+                                  orderId: order._id,
+                                },
+                              })
+                            }
+                          >
+                            Xem đánh giá
+                          </Button>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  <span className="text-[#49a760] text-xs font-bold group-hover:translate-x-1 transition-transform">
+                    Xem chi tiết đơn hàng →
+                  </span>
                 </div>
               </div>
             ))}

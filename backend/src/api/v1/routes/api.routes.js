@@ -16,6 +16,7 @@ const orderAdminRoute = require("../modules/order/routes/order.admin.routes");
 const cartRoute = require("../modules/cart/cart.route");
 
 const chatRoutes = require("../modules/chat/chat.route");
+const feedbackRoute = require("../modules/feedback/feedback.route");
 const { guard } = require("../middlewares/auth");
 const { PERMISSIONS } = require("../../../constants/permissions");
 
@@ -58,6 +59,7 @@ module.exports = (app) => {
   app.use(v1 + "/cart", cartRoute);
 
   app.use(v1 + "/users", publicUser);
+  app.use(v1 + "/feedback", feedbackRoute);
   // ✅ chatbot
   app.use(v1 + "/chat", chatRoutes);
 };
