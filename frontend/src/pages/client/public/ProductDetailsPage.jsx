@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { message, Modal, Rate, Spin } from "antd";
+import { useState, useEffect, useMemo } from "react";
+import { Empty, message, Modal, Progress, Rate, Spin } from "antd";
 import {
   FaShoppingCart,
   FaHeart,
@@ -7,6 +7,7 @@ import {
   FaShieldAlt,
   FaRegHeart,
 } from "react-icons/fa";
+
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -16,26 +17,50 @@ import {
 import { addToCart, fetchCart } from "../../../features/cart/cart.slice";
 
 import { toggleWishlistLocal } from "../../../features/wishlist/wishlist.slice";
+import {
+  fetchFeedbacksByProduct,
+  fetchProductRatingSummary,
+} from "../../../features/feedback/feedback.thunk";
 
+import FeedbackProduct from "../../../features/feedback/components/FeedbackProduct";
 const ProductDetails = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [filterStar, setFilterStar] = useState(0);
   const { items } = useSelector((state) => state.wishlist);
   const { currentProduct, isLoading, error } = useSelector(
     (state) => state.product
   );
+  const { feedbacks, ratingSummary, isFeedbackLoading } = useSelector(
+    (state) => state.feedback
+  );
+
   const isFavorite = items?.includes(currentProduct?._id);
   useEffect(() => {
     if (slug) {
-      dispatch(fetchProductDetailBySlug(slug));
+      dispatch(fetchProductDetailBySlug(slug))
+        .unwrap()
+        .then((product) => {
+          dispatch(
+            fetchFeedbacksByProduct({
+              productId: product._id,
+              page: 1,
+              limit: 100,
+            })
+          );
+          dispatch(fetchProductRatingSummary(product._id));
+        });
     }
     return () => {
       dispatch(clearCurrentProduct());
     };
   }, [slug, dispatch]);
-
+  const filteredFeedbacks = useMemo(() => {
+    if (filterStar === 0) return feedbacks;
+    return feedbacks.filter((fb) => fb.rating === filterStar);
+  }, [feedbacks, filterStar]);
   const handleAddToCart = () => {
     if (!currentProduct?._id || isAdding) return; // ✅ Chặn nếu đang add
 
@@ -188,7 +213,7 @@ const ProductDetails = () => {
                 }`}
               >
                 {isAdding ? (
-                  <Spin size="small" className="brightness-200" /> 
+                  <Spin size="small" className="brightness-200" />
                 ) : (
                   <FaShoppingCart />
                 )}
@@ -231,6 +256,105 @@ const ProductDetails = () => {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-20 border-t pt-16">
+          <h2 className="text-2xl font-black text-gray-800 uppercase mb-10">
+            Khách hàng nói gì?
+          </h2>
+
+          <div className="flex flex-col lg:flex-row gap-12">
+            {/* Tóm tắt sao (Bên trái) */}
+            <div className="w-full lg:w-80 bg-[#153a2e] p-8 rounded-[40px] text-white shadow-xl h-fit">
+              <div className="text-center mb-8">
+                <div className="text-6xl font-black mb-2">
+                  {currentProduct.rating}
+                </div>
+                <Rate
+                  disabled
+                  allowHalf
+                  value={currentProduct.rating}
+                  className="text-yellow-400"
+                />
+                <p className="mt-3 text-green-200 opacity-80">
+                  ({ratingSummary?.totalReviews || 0} đánh giá)
+                </p>
+              </div>
+              <div className="space-y-4">
+                {[5, 4, 3, 2, 1].map((s) => (
+                  <div
+                    key={s}
+                    className="flex items-center gap-3 text-xs font-bold"
+                  >
+                    <span className="w-10">{s} sao</span>
+                    <Progress
+                      percent={
+                        ratingSummary?.stars
+                          ? (ratingSummary.stars[s] /
+                              ratingSummary.totalReviews) *
+                            100
+                          : 0
+                      }
+                      showInfo={false}
+                      strokeColor="#c4cd38"
+                      trailColor="#ffffff20"
+                    />
+                    <span className="w-6 text-right opacity-60">
+                      {ratingSummary?.stars?.[s] || 0}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Danh sách bình luận & Bộ lọc (Bên phải) */}
+            <div className="flex-1 space-y-8">
+              <div className="flex flex-wrap gap-3">
+                {["Tất cả", "5 sao", "4 sao", "3 sao", "2 sao", "1 sao"].map(
+                  (btn, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setFilterStar(i === 0 ? 0 : 6 - i)}
+                      className={`px-6 py-2 rounded-xl font-bold border-2 transition-all ${
+                        (i === 0 && filterStar === 0) ||
+                        (i !== 0 && filterStar === 6 - i)
+                          ? "bg-[#153a2e] border-[#153a2e] text-white"
+                          : "bg-white border-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {btn}
+                    </button>
+                  )
+                )}
+              </div>
+
+              {isFeedbackLoading ? (
+                <div className="text-center py-10">
+                  <Spin />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {filteredFeedbacks?.length > 0 ? (
+                    filteredFeedbacks.map((fb) => (
+                      <FeedbackProduct
+                        key={fb._id}
+                        avatar={fb.user?.image.url}
+                        fullName={fb.user?.fullName}
+                        rating={fb.rating}
+                        createdAt={fb.createdAt}
+                        comment={fb.comment}
+                        images={fb.images}
+                      />
+                    ))
+                  ) : (
+                    <Empty
+                      className="py-10"
+                      description="Chưa có đánh giá nào."
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

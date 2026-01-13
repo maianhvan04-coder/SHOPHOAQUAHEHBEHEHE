@@ -30,6 +30,7 @@ import { adminRouters } from "../admin.routerPath";
 import CheckoutPage from "../../../features/order/pages/CheckOutPage";
 import OrderDetailPage from "../../../features/order/pages/OrderDetailPage";
 import MyOrdersPage from "../../../features/order/pages/MyOrdersPage";
+import FeedbackPage from "../../../features/feedback/pages/FeedbackPage";
 
 const routes = [
   // ===== CLIENT PUBLIC =====
@@ -49,6 +50,7 @@ const routes = [
           { path: "checkout", element: <CheckoutPage /> },
           { path: "order-detail/:id", element: <OrderDetailPage /> },
           { path: "my-orders", element: <MyOrdersPage /> },
+          { path: "feedback/order/:id", element: <FeedbackPage /> },
         ],
       },
     ],
@@ -57,7 +59,7 @@ const routes = [
   // ===== CLIENT AUTH =====
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
-  { path: "/forgot-password", element: <ForgotPasswordPage /> }, 
+  { path: "/forgot-password", element: <ForgotPasswordPage /> },
   { path: "/reset-password", element: <ResetPasswordPage /> },
 
   // ===== ADMIN PRIVATE (RBAC) =====

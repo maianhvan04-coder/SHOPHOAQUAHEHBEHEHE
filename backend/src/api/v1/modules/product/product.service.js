@@ -14,7 +14,7 @@ const categoryRepo = require("../category/category.repo");
 const parsePaging = require("../../../../helpers/query.util.js");
 const Category = require("../category/category.model.js");
 const Product = require("./product.model.js");
-const assertOwnership = require("./assertOwnership.helper")
+const assertOwnership = require("./assertOwnership.helper");
 
 exports.createProduct = async (payload, id) => {
   const { name } = payload;
@@ -67,16 +67,11 @@ exports.productAdminUpdate = async (authz, userId, id, payload) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "ProductId không hợp lệ");
   }
 
-
-
   const current = await productRepo.findByIdAdmin(id);
   if (!current)
     throw new ApiError(httpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
 
-
   assertOwnership({ scope, entity: current, userId, field });
-
-
 
   const updateData = { ...payload };
 
@@ -108,15 +103,15 @@ exports.productAdminUpdate = async (authz, userId, id, payload) => {
 
 exports.productAdminList = async (query, user) => {
   const { permissions } = user;
-  const authz = permissions["product:read"]
+  const authz = permissions["product:read"];
   const { limit, page } = parsePagination(query);
   const { isDeleted } = query;
   const search = query.search?.trim();
   const category = query.category;
   let isActive = parseBoolean(query.isActive);
-  console.log("userId", user.sub)
+  console.log("userId", user.sub);
   if (!authz) {
-    throw new ApiError(httpStatus.FORBIDDEN, "Không có quyền xem sản phẩm")
+    throw new ApiError(httpStatus.FORBIDDEN, "Không có quyền xem sản phẩm");
   }
 
   if (isActive === "true") isActive = true;
@@ -128,7 +123,7 @@ exports.productAdminList = async (query, user) => {
   if (authz.scope === "own") {
     filter.createdBy = user.sub;
   }
-  console.log(authz.scope, "CreateBy")
+  console.log(authz.scope, "CreateBy");
   if (typeof isActive === "boolean") filter.isActive = isActive;
   if (category && mongoose.Types.ObjectId.isValid(category))
     filter.category = category;
@@ -367,20 +362,24 @@ module.exports.getTopNewProductsService = async (limit = 4) => {
       category: { $in: activeCategoryIds },
     })
       .select("-__v")
-      .sort({ createdAt: -1 })
+      // Sắp xếp theo thứ tự ưu tiên:
+      // 1. sold: -1 (Bán chạy nhất lên đầu)
+      // 2. rating: -1 (Nếu bán bằng nhau, ai nhiều sao hơn thì thắng)
+      // 3. createdAt: -1 (Nếu cả 2 bằng nhau, ai mới hơn thì thắng)
+      .sort({ sold: -1, rating: -1, createdAt: -1 })
       .limit(limit)
       .populate("category", "name");
 
     return {
       EC: 0,
-      EM: "Lấy danh sách sản phẩm mới nhất thành công",
+      EM: "Lấy danh sách sản phẩm nổi bật thành công",
       DT: products,
     };
   } catch (error) {
     console.error("getTopNewProductsService error:", error);
     return {
       EC: -1,
-      EM: "Lỗi server khi lấy sản phẩm đặc biệt",
+      EM: "Lỗi server khi lấy sản phẩm",
       DT: [],
     };
   }
