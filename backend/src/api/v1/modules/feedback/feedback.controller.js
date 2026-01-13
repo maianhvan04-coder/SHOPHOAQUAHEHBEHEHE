@@ -7,6 +7,7 @@ const feedbackService = require("./feedback.service");
 module.exports.createFeedback = async (req, res) => {
   try {
     const userId = req.user.sub;
+  
     const { productId, orderId, rating, comment, images } = req.body;
 
     const feedback = await feedbackService.createFeedback({
@@ -124,7 +125,7 @@ module.exports.getProductRatingSummary = async (req, res) => {
 module.exports.getFeedbackByOrderAndProduct = async (req, res) => {
   try {
     const userId = req.user.sub;
-    console.log("UserId bên controller", userId);
+    
     const { orderId, productId } = req.query;
 
     const feedback = await feedbackService.getFeedbackByOrderAndProduct({

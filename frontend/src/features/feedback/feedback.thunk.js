@@ -15,6 +15,7 @@ export const fetchFeedbacksByProduct = createAsyncThunk(
   async ({ productId, page = 1, limit = 10 }, { rejectWithValue }) => {
     try {
       const res = await getFeedbacksByProductAPI(productId, page, limit);
+
       return res.data.DT;
     } catch (err) {
       return rejectWithValue(err.response?.data?.EM || "Lỗi tải feedback");
@@ -44,10 +45,13 @@ export const createFeedback = createAsyncThunk(
   "feedback/create",
   async (data, { rejectWithValue }) => {
     try {
+      console.log(data);
       const res = await createFeedbackAPI(data);
       return res.data.DT;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.EM || "Không thể tạo đánh giá");
+      return rejectWithValue(
+        err.response?.data?.EM || "Không thể tạo đánh giá"
+      );
     }
   }
 );
@@ -62,7 +66,9 @@ export const updateFeedback = createAsyncThunk(
       const res = await updateFeedbackAPI(feedbackId, data);
       return res.data.DT;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.EM || "Không thể cập nhật đánh giá");
+      return rejectWithValue(
+        err.response?.data?.EM || "Không thể cập nhật đánh giá"
+      );
     }
   }
 );
@@ -75,10 +81,12 @@ export const checkFeedbackByOrderAndProduct = createAsyncThunk(
   async ({ orderId, productId }, { rejectWithValue }) => {
     try {
       const res = await checkFeedbackByOrderAndProductAPI(orderId, productId);
-      
-      return res.data.DT; 
+
+      return res.data.DT;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.EM || "Không thể kiểm tra feedback");
+      return rejectWithValue(
+        err.response?.data?.EM || "Không thể kiểm tra feedback"
+      );
     }
   }
 );

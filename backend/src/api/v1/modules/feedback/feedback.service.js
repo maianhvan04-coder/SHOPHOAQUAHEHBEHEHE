@@ -1,28 +1,45 @@
 const Feedback = require("./feedback.model");
 const mongoose = require("mongoose");
-
+const Product = require("../product/product.model");
+require("../user/user.model");
 /**
  * Tạo feedback mới
  */
 const updateProductRatingOnCreate = async (productId, newRating) => {
-  const product = await Product.findById(productId);
+  const product = await Product.findById(productId).select(
+    "rating ratingCount"
+  );
 
   const total = product.rating * product.ratingCount + newRating;
   const count = product.ratingCount + 1;
 
-  product.ratingCount = count;
-  product.rating = Number((total / count).toFixed(1));
-
-  await product.save();
+  await Product.findByIdAndUpdate(
+    productId,
+    {
+      $set: {
+        ratingCount: count,
+        rating: Number((total / count).toFixed(1)),
+      },
+    },
+    { validateBeforeSave: false }
+  );
 };
 const updateProductRatingOnUpdate = async (productId, oldRating, newRating) => {
-  const product = await Product.findById(productId);
+  const product = await Product.findById(productId).select(
+    "rating ratingCount"
+  );
 
   const total = product.rating * product.ratingCount - oldRating + newRating;
 
-  product.rating = Number((total / product.ratingCount).toFixed(1));
-
-  await product.save();
+  await Product.findByIdAndUpdate(
+    productId,
+    {
+      $set: {
+        rating: Number((total / product.ratingCount).toFixed(1)),
+      },
+    },
+    { validateBeforeSave: false }
+  );
 };
 module.exports.createFeedback = async ({
   userId,
@@ -113,15 +130,27 @@ module.exports.getFeedbacksByProduct = async ({
   }
   const skip = (page - 1) * limit;
 
-  const [feedbacks, total] = await Promise.all([
+  const [rawFeedbacks, total] = await Promise.all([
     Feedback.find({ productId })
-      .populate("userId", "name avatar")
+      .populate({
+        path: "userId",
+        select: "fullName image",
+        model: "User",
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit),
+      .limit(limit)
+      .lean() 
+      .exec(), 
     Feedback.countDocuments({ productId }),
   ]);
-
+  const feedbacks = rawFeedbacks.map((fb) => {
+    const { userId, ...rest } = fb; 
+    return {
+      ...rest,
+      user: userId, 
+    };
+  });
   return {
     feedbacks,
     total,
@@ -135,29 +164,49 @@ module.exports.getFeedbacksByProduct = async ({
  */
 module.exports.getProductRatingSummary = async (productId) => {
   if (!mongoose.Types.ObjectId.isValid(productId)) {
-    return { averageRating: 0, totalReviews: 0 };
+    return {
+      averageRating: 0,
+      totalReviews: 0,
+      stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    };
   }
+
   const result = await Feedback.aggregate([
     { $match: { productId: new mongoose.Types.ObjectId(productId) } },
     {
-      $group: {
-        _id: "$productId",
-        averageRating: { $avg: "$rating" },
-        totalReviews: { $sum: 1 },
+      $facet: {
+        overview: [
+          {
+            $group: {
+              _id: "$productId",
+              averageRating: { $avg: "$rating" },
+              totalReviews: { $sum: 1 },
+            },
+          },
+        ],
+
+        starCounts: [{ $group: { _id: "$rating", count: { $sum: 1 } } }],
       },
     },
   ]);
 
-  if (!result.length) {
+  if (!result[0].overview.length) {
     return {
       averageRating: 0,
       totalReviews: 0,
+      stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
     };
   }
 
+  const stars = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  result[0].starCounts.forEach((item) => {
+    stars[item._id] = item.count;
+  });
+
   return {
-    averageRating: Number(result[0].averageRating.toFixed(1)),
-    totalReviews: result[0].totalReviews,
+    averageRating: Number(result[0].overview[0].averageRating.toFixed(1)),
+    totalReviews: result[0].overview[0].totalReviews,
+    stars: stars,
   };
 };
 
@@ -166,7 +215,6 @@ module.exports.getFeedbackByOrderAndProduct = async ({
   productId,
   userId,
 }) => {
-  console.log("userId bên service: ", userId);
   if (
     !mongoose.Types.ObjectId.isValid(orderId) ||
     !mongoose.Types.ObjectId.isValid(productId) ||

@@ -9,6 +9,7 @@ import {
 
 const initialState = {
   feedbacks: [],
+  orderFeedbackMap: {},
   total: 0,
   page: 1,
   totalPages: 0,
@@ -58,18 +59,34 @@ const feedbackSlice = createSlice({
 
       // check feedback
       .addCase(checkFeedbackByOrderAndProduct.fulfilled, (state, action) => {
-        state.orderFeedback = action.payload; // null hoặc feedback
+        const { orderId, productId } = action.meta.arg;
+        const key = `${orderId}_${productId}`;
+
+        state.orderFeedbackMap[key] = action.payload || null;
       })
 
       // create feedback
       .addCase(createFeedback.fulfilled, (state, action) => {
         state.orderFeedback = action.payload;
+        const { orderId, productId } = action.payload;
+
+        if (action.payload?.orderId && action.payload?.productId) {
+          const key = `${action.payload.orderId}_${action.payload.productId}`;
+          state.orderFeedbackMap[key] = action.payload;
+        }
       })
 
       // update feedback
       .addCase(updateFeedback.fulfilled, (state, action) => {
-        state.orderFeedback = action.payload;
+        state.orderFeedback = action.payload; // action.payload là DT trả về từ API
 
+        const { orderId, productId } = action.payload;
+        const key = `${orderId}_${productId}`;
+
+        // Cập nhật lại Map với dữ liệu mới (lúc này isUpdated đã là true)
+        state.orderFeedbackMap[key] = action.payload;
+
+        // Cập nhật vào danh sách feedbacks nếu cần
         const index = state.feedbacks.findIndex(
           (f) => f._id === action.payload._id
         );

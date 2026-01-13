@@ -71,6 +71,7 @@ export const endpoints = {
 
   upload: {
     signature: `${v1Admin}/upload/signature`,
+    feedbackSignature: `${v1}/upload/feedback-signature`,
   },
   chat: {
     send: `${v1}/chat`,
