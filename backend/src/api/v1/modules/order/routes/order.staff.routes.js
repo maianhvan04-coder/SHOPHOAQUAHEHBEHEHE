@@ -1,12 +1,27 @@
-const express = require("express");
+const router = require("express").Router();
 const staffController = require("../controllers/order.staff.controller");
-const { auth, requireRole } = require("../../../middlewares/auth"); // tuỳ bạn đang đặt tên middleware
+const { guard } = require("../../../middlewares/auth");
+const { PERMISSIONS } = require("../../../../../constants/permissions");
 
-const router = express.Router();
+// Inbox (chưa gán)
+router.get(
+  "/unassigned",
+  ...guard({ any: [PERMISSIONS.ORDER_STAFF_INBOX_READ] }),
+  staffController.getUnassignedOrders
+);
 
-router.use(auth, requireRole("STAFF"));
-router.get("/unassigned", staffController.getUnassignedOrders); // ✅ đặt lên trên
-router.patch("/:id/claim", staffController.claimOrder);
-router.get("/", staffController.getMyStaffOrders);
+// Claim
+router.patch(
+  "/:id/claim",
+  ...guard({ any: [PERMISSIONS.ORDER_STAFF_CLAIM] }),
+  staffController.claimOrder
+);
+
+// Đơn của tôi
+router.get(
+  "/",
+  ...guard({ any: [PERMISSIONS.ORDER_STAFF_MY_READ] }),
+  staffController.getMyStaffOrders
+);
 
 module.exports = router;

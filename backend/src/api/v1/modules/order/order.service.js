@@ -79,17 +79,17 @@ module.exports.getMyOrdersService = async (userId, status) => {
   if (status) {
     query["status.orderStatus"] = status;
   }
-  const orders = await Order.find(query).sort({
-    createdAt: -1
-  });
-
+  const orders = await Order.find(query)
+  .populate("staff", "fullName phone")
+  .sort({createdAt: -1 });
   return orders;
 };
 module.exports.getOrderDetailService = async (userId, orderId) => {
   const order = await Order.findOne({
     _id: orderId,
     user: userId
-  });
+  })
+  .populate("staff", "fullName phone");
   if (!order) {
     throw new Error(
       "Không tìm thấy đơn hàng hoặc bạn không có quyền xem đơn hàng này."
@@ -257,31 +257,45 @@ module.exports.getMyStaffOrdersService = async (staffId, query) => {
 //staff nhận đơn chưa có staff
 
 module.exports.claimOrderService = async (orderId, staffId) => {
-  if (!orderId) throw new Error("Thiếu orderId");
-  if (!staffId) throw new Error("Thiếu staffId");
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    const err = new Error("orderId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!mongoose.Types.ObjectId.isValid(staffId)) {
+    const err = new Error("staffId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
 
-  const updated = await Order.findOneAndUpdate({
-    _id: orderId,
-    "status.orderStatus": "Pending", // ✅ chặn claim nếu không Pending
-    $or: [{
-      staff: null
-    }, {
-      staff: {
-        $exists: false
-      }
-    }],
-  }, {
-    $set: {
-      staff: staffId
+  const updated = await Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      "status.orderStatus": "Pending",
+      $or: [{ staff: null }, { staff: { $exists: false } }],
+    },
+    {
+      $set: { staff: staffId, staffAssignedAt: new Date() }, // staffAssignedAt optional
+    },
+    { new: true }
+  );
+
+  if (!updated) {
+    // check tồn tại để trả mã đúng
+    const exists = await Order.exists({ _id: orderId });
+    if (!exists) {
+      const err = new Error("Không tìm thấy đơn hàng");
+      err.statusCode = 404;
+      throw err;
     }
-  }, {
-    new: true
-  });
 
-  if (!updated) throw new Error("Đơn không tồn tại / không Pending / đã có staff");
+    const err = new Error("Đơn không Pending hoặc đã được staff khác nhận");
+    err.statusCode = 409;
+    throw err;
+  }
+
   return updated;
 };
-
 
 //dashboard
 function monthToRange(month) {
@@ -296,38 +310,43 @@ function monthToRange(month) {
 
 module.exports.getDashboardMonthService = async ({
   month,
-  role,
+  roles,      // ✅ array: ["ADMIN","STAFF",...]
   userId,
   staffId,
-  compare
+  compare,
 }) => {
   if (!month) throw new Error("month is required (YYYY-MM)");
 
-  const {
-    start,
-    end
-  } = monthToRange(month);
-  const isAdmin = role === "ADMIN";
+  const { start, end } = monthToRange(month);
+
+  const isAdmin = Array.isArray(roles) && roles.includes("ADMIN");
+  const isStaff = Array.isArray(roles) && roles.includes("STAFF");
   const isCompare = isAdmin && compare === "1";
 
   // ✅ scope theo quyền
   let scopeStaff = null;
+
   if (isAdmin) {
-    if (staffId) scopeStaff = new mongoose.Types.ObjectId(staffId);
-  } else if (role === "STAFF") {
+    if (staffId) {
+      if (!mongoose.Types.ObjectId.isValid(staffId)) {
+        throw new Error("staffId không hợp lệ");
+      }
+      scopeStaff = new mongoose.Types.ObjectId(staffId);
+    }
+  } else if (isStaff) {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error("userId không hợp lệ");
+    }
     scopeStaff = new mongoose.Types.ObjectId(userId); // staff chỉ xem của mình
   } else {
-    throw new Error("Forbidden");
+    const err = new Error("Forbidden");
+    err.statusCode = 403;
+    throw err;
   }
 
   const match = {
-    createdAt: {
-      $gte: start,
-      $lt: end
-    },
-    ...(scopeStaff ? {
-      staff: scopeStaff
-    } : {}),
+    createdAt: { $gte: start, $lt: end },
+    ...(scopeStaff ? { staff: scopeStaff } : {}),
   };
 
   // ✅ success rule theo schema bạn:
@@ -461,7 +480,7 @@ module.exports.getDashboardMonthService = async ({
             }
           },
           {
-            $sort: {
+            $sort: {      
               count: -1
             }
           },
@@ -551,10 +570,15 @@ return {
 };
 
 // staff xem danh sách đơn chưa có staff (inbox)
-module.exports.getUnassignedOrdersService = async (query) => {
-  const filter = { $or: [{ staff: null }, { staff: { $exists: false } }] };
+module.exports.getUnassignedOrdersService = async (query = {}) => {
+  const filter = {
+    $or: [{ staff: null }, { staff: { $exists: false } }],
+  };
 
-  if (query && query.status) filter["status.orderStatus"] = query.status;
+  // mặc định inbox là Pending
+  const status = (query.status || "Pending").trim();
+  if (status) filter["status.orderStatus"] = status;
 
   return Order.find(filter).sort({ createdAt: -1 }).limit(50);
 };
+
