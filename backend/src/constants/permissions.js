@@ -7,10 +7,30 @@
 // Gợi ý seed DB: upsert Permission theo permissionMetaList bên dưới.
 
 const PERMISSION_GROUPS = Object.freeze({
-    USERS: { key: "USERS", label: "Người dùng", icon: "users", order: 10 },
-    CATALOG: { key: "CATALOG", label: "Danh mục & Sản phẩm", icon: "box", order: 20 },
-    ORDERS: { key: "ORDERS", label: "Đơn hàng", icon: "receipt", order: 30 },
-    SYSTEM: { key: "SYSTEM", label: "Hệ thống", icon: "settings", order: 99 },
+    USERS: {
+        key: "USERS",
+        label: "Người dùng",
+        icon: "users",
+        order: 10
+    },
+    CATALOG: {
+        key: "CATALOG",
+        label: "Danh mục & Sản phẩm",
+        icon: "box",
+        order: 20
+    },
+    ORDERS: {
+        key: "ORDERS",
+        label: "Đơn hàng",
+        icon: "receipt",
+        order: 30
+    },
+    SYSTEM: {
+        key: "SYSTEM",
+        label: "Hệ thống",
+        icon: "settings",
+        order: 99
+    },
 });
 
 // =====================================================
@@ -51,6 +71,12 @@ const PERMISSIONS = Object.freeze({
     ORDER_UPDATE: "order:update",
     ORDER_DELETE: "order:delete",
     ORDER_UPDATE_STATUS: "order:status",
+
+    // ===== ORDERS (STAFF) =====
+    ORDER_STAFF_INBOX_READ: "order:inbox_read", // xem inbox đơn chưa gán
+    ORDER_STAFF_MY_READ: "order:mine_read", // xem đơn của tôi
+    ORDER_STAFF_CLAIM: "order:claim", // claim đơn
+
 
     // ===== RBAC / SYSTEM =====
     RBAC_READ: "rbac:read",
@@ -299,6 +325,34 @@ const PERMISSION_META = Object.freeze({
         groupKey: PERMISSION_GROUPS.ORDERS.key,
         groupLabel: PERMISSION_GROUPS.ORDERS.label,
         order: 350,
+    },
+    // ===== ORDERS (STAFF) =====
+    [PERMISSIONS.ORDER_STAFF_INBOX_READ]: {
+        key: PERMISSIONS.ORDER_STAFF_INBOX_READ,
+        resource: "order",
+        action: "inbox_read",
+        label: "STAFF: Xem inbox đơn chưa gán",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 360,
+    },
+    [PERMISSIONS.ORDER_STAFF_MY_READ]: {
+        key: PERMISSIONS.ORDER_STAFF_MY_READ,
+        resource: "order",
+        action: "mine_read",
+        label: "STAFF: Xem đơn của tôi",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 370,
+    },
+    [PERMISSIONS.ORDER_STAFF_CLAIM]: {
+        key: PERMISSIONS.ORDER_STAFF_CLAIM,
+        resource: "order",
+        action: "claim",
+        label: "STAFF: Nhận (claim) đơn",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 380,
     },
 
     // ===== RBAC / SYSTEM =====
@@ -562,6 +616,36 @@ const ADMIN_SCREENS = Object.freeze({
             changeStatus: [PERMISSIONS.ORDER_UPDATE_STATUS],
         },
     },
+    ORDERS_INBOX: {
+        key: "order-inbox",
+        group: PERMISSION_GROUPS.ORDERS.key,
+        label: "Inbox (Claim đơn)",
+        icon: "order", // ⚠️ quan trọng: sidebar ICON map của bạn có "order"
+        order: 41,
+        routes: ["/admin/order-inbox"],
+        accessAny: [
+            PERMISSIONS.ORDER_STAFF_INBOX_READ,
+            PERMISSIONS.ORDER_STAFF_CLAIM,
+        ],
+        actions: {
+            view: [PERMISSIONS.ORDER_STAFF_INBOX_READ],
+            claim: [PERMISSIONS.ORDER_STAFF_CLAIM],
+        },
+    },
+
+    MY_STAFF_ORDERS: {
+        key: "my-staff-orders",
+        group: PERMISSION_GROUPS.ORDERS.key,
+        label: "Đơn của tôi",
+        icon: "order",
+        order: 42,
+        routes: ["/admin/my-staff-orders"],
+        accessAny: [PERMISSIONS.ORDER_STAFF_MY_READ],
+        actions: {
+            view: [PERMISSIONS.ORDER_STAFF_MY_READ],
+        },
+    },
+
 
     RBAC: {
         key: "rbac",

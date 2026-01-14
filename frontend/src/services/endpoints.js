@@ -68,6 +68,25 @@ export const endpoints = {
 
     rolesStatus: ({ id }) => `${v1Admin}/rbac/roles/${id}/status`,
   },
+    orders: {
+    // USER (me)
+    me: `${v1}/order/me`,
+    meDetail: (id) => `${v1}/order/me/${id}`,
+    meCreate: `${v1}/order/me/create`,
+    meCancel: (id) => `${v1}/order/me/${id}/cancel`,
+
+    // ADMIN
+    adminAll: `${v1Admin}/order/all`,
+    adminUpdateStatus: (id) => `${v1Admin}/order/update-status/${id}`,
+
+    // STAFF
+    staffUnassigned: `${v1}/staff/order/unassigned`, // GET ?status=Pending
+    staffClaim: (id) => `${v1}/staff/order/${id}/claim`, // PATCH
+    staffMyOrders: `${v1}/staff/order`, // GET ?status=&month=
+
+    // DASHBOARD
+    dashboardMonth: `${v1}/dashboard/order/month`, // GET ?month=YYYY-MM&compare=1&staffId=
+  },
 
   upload: {
     signature: `${v1Admin}/upload/signature`,

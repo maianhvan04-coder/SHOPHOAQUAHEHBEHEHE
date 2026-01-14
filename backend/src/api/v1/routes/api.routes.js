@@ -39,10 +39,22 @@ module.exports = (app) => {
   app.use(v1 + "/admin/upload", uploadRoutes);
   app.use(v1 + "/admin/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderAdminRoute);
   // staff (xem đơn của mình + claim)
-  app.use(v1 + "/staff/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderStaffRoute);
+  app.use(v1 + "/staff/order", ...guard({
+    any: [
+      PERMISSIONS.ORDER_STAFF_INBOX_READ,
+      PERMISSIONS.ORDER_STAFF_MY_READ,
+      PERMISSIONS.ORDER_STAFF_CLAIM,
+    ],
+  }),
+  orderStaffRoute
+);
 
   // dashboard (staff xem của mình, admin xem all + compare)
-  app.use(v1 + "/dashboard/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderDashboardRoute);
+  app.use(
+  v1 + "/dashboard/order",
+  ...guard({ any: [PERMISSIONS.ORDER_READ, PERMISSIONS.ORDER_STAFF_MY_READ] }),
+  orderDashboardRoute
+);
   
   // public client
   app.use(v1 + "/products", publicProduct);
