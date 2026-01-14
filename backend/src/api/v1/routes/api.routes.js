@@ -14,8 +14,10 @@ const orderUserRouter = require("../modules/order/routes/order.user.routes");
 const orderAdminRoute = require("../modules/order/routes/order.admin.routes");
 const orderStaffRoute = require("../modules/order/routes/order.staff.routes");
 const orderDashboardRoute = require("../modules/order/routes/order.dashboard.routes");
-
+const cartRouter = require("../modules/cart/cart.route")
 const chatRoutes = require("../modules/chat/chat.route");
+const feedbackRoute = require("../modules/feedback/feedback.route");
+const uploadFeedbackRoute = require("../modules/upload/upload-feedback.routes")
 const { guard } = require("../middlewares/auth");
 const { PERMISSIONS } = require("../../../constants/permissions");
 router.get("/health", (req, res) => {
@@ -61,6 +63,9 @@ module.exports = (app) => {
   app.use(v1 + "/categories", categoryPublic);
   app.use(v1 + "/order", orderUserRouter);
   app.use(v1 + "/users", publicUser);
+  app.use(v1 + "/cart", cartRouter);
+  app.use(v1 + "/feedback", feedbackRoute);
+  app.use(v1 + "/upload", uploadFeedbackRoute);
   // ✅ chatbot
   app.use(v1 + "/chat", chatRoutes);
 };
