@@ -46,6 +46,8 @@ import {
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   ResponsiveContainer,
   Tooltip as ReTooltip,
   XAxis,
@@ -54,7 +56,7 @@ import {
 } from "recharts";
 
 import PageHeader from "~/components/layout/admin/PageHeader";
-import { getDashboardMonthAPI } from "~/api/order.api";
+import { getDashboardMonthAPI, getDashboardYearAPI } from "~/api/order.api";
 
 function currentMonthStr() {
   const d = new Date();
@@ -63,7 +65,7 @@ function currentMonthStr() {
 }
 
 function prevMonthStr(yyyyMM) {
-  const [y, m] = yyyyMM.split("-").map(Number);
+  const [y, m] = String(yyyyMM || "").split("-").map(Number);
   const d = new Date(Date.UTC(y, m - 1, 1));
   d.setUTCMonth(d.getUTCMonth() - 1);
   const yy = d.getUTCFullYear();
@@ -92,6 +94,12 @@ function toDayLabel(yyyyMMdd) {
   return parts[2] || yyyyMMdd;
 }
 
+function toMonthLabel(yyyyMM) {
+  if (!yyyyMM) return "";
+  const parts = String(yyyyMM).split("-");
+  return parts[1] || yyyyMM;
+}
+
 function normalizeRole(r) {
   if (!r) return "";
   if (typeof r === "string") return r.toUpperCase();
@@ -104,7 +112,6 @@ function statusMeta(status) {
   if (s === "DELIVERED") return { label: "Delivered", scheme: "green" };
   if (s === "PENDING") return { label: "Pending", scheme: "orange" };
   if (s === "CANCELLED") return { label: "Cancelled", scheme: "red" };
-  // ✅ schema enum: "Shipped"
   if (s === "SHIPPED" || s === "SHIPPING") return { label: "Shipped", scheme: "blue" };
   if (s === "CONFIRMED") return { label: "Confirmed", scheme: "purple" };
   return { label: status || "Unknown", scheme: "gray" };
@@ -229,6 +236,11 @@ export default function Dashboard() {
   const [curData, setCurData] = useState(null);
   const [prevData, setPrevData] = useState(null);
 
+  // year chart
+  const [yearLoading, setYearLoading] = useState(false);
+  const [yearErr, setYearErr] = useState("");
+  const [yearData, setYearData] = useState(null);
+
   // ✅ tránh “vừa staffId vừa compare” gây hiểu nhầm
   useEffect(() => {
     if (compare && staffId) setStaffId("");
@@ -239,12 +251,15 @@ export default function Dashboard() {
     setLoading(true);
     setErr("");
 
+    setYearLoading(true);
+    setYearErr("");
+
     try {
       const prevMonth = prevMonthStr(month);
 
       const paramsCur = {
         month,
-        ...(isAdmin && !compare && staffId ? { staffId } : {}), // compare bật thì bỏ staffId
+        ...(isAdmin && !compare && staffId ? { staffId } : {}),
         ...(isAdmin && compare ? { compare: "1" } : {}),
       };
 
@@ -253,20 +268,32 @@ export default function Dashboard() {
         ...(isAdmin && !compare && staffId ? { staffId } : {}),
       };
 
-      const [curRes, prevRes] = await Promise.all([
+      const y = String(month || "").slice(0, 4);
+      const paramsYear = {
+        year: y,
+        ...(isAdmin && !compare && staffId ? { staffId } : {}),
+      };
+
+      const [curRes, prevRes, yearRes] = await Promise.all([
         getDashboardMonthAPI(paramsCur),
         getDashboardMonthAPI(paramsPrev),
+        compare ? Promise.resolve(null) : getDashboardYearAPI(paramsYear),
       ]);
 
       const curPayload = curRes?.data?.data ?? curRes?.data ?? null;
       const prevPayload = prevRes?.data?.data ?? prevRes?.data ?? null;
+      const yearPayload = yearRes ? (yearRes?.data?.data ?? yearRes?.data ?? null) : null;
 
       setCurData(curPayload);
       setPrevData(prevPayload);
+      setYearData(yearPayload);
     } catch (e) {
-      setErr(e?.response?.data?.message || e.message || "Lỗi tải dashboard");
+      const msg = e?.response?.data?.message || e.message || "Lỗi tải dashboard";
+      setErr(msg);
+      setYearErr(msg);
     } finally {
       setLoading(false);
+      setYearLoading(false);
     }
   }, [month, staffId, compare, isAdmin]);
 
@@ -287,6 +314,9 @@ export default function Dashboard() {
   const revenueByDay = useMemo(() => curData?.revenueByDay || [], [curData]);
   const ordersByStatus = useMemo(() => curData?.ordersByStatus || [], [curData]);
   const compareByStaff = useMemo(() => curData?.compareByStaff || [], [curData]);
+
+  const revenueByMonth = useMemo(() => yearData?.revenueByMonth || [], [yearData]);
+  const yearTotalRevenue = yearData?.totalRevenue ?? 0;
 
   const singlePoint = revenueByDay.length === 1;
 
@@ -316,6 +346,32 @@ export default function Dashboard() {
     [tooltipBg, tooltipBorder, textMuted]
   );
 
+  const yearTooltip = useCallback(
+    ({ active, payload, label }) => {
+      if (!active || !payload?.length) return null;
+      const v = payload[0]?.value ?? 0;
+      return (
+        <Box
+          bg={tooltipBg}
+          border="1px solid"
+          borderColor={tooltipBorder}
+          rounded="lg"
+          px={3}
+          py={2}
+          shadow="md"
+        >
+          <Text fontSize="xs" color={textMuted}>
+            Tháng {toMonthLabel(label)}
+          </Text>
+          <Text fontSize="sm" fontWeight="semibold">
+            Doanh thu: {fmtVND(v)}
+          </Text>
+        </Box>
+      );
+    },
+    [tooltipBg, tooltipBorder, textMuted]
+  );
+
   // ====== compare UI helpers ======
   const compareOptions = useMemo(() => {
     const q = compareSearch.trim().toLowerCase();
@@ -325,7 +381,7 @@ export default function Dashboard() {
 
   const compareRows = useMemo(() => {
     if (!compare) return compareByStaff;
-    if (!selectedStaffIds.length) return compareByStaff; // empty => show all
+    if (!selectedStaffIds.length) return compareByStaff;
     const setIds = new Set(selectedStaffIds.map(String));
     return compareByStaff.filter((x) => setIds.has(String(x._id)));
   }, [compare, compareByStaff, selectedStaffIds]);
@@ -353,6 +409,8 @@ export default function Dashboard() {
   };
 
   const clearAll = () => setSelectedStaffIds([]);
+
+  const yearStr = String(month || "").slice(0, 4);
 
   return (
     <Box p={{ base: 4, md: 8 }}>
@@ -476,9 +534,6 @@ export default function Dashboard() {
                     <Stack spacing={2}>
                       {compareOptions.map((x) => {
                         const id = String(x._id);
-                        const checked = selectedStaffIds.length
-                          ? selectedStaffIds.includes(id)
-                          : false; // nếu empty => "all", checkbox để user chọn subset
                         return (
                           <HStack key={id} justify="space-between">
                             <Checkbox
@@ -602,6 +657,77 @@ export default function Dashboard() {
           </Box>
         </Tooltip>
       </SimpleGrid>
+
+      {/* YEAR CHART */}
+      <PanelCard
+        title="Tổng doanh thu theo tháng (1 năm)"
+        subtitle={`Năm ${yearStr} • Jan → Dec`}
+        right={
+          <Badge colorScheme="green" variant="subtle" rounded="full">
+            YEAR
+          </Badge>
+        }
+      >
+        {isAdmin && compare ? (
+          <Center h="220px" border="1px dashed" borderColor={borderSoft} rounded="xl">
+            <Text fontSize="sm" color={textMuted}>
+              Tắt “Compare staff” để xem biểu đồ doanh thu theo năm.
+            </Text>
+          </Center>
+        ) : (
+          <>
+            <Box h="320px" minW={0}>
+              {yearLoading ? (
+                <Center h="100%" border="1px dashed" borderColor={borderSoft} rounded="xl">
+                  <HStack spacing={3}>
+                    <Spinner size="sm" />
+                    <Text fontSize="sm" color={textMuted}>
+                      Đang tải doanh thu theo năm...
+                    </Text>
+                  </HStack>
+                </Center>
+              ) : revenueByMonth.length ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueByMonth} margin={{ top: 10, right: 16, bottom: 0, left: 36 }}>
+                    <CartesianGrid strokeDasharray="4 4" />
+                    <XAxis dataKey="month" tickFormatter={toMonthLabel} tickMargin={8} />
+                    <YAxis
+                      tickFormatter={(v) => fmtMoney(v)}
+                      width={95}
+                      tickMargin={10}
+                      domain={[0, (max) => Math.ceil(max * 1.15)]}
+                    />
+                    <ReTooltip content={yearTooltip} />
+                    <Bar dataKey="revenue" fill="#0F766E" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <Center h="100%" border="1px dashed" borderColor={borderSoft} rounded="xl">
+                  <Text fontSize="sm" color={textMuted}>
+                    Chưa có dữ liệu doanh thu theo năm
+                  </Text>
+                </Center>
+              )}
+            </Box>
+
+            <Divider my={4} />
+
+            <HStack justify="space-between" flexWrap="wrap" gap={2}>
+              <Text fontSize="sm" color={textMuted}>
+                Tổng doanh thu năm: <b>{fmtVND(yearTotalRevenue)}</b>
+              </Text>
+
+              {yearErr ? (
+                <Badge colorScheme="red" rounded="md" px={3} py={1}>
+                  {yearErr}
+                </Badge>
+              ) : null}
+            </HStack>
+          </>
+        )}
+      </PanelCard>
+
+      <Divider my={6} />
 
       {/* CHARTS */}
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6} mb={6}>

@@ -6,5 +6,6 @@ const router = express.Router();
 
 // router.use(auth, requireRole("ADMIN", "STAFF")); // ✅ bật
 router.get("/month", dashboardController.getDashboardMonth);
+router.get("/year", dashboardController.getDashboardYear);
 
 module.exports = router;

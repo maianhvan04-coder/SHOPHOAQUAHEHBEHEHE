@@ -9,6 +9,8 @@ function normalizeRoles(req) {
 //   return roles.includes(up) || roles.includes(`ROLE_${up}`);
 // }
 
+
+// dashboard tháng
 module.exports.getDashboardMonth = async (req, res) => {
   try {
     const userId = req.user?.sub;
@@ -33,3 +35,30 @@ module.exports.getDashboardMonth = async (req, res) => {
     return res.status(status).json({ success: false, message: e.message });
   }
 };
+
+
+// dashboard năm
+module.exports.getDashboardYear = async (req, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Bạn cần đăng nhập." });
+    }
+
+    const roles = normalizeRoles(req);
+    const { year, staffId } = req.query;
+
+    const data = await orderService.getDashboardYearService({
+      year,
+      roles,
+      userId,
+      staffId,
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (e) {
+    const status = e.statusCode || 400;
+    return res.status(status).json({ success: false, message: e.message });
+  }
+};
+

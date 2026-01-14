@@ -80,16 +80,18 @@ module.exports.getMyOrdersService = async (userId, status) => {
     query["status.orderStatus"] = status;
   }
   const orders = await Order.find(query)
-  .populate("staff", "fullName phone")
-  .sort({createdAt: -1 });
+    .populate("staff", "fullName phone")
+    .sort({
+      createdAt: -1
+    });
   return orders;
 };
 module.exports.getOrderDetailService = async (userId, orderId) => {
   const order = await Order.findOne({
-    _id: orderId,
-    user: userId
-  })
-  .populate("staff", "fullName phone");
+      _id: orderId,
+      user: userId
+    })
+    .populate("staff", "fullName phone");
   if (!order) {
     throw new Error(
       "Không tìm thấy đơn hàng hoặc bạn không có quyền xem đơn hàng này."
@@ -240,18 +242,26 @@ module.exports.getAllOrdersAdmin = async (query) => {
 module.exports.getMyStaffOrdersService = async (staffId, query) => {
   if (!staffId) throw new Error("staffId là bắt buộc.");
 
-  const filter = { staff: staffId };
+  const filter = {
+    staff: staffId
+  };
 
   if (query && query.status) filter["status.orderStatus"] = query.status;
 
   if (query && query.month) {
     const [y, m] = query.month.split("-").map(Number);
-    const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
-    const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
-    filter.createdAt = { $gte: start, $lt: end };
+    const offsetMs = 7 * 60 * 60 * 1000;
+    const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0) - offsetMs);
+    const end = new Date(Date.UTC(y, m, 1, 0, 0, 0) - offsetMs);
+    filter.createdAt = {
+      $gte: start,
+      $lt: end
+    };
   }
 
-  return Order.find(filter).sort({ createdAt: -1 });
+  return Order.find(filter).sort({
+    createdAt: -1
+  });
 };
 
 //staff nhận đơn chưa có staff
@@ -268,21 +278,30 @@ module.exports.claimOrderService = async (orderId, staffId) => {
     throw err;
   }
 
-  const updated = await Order.findOneAndUpdate(
-    {
-      _id: orderId,
-      "status.orderStatus": "Pending",
-      $or: [{ staff: null }, { staff: { $exists: false } }],
-    },
-    {
-      $set: { staff: staffId, staffAssignedAt: new Date() }, // staffAssignedAt optional
-    },
-    { new: true }
-  );
+  const updated = await Order.findOneAndUpdate({
+    _id: orderId,
+    "status.orderStatus": "Pending",
+    $or: [{
+      staff: null
+    }, {
+      staff: {
+        $exists: false
+      }
+    }],
+  }, {
+    $set: {
+      staff: staffId,
+      staffAssignedAt: new Date()
+    }, // staffAssignedAt optional
+  }, {
+    new: true
+  });
 
   if (!updated) {
     // check tồn tại để trả mã đúng
-    const exists = await Order.exists({ _id: orderId });
+    const exists = await Order.exists({
+      _id: orderId
+    });
     if (!exists) {
       const err = new Error("Không tìm thấy đơn hàng");
       err.statusCode = 404;
@@ -298,10 +317,16 @@ module.exports.claimOrderService = async (orderId, staffId) => {
 };
 
 //dashboard
-function monthToRange(month) {
-  const [y, m] = month.split("-").map(Number);
-  const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
-  const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+function monthToRangeVN(month) {
+  const [y, m] = String(month).split("-").map(Number);
+  if (!y || !m || m < 1 || m > 12) throw new Error("month is required (YYYY-MM)");
+
+  const offsetMs = 7 * 60 * 60 * 1000; // VN = UTC+7
+
+  // 00:00 ngày 1 theo giờ VN -> UTC = trừ 7 tiếng
+  const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0) - offsetMs);
+  const end = new Date(Date.UTC(y, m, 1, 0, 0, 0) - offsetMs);
+
   return {
     start,
     end
@@ -310,17 +335,23 @@ function monthToRange(month) {
 
 module.exports.getDashboardMonthService = async ({
   month,
-  roles,      // ✅ array: ["ADMIN","STAFF",...]
+  roles, // ✅ array: ["ADMIN","STAFF",...]
   userId,
   staffId,
   compare,
 }) => {
   if (!month) throw new Error("month is required (YYYY-MM)");
 
-  const { start, end } = monthToRange(month);
+  const {
+    start,
+    end
+  } = monthToRangeVN(month);
 
-  const isAdmin = Array.isArray(roles) && roles.includes("ADMIN");
-  const isStaff = Array.isArray(roles) && roles.includes("STAFF");
+  const isAdmin =
+    Array.isArray(roles) && (roles.includes("ADMIN") || roles.includes("ROLE_ADMIN"));
+  const isStaff =
+    Array.isArray(roles) && (roles.includes("STAFF") || roles.includes("ROLE_STAFF"));
+
   const isCompare = isAdmin && compare === "1";
 
   // ✅ scope theo quyền
@@ -345,8 +376,13 @@ module.exports.getDashboardMonthService = async ({
   }
 
   const match = {
-    createdAt: { $gte: start, $lt: end },
-    ...(scopeStaff ? { staff: scopeStaff } : {}),
+    createdAt: {
+      $gte: start,
+      $lt: end
+    },
+    ...(scopeStaff ? {
+      staff: scopeStaff
+    } : {}),
   };
 
   // ✅ success rule theo schema bạn:
@@ -480,71 +516,69 @@ module.exports.getDashboardMonthService = async ({
             }
           },
           {
-            $sort: {      
+            $sort: {
               count: -1
             }
           },
         ],
 
-        compareByStaff: isCompare ?
-          [{
-              $match: {
-                staff: {
-                  $exists: true,
-                  $ne: null
+        compareByStaff: isCompare ? [{
+            $match: {
+              staff: {
+                $exists: true,
+                $ne: null
+              }
+            }
+          },
+          {
+            $group: {
+              _id: "$staff",
+              revenue: {
+                $sum: {
+                  $cond: [successExpr, "$totalPrice", 0]
                 }
-              }
-            },
-            {
-              $group: {
-                _id: "$staff",
-                revenue: {
-                  $sum: {
-                    $cond: [successExpr, "$totalPrice", 0]
-                  }
-                },
-                ordersSuccess: {
-                  $sum: {
-                    $cond: [successExpr, 1, 0]
-                  }
-                },
+              },
+              ordersSuccess: {
+                $sum: {
+                  $cond: [successExpr, 1, 0]
+                }
               },
             },
+          },
 
-            // ✅ lấy info staff (tên collection thường là "users")
-            {
-              $lookup: {
-                from: "users", // nếu bạn đặt collection khác thì đổi
-                localField: "_id",
-                foreignField: "_id",
-                as: "staff",
-              },
+          // ✅ lấy info staff (tên collection thường là "users")
+          {
+            $lookup: {
+              from: "users", // nếu bạn đặt collection khác thì đổi
+              localField: "_id",
+              foreignField: "_id",
+              as: "staff",
             },
-            {
-              $unwind: {
-                path: "$staff",
-                preserveNullAndEmptyArrays: true
-              }
-            },
+          },
+          {
+            $unwind: {
+              path: "$staff",
+              preserveNullAndEmptyArrays: true
+            }
+          },
 
-            {
-              $project: {
-                _id: 0,
-                staffId: "$_id",
-                staffName: "$staff.fullName",
-                staffPhone: "$staff.phone",
-                revenue: 1,
-                ordersSuccess: 1,
-              },
+          {
+            $project: {
+              _id: "$_id", // ✅ FE đang dùng x._id
+              staffId: "$_id", // (giữ thêm cho rõ)
+              staffName: "$staff.fullName",
+              staffPhone: "$staff.phone",
+              revenue: 1,
+              ordersSuccess: 1,
             },
+          },
 
-            {
-              $sort: {
-                revenue: -1
-              }
-            },
-          ] :
-          [],
+          {
+            $sort: {
+              revenue: -1
+            }
+          },
+        ] : [],
 
       },
     },
@@ -552,33 +586,199 @@ module.exports.getDashboardMonthService = async ({
 
   const [result] = await Order.aggregate(pipeline);
 
-return {
-  range: { start, end },
-  kpi: (result && result.kpi && result.kpi[0]) || {
-    revenue: 0,
-    ordersTotal: 0,
-    ordersCancelled: 0,
-    ordersValid: 0,
-    ordersSuccess: 0,
-    aov: 0,
-    uniqueCustomers: 0,
-  },
-  revenueByDay: (result && result.revenueByDay) || [],
-  ordersByStatus: (result && result.ordersByStatus) || [],
-  compareByStaff: (result && result.compareByStaff) || [],
+  return {
+    range: {
+      start,
+      end
+    },
+    kpi: (result && result.kpi && result.kpi[0]) || {
+      revenue: 0,
+      ordersTotal: 0,
+      ordersCancelled: 0,
+      ordersValid: 0,
+      ordersSuccess: 0,
+      aov: 0,
+      uniqueCustomers: 0,
+    },
+    revenueByDay: (result && result.revenueByDay) || [],
+    ordersByStatus: (result && result.ordersByStatus) || [],
+    compareByStaff: (result && result.compareByStaff) || [],
+  };
 };
+
+// ===== dashboard year =====
+function yearToRangeVN(year) {
+  // Asia/Ho_Chi_Minh = UTC+7, không DST
+  const y = Number(year);
+  if (!Number.isFinite(y) || y < 2000 || y > 2100) {
+    throw new Error("year is required (YYYY)");
+  }
+
+  const offsetMs = 7 * 60 * 60 * 1000;
+
+  // local 00:00 (VN) -> UTC = -7h
+  const start = new Date(Date.UTC(y, 0, 1, 0, 0, 0) - offsetMs);
+  const end = new Date(Date.UTC(y + 1, 0, 1, 0, 0, 0) - offsetMs);
+
+  return {
+    start,
+    end,
+    year: String(y)
+  };
+}
+
+function monthsOfYear(yearStr) {
+  return Array.from({
+    length: 12
+  }, (_, i) => {
+    const mm = String(i + 1).padStart(2, "0");
+    return `${yearStr}-${mm}`;
+  });
+}
+
+module.exports.getDashboardYearService = async ({
+  year, // "2026"
+  roles, // ["ADMIN","STAFF",...]
+  userId,
+  staffId, // optional for admin
+}) => {
+  const {
+    start,
+    end,
+    year: yStr
+  } = yearToRangeVN(year);
+
+  const isAdmin =
+    Array.isArray(roles) && (roles.includes("ADMIN") || roles.includes("ROLE_ADMIN"));
+  const isStaff =
+    Array.isArray(roles) && (roles.includes("STAFF") || roles.includes("ROLE_STAFF"));
+
+  // ✅ scope theo quyền
+  let scopeStaff = null;
+
+  if (isAdmin) {
+    if (staffId) {
+      if (!mongoose.Types.ObjectId.isValid(staffId)) {
+        throw new Error("staffId không hợp lệ");
+      }
+      scopeStaff = new mongoose.Types.ObjectId(staffId);
+    }
+  } else if (isStaff) {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error("userId không hợp lệ");
+    }
+    scopeStaff = new mongoose.Types.ObjectId(userId); // staff chỉ xem của mình
+  } else {
+    const err = new Error("Forbidden");
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const match = {
+    createdAt: {
+      $gte: start,
+      $lt: end
+    },
+    ...(scopeStaff ? {
+      staff: scopeStaff
+    } : {}),
+  };
+
+  // ✅ success rule: COD => Delivered, non-COD => isPaid
+  const successExpr = {
+    $cond: [{
+        $eq: ["$paymentMethod", "COD"]
+      },
+      {
+        $eq: ["$status.orderStatus", "Delivered"]
+      },
+      {
+        $eq: ["$status.isPaid", true]
+      },
+    ],
+  };
+
+  const rows = await Order.aggregate([{
+      $match: match
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: "%Y-%m",
+            date: "$createdAt",
+            timezone: "Asia/Ho_Chi_Minh",
+          },
+        },
+        revenue: {
+          $sum: {
+            $cond: [successExpr, "$totalPrice", 0]
+          }
+        },
+        ordersSuccess: {
+          $sum: {
+            $cond: [successExpr, 1, 0]
+          }
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        month: "$_id",
+        revenue: 1,
+        ordersSuccess: 1,
+      },
+    },
+    {
+      $sort: {
+        month: 1
+      }
+    },
+  ]);
+
+  // ✅ fill đủ 12 tháng (tháng nào không có thì 0)
+  const map = new Map(rows.map((r) => [String(r.month), r]));
+  const revenueByMonth = monthsOfYear(yStr).map((m) => {
+    const hit = map.get(m);
+    return {
+      month: m,
+      revenue: hit ? Number(hit.revenue || 0) : 0,
+      ordersSuccess: hit ? Number(hit.ordersSuccess || 0) : 0,
+    };
+  });
+
+  const totalRevenue = revenueByMonth.reduce((s, x) => s + (Number(x.revenue) || 0), 0);
+
+  return {
+    year: yStr,
+    range: {
+      start,
+      end
+    },
+    totalRevenue,
+    revenueByMonth, // ✅ FE vẽ chart từ mảng này
+  };
 };
+
 
 // staff xem danh sách đơn chưa có staff (inbox)
 module.exports.getUnassignedOrdersService = async (query = {}) => {
   const filter = {
-    $or: [{ staff: null }, { staff: { $exists: false } }],
+    $or: [{
+      staff: null
+    }, {
+      staff: {
+        $exists: false
+      }
+    }],
   };
 
   // mặc định inbox là Pending
   const status = (query.status || "Pending").trim();
   if (status) filter["status.orderStatus"] = status;
 
-  return Order.find(filter).sort({ createdAt: -1 }).limit(50);
+  return Order.find(filter).sort({
+    createdAt: -1
+  }).limit(50);
 };
-

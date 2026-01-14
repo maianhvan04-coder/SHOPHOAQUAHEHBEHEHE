@@ -37,6 +37,11 @@ export const getDashboardMonthAPI = (params) => {
   return apiClient.get(URL_API, { params });
 };
 
+export const getDashboardYearAPI = (params) => {
+  const URL_API = "/api/v1/dashboard/order/year";
+  return apiClient.get(URL_API, { params });
+};
+
 // ====================== STAFF ======================
 // inbox đơn chưa gán staff: /api/v1/staff/order/unassigned?status=Pending
 export const getUnassignedOrdersAPI = (params) => {
