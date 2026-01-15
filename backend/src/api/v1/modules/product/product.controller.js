@@ -3,6 +3,7 @@ const productService = require("./product.service");
 // exports.PRODUCT_SORT_KEYS = Object.keys(SORT_MAP); // nếu sau này muốn validate/hint
 const handleServerError = require("../../../../helpers/handleServerError");
 
+
 const {
   getAllCategoriesService,
   getCategoryById,
@@ -20,7 +21,7 @@ module.exports.adminList = asyncHandler(async (req, res) => {
 
 module.exports.createProduct = asyncHandler(async (req, res) => {
   const data = await productService.createProduct(req.body, req.user.sub);
-  console.log(data)
+  req.auditAfter = data;
   res.json({ message: "Tạo sản phẩm thành công", data });
 });
 

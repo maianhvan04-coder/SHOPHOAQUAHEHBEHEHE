@@ -1,5 +1,8 @@
-// src/shared/utils/ability.js
 import { matchPath } from "react-router-dom";
+
+/* ======================================================
+ * PATH NORMALIZE
+ * ====================================================== */
 
 /** bỏ query/hash + bỏ trailing slash (trừ "/") */
 export function normalizePathname(pathname = "") {
@@ -16,22 +19,26 @@ export function normalizePattern(pattern = "") {
   return pattern;
 }
 
+/* ======================================================
+ * PERMISSION HELPERS
+ * ====================================================== */
+
 function hasPermission(perms, key) {
   return !!perms?.[key];
 }
 
+/* ======================================================
+ * ROUTE MATCHING (RRv6)
+ * ====================================================== */
 
 /**
- * Match RRv6 chuẩn:
+ * Match route chuẩn RRv6:
  * - end:false => "/admin/user" match "/admin/user/123"
- * - pattern có :id vẫn match đúng nếu pathname có đủ segment
  */
 export function matchRoute(pattern = "", pathname = "") {
   const ptn = normalizePattern(pattern);
   const path = normalizePathname(pathname);
-
   if (!ptn || !path) return false;
-
   return !!matchPath({ path: ptn, end: false }, path);
 }
 
@@ -41,30 +48,68 @@ export function matchAnyRoute(routes = [], pathname = "") {
   return routes.some((r) => matchRoute(r, pathname));
 }
 
+/* ======================================================
+ * FLATTEN SCREENS (CHA + CON)
+ * ====================================================== */
+
 /**
- * Tìm screen theo pathname hiện tại.
- * Chọn match “sát nhất”:
- * - pattern dài hơn ưu tiên hơn
- * - pattern có ":" ưu tiên hơn (nhưng chỉ khi match)
+ * Convert:
+ * [
+ *   { key, children:[{...}] }
+ * ]
+ * =>
+ * [ parent, child(with parentKey, group inherited) ]
+ */
+export function flattenScreens(screens = []) {
+  const result = [];
+
+  for (const s of screens) {
+    result.push(s);
+
+    if (Array.isArray(s.children)) {
+      s.children.forEach((c) => {
+        result.push({
+          ...c,
+          parentKey: s.key,
+          group: s.group,
+        });
+      });
+    }
+  }
+
+  return result;
+}
+
+/* ======================================================
+ * FIND SCREEN BY URL
+ * ====================================================== */
+
+/**
+ * Tìm screen (cha hoặc con) theo pathname hiện tại.
+ * Ưu tiên:
+ * - route dài hơn
+ * - route có param (:id)
  */
 export function findScreenByPathname(screens = [], pathname = "") {
   if (!Array.isArray(screens) || screens.length === 0) return null;
 
+  const flat = flattenScreens(screens);
   const path = normalizePathname(pathname);
 
   let best = null;
   let bestScore = -1;
 
-  for (const s of screens) {
+  for (const s of flat) {
     const routes = Array.isArray(s?.routes) ? s.routes : [];
     for (const r of routes) {
       if (!matchRoute(r, path)) continue;
 
       const rr = normalizePattern(r);
 
-      // score: dài hơn tốt hơn, có param ":" cộng thêm điểm
-      // (ưu tiên /admin/user/:id hơn /admin/user nếu đang ở /admin/user/123)
-      const score = rr.length + (rr.includes(":") ? 10000 : 0);
+      const score =
+        rr.length +
+        (rr.includes(":") ? 10000 : 0) +
+        (s.parentKey ? 100000 : 0); // ⭐ child > parent
 
       if (score > bestScore) {
         best = s;
@@ -76,82 +121,101 @@ export function findScreenByPathname(screens = [], pathname = "") {
   return best;
 }
 
+
+/* ======================================================
+ * SCREEN ACCESS CHECK
+ * ====================================================== */
+
 /**
- * Check quyền vào screen
+ * Check quyền truy cập screen
  *
- * @param {string[]} userPermissions
+ * @param {object} userPermissions  { "product:read": {scope,...} }
  * @param {object} screen
  * @param {object} options
- * @param {"route"|"menu"} options.mode
+ * @param {"menu"|"route"} options.mode
  */
 export function canAccessScreen(
   userPermissions = {},
   screen,
   { mode = "route" } = {}
 ) {
+  if (!screen) return false;
 
+  // screen public → luôn cho
+  if (screen.public) return true;
 
-
-  // screen public luôn cho
-  if (screen?.public) return true;
-
-  // ===== MENU: chỉ check quyền VIEW =====
+  /* ================= MENU MODE ================= */
   if (mode === "menu") {
-    const viewPerms = screen?.actions?.view;
+    // 1️⃣ nếu screen public
+    if (screen.public) return true;
 
-    // nếu screen có khai báo view → bắt buộc có READ
-    if (Array.isArray(viewPerms) && viewPerms.length > 0) {
-      return viewPerms.some((p) => hasPermission(userPermissions, p));
+    // 2️⃣ nếu screen có accessAny → check trực tiếp
+    if (Array.isArray(screen.accessAny) && screen.accessAny.length > 0) {
+      if (screen.accessAny.some(p => hasPermission(userPermissions, p))) {
+        return true;
+      }
     }
 
-    // không có view thì ẩn luôn cho chắc
+    // 3️⃣ nếu có children → chỉ cần 1 child access được
+    if (Array.isArray(screen.children) && screen.children.length > 0) {
+      return screen.children.some(child =>
+        canAccessScreen(userPermissions, child, { mode: "menu" })
+      );
+    }
+
     return false;
   }
 
-  // ===== ROUTE / ACTION: accessAny =====
+
+  /* ================= ROUTE MODE ================= */
   const needAny = screen?.accessAny;
   if (!Array.isArray(needAny) || needAny.length === 0) return true;
 
   return needAny.some((p) => hasPermission(userPermissions, p));
 }
 
+/* ======================================================
+ * FIRST ACCESSIBLE SCREEN (FOR /admin REDIRECT)
+ * ====================================================== */
 
-/**
- * Lấy screen đầu tiên user truy cập được (để redirect /admin)
- */
-export function firstAccessibleScreen(groups = [], screens = [], userPermissions = {}) {
+export function firstAccessibleScreen(
+  groups = [],
+  screens = [],
+  userPermissions = {}
+) {
+  const flat = flattenScreens(screens);
+
   const groupOrder = new Map(
     (groups || []).map((g) => [g.key, Number(g.order ?? 9999)])
   );
 
-  const sorted = (screens || []).slice().sort((a, b) => {
+  const sorted = flat.slice().sort((a, b) => {
     const ga = groupOrder.get(a.group) ?? -1;
     const gb = groupOrder.get(b.group) ?? -1;
     if (ga !== gb) return ga - gb;
     return (a.order ?? 9999) - (b.order ?? 9999);
   });
 
-  const first = sorted.find((s) => canAccessScreen(userPermissions, s));
-  if (!first) return null;
+  const first = sorted.find((s) =>
+    canAccessScreen(userPermissions, s, { mode: "route" })
+  );
 
-  return first.routes?.[0] || null;
+  return first?.routes?.[0] || null;
 }
 
-
+/* ======================================================
+ * ACTION-LEVEL PERMISSION
+ * ====================================================== */
 
 /**
- * Quyền theo action trong screen.actions:
- * - không có actionKey hoặc action không khai báo => cho phép
- * - có action => chỉ cần 1 permission match (OR)
+ * Check quyền cho action trong screen.actions
+ * VD: actions: { create:[...], delete:[...] }
  */
 export function canAccessAction(userPermissions = {}, screen, actionKey) {
   if (!screen || !actionKey) return false;
 
   const need = screen?.actions?.[actionKey];
-
-  if (!actionKey) return true;
   if (!Array.isArray(need) || need.length === 0) return false;
 
   return need.some((p) => hasPermission(userPermissions, p));
 }
-

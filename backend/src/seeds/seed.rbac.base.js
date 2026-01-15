@@ -1,44 +1,41 @@
 // scripts/seed-permissions.js
-// ✅ Seed Permission tiếng Việt vào DB (upsert từ PERMISSION_META_LIST)
-// Chạy: node scripts/seed-permissions.js
-
 require("dotenv").config();
 const mongoose = require("mongoose");
 
-const Permission = require("../api/v1/modules/rbac/model/permission.model"); // sửa path đúng project bạn
-const { PERMISSION_META_LIST } = require("../constants/permissions");     // sửa path đúng project bạn
+const Permission = require("../api/v1/modules/rbac/model/permission.model");
+const { PERMISSION_META_LIST } = require("../constants/permissions");
 
 async function main() {
     const uri = process.env.MONGO_DB_URL || process.env.MONGO_URI;
-    if (!uri) throw new Error("Missing MONGO_DB_URL/MONGO_URI");
+    if (!uri) throw new Error("Missing MONGO_DB_URL / MONGO_URI");
 
     await mongoose.connect(uri);
     console.log("Connected DB:", mongoose.connection.name);
 
-    let upserted = 0;
+    let inserted = 0;
 
     for (const meta of PERMISSION_META_LIST) {
-        const doc = {
-            key: meta.key,
-            resource: meta.resource,
-            action: meta.action,
-            label: meta.label,
-            groupKey: meta.groupKey,
-            groupLabel: meta.groupLabel,
-            order: meta.order ?? 0,
-            isActive: true,
-        };
-
         const res = await Permission.updateOne(
             { key: meta.key },
-            { $set: doc },
+            {
+                $setOnInsert: {
+                    key: meta.key,
+                    resource: meta.resource,
+                    action: meta.action,
+                    label: meta.label,
+                    groupKey: meta.groupKey,
+                    groupLabel: meta.groupLabel,
+                    order: meta.order ?? 0,
+                    isActive: true,
+                },
+            },
             { upsert: true }
         );
 
-        if (res.upsertedCount || res.modifiedCount) upserted += 1;
+        if (res.upsertedCount === 1) inserted++;
     }
 
-    console.log("Permissions upserted/updated:", upserted);
+    console.log("Permissions inserted:", inserted);
     console.log("Total meta:", PERMISSION_META_LIST.length);
 
     await mongoose.disconnect();

@@ -88,6 +88,14 @@ export const endpoints = {
     dashboardMonth: `${v1}/dashboard/order/month`, // GET ?month=YYYY-MM&compare=1&staffId=
   },
 
+
+  audit: {
+    ProductHistory: (id) => `${v1Admin}/audit/product/${id}/history`,
+    getProductAuditList: `${v1Admin}/audit/product`,
+    getProductAuditDetail: (auditId) => `${v1Admin}/audit/products/${auditId}`,
+  },
+
+
   upload: {
     signature: `${v1Admin}/upload/signature`,
     feedbackSignature: `${v1}/upload/feedback-signature`,

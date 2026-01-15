@@ -16,7 +16,7 @@ import AuthProvider from "./app/providers/AuthProvides.jsx";
 import ToastProvider from "./shared/ui/Toast/ToastProvider";
 
 createRoot(document.getElementById("root")).render(
-  <StrictMode>
+  // <StrictMode>
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
       <Provider store={store}>
       <AuthProvider>
@@ -31,6 +31,6 @@ createRoot(document.getElementById("root")).render(
       </AuthProvider>
     </Provider>
     </GoogleOAuthProvider>
-  </StrictMode>
+  // </StrictMode>
 );
 

@@ -3,6 +3,8 @@
 //   1) Seed Permission vào DB (từ PERMISSION_META_LIST)
 //   2) UI build menu/screen + map route/action -> permission
 //   3) Guard/authorize theo permission key
+
+const { PERMISSION_GROUPS } = require("./permission.groups");
 //
 // Gợi ý seed DB: upsert Permission theo permissionMetaList bên dưới.
 
@@ -36,9 +38,10 @@ const PERMISSION_GROUPS = Object.freeze({
 // =====================================================
 // 1) PERMISSIONS: keys chuẩn để guard backend & FE check
 // =====================================================
-const PERMISSIONS = Object.freeze({
+const BASE_PERMISSIONS = Object.freeze({
     // ===== ADMIN =====
     RBAC_MANAGE: "rbac:manage",
+
     // ===== USERS =====
     USER_READ: "user:read",
     USER_CREATE: "user:create",
@@ -49,7 +52,6 @@ const PERMISSIONS = Object.freeze({
     USER_BULK_DELETE: "user:bulk_delete",
     USER_UPLOAD_AVATAR: "user:upload_avatar",
     USER_SET_ROLES: "user:set_roles",
-
 
     // ===== CATEGORIES =====
     CATEGORY_READ: "category:read",
@@ -73,6 +75,9 @@ const PERMISSIONS = Object.freeze({
     ORDER_UPDATE_STATUS: "order:status",
 
     // ===== ORDERS (STAFF) =====
+    ORDER_STAFF_INBOX_READ: "order:inbox_read", // inbox đơn chưa gán
+    ORDER_STAFF_MY_READ: "order:mine_read",     // đơn của tôi
+    ORDER_STAFF_CLAIM: "order:claim",           // claim đơn
     ORDER_STAFF_INBOX_READ: "order:inbox_read", // xem inbox đơn chưa gán
     ORDER_STAFF_MY_READ: "order:mine_read", // xem đơn của tôi
     ORDER_STAFF_CLAIM: "order:claim", // claim đơn
@@ -95,13 +100,23 @@ const PERMISSIONS = Object.freeze({
     RBAC_REMOVE_USER_OVERRIDE: "rbac:remove_user_override",
 
     RBAC_SYNC_ADMIN: "rbac:sync_admin",
+
+    // ===== AUDIT =====
+    AUDIT_PRODUCT_READ: "audit:product:read",
+    AUDIT_READ: "audit:read"
+
+
+});
+
+// ✅ merge Audit perms vào PERMISSIONS
+const PERMISSIONS = Object.freeze({
+    ...BASE_PERMISSIONS,
 });
 
 // =====================================================
-// 2) PERMISSION_META: tiếng Việt + group + order
-//    -> cái này dùng để seed DB Permission
+// 2) PERMISSION_META: tiếng Việt + group + order -> seed DB
 // =====================================================
-const PERMISSION_META = Object.freeze({
+const BASE_PERMISSION_META = Object.freeze({
     // ===== USERS =====
     [PERMISSIONS.USER_READ]: {
         key: PERMISSIONS.USER_READ,
@@ -184,7 +199,6 @@ const PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.USERS.label,
         order: 85,
     },
-
 
     // ===== CATEGORIES =====
     [PERMISSIONS.CATEGORY_READ]: {
@@ -279,6 +293,16 @@ const PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.CATALOG.label,
         order: 250,
     },
+    [PERMISSIONS.AUDIT_PRODUCT_READ]: {
+        key: PERMISSIONS.AUDIT_PRODUCT_READ,
+        resource: "audit",
+        action: "product_read",
+        label: "Xem lịch sử thay đổi sản phẩm",
+        groupKey: PERMISSION_GROUPS.CATALOG.key,
+        groupLabel: PERMISSION_GROUPS.CATALOG.label,
+        order: 260,
+    },
+
 
     // ===== ORDERS =====
     [PERMISSIONS.ORDER_READ]: {
@@ -355,6 +379,35 @@ const PERMISSION_META = Object.freeze({
         order: 380,
     },
 
+    // ===== ORDERS (STAFF) =====
+    [PERMISSIONS.ORDER_STAFF_INBOX_READ]: {
+        key: PERMISSIONS.ORDER_STAFF_INBOX_READ,
+        resource: "order",
+        action: "inbox_read",
+        label: "STAFF: Xem inbox đơn chưa gán",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 360,
+    },
+    [PERMISSIONS.ORDER_STAFF_MY_READ]: {
+        key: PERMISSIONS.ORDER_STAFF_MY_READ,
+        resource: "order",
+        action: "mine_read",
+        label: "STAFF: Xem đơn của tôi",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 370,
+    },
+    [PERMISSIONS.ORDER_STAFF_CLAIM]: {
+        key: PERMISSIONS.ORDER_STAFF_CLAIM,
+        resource: "order",
+        action: "claim",
+        label: "STAFF: Nhận (claim) đơn",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 380,
+    },
+
     // ===== RBAC / SYSTEM =====
     [PERMISSIONS.RBAC_READ]: {
         key: PERMISSIONS.RBAC_READ,
@@ -365,7 +418,6 @@ const PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.SYSTEM.label,
         order: 900,
     },
-
     [PERMISSIONS.RBAC_CREATE_ROLE]: {
         key: PERMISSIONS.RBAC_CREATE_ROLE,
         resource: "rbac",
@@ -393,8 +445,15 @@ const PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.SYSTEM.label,
         order: 930,
     },
-
-
+    [PERMISSIONS.RBAC_READ_PERMISSION]: {
+        key: PERMISSIONS.RBAC_READ_PERMISSION,
+        resource: "rbac",
+        action: "permission_read",
+        label: "Xem danh sách permissions",
+        groupKey: PERMISSION_GROUPS.SYSTEM.key,
+        groupLabel: PERMISSION_GROUPS.SYSTEM.label,
+        order: 940,
+    },
     [PERMISSIONS.RBAC_SET_ROLE_PERMISSIONS]: {
         key: PERMISSIONS.RBAC_SET_ROLE_PERMISSIONS,
         resource: "rbac",
@@ -431,8 +490,15 @@ const PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.SYSTEM.label,
         order: 983,
     },
-
-    // RBAC_MANAGE
+    [PERMISSIONS.RBAC_SYNC_ADMIN]: {
+        key: PERMISSIONS.RBAC_SYNC_ADMIN,
+        resource: "rbac",
+        action: "sync_admin",
+        label: "Sync quyền ADMIN (full access)",
+        groupKey: PERMISSION_GROUPS.SYSTEM.key,
+        groupLabel: PERMISSION_GROUPS.SYSTEM.label,
+        order: 985,
+    },
     [PERMISSIONS.RBAC_MANAGE]: {
         key: PERMISSIONS.RBAC_MANAGE,
         resource: "rbac",
@@ -442,29 +508,57 @@ const PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.SYSTEM.label,
         order: 890,
     },
-
-    // RBAC_READ_PERMISSION
-    [PERMISSIONS.RBAC_READ_PERMISSION]: {
-        key: PERMISSIONS.RBAC_READ_PERMISSION,
-        resource: "rbac",
-        action: "permission_read",
-        label: "Xem danh sách permissions",
+    [PERMISSIONS.AUDIT_PRODUCT_READ]: {
+        key: PERMISSIONS.AUDIT_PRODUCT_READ,
+        resource: "audit",
+        action: "read",
+        label: "Lịch Sử Sản Phẩm",
         groupKey: PERMISSION_GROUPS.SYSTEM.key,
         groupLabel: PERMISSION_GROUPS.SYSTEM.label,
-        order: 940,
+        order: 1000,
     },
-
-
-
 });
 
-// list để dễ seed
+//merge audit meta
+const PERMISSION_META = Object.freeze({
+    ...BASE_PERMISSION_META,
+});
+
 const PERMISSION_META_LIST = Object.freeze(Object.values(PERMISSION_META));
 
 // =====================================================
-// 3) ADMIN_SCREENS: giữ nguyên structure, map action -> permission
+// 3) ADMIN_SCREENS: map menu/screen + route/action -> permission
 // =====================================================
-const ADMIN_SCREENS = Object.freeze({
+const BASE_ADMIN_SCREENS = Object.freeze({
+    DASHBOARD: {
+        key: "dashboard",
+        label: "Dashboard",
+        icon: "home",
+        order: 0,
+        routes: ["/admin/dashboard"],
+        public: true,
+    },
+
+    PROFILE: {
+        key: "profile",
+        group: PERMISSION_GROUPS.USERS.key,
+        label: "Profile",
+        icon: "profile",
+        order: 15,
+        routes: ["/admin/profile"],
+        public: true,
+    },
+
+    SETTINGS: {
+        key: "settings",
+        group: PERMISSION_GROUPS.SYSTEM.key,
+        label: "Settings",
+        icon: "settings",
+        order: 16,
+        routes: ["/admin/settings"],
+        public: true,
+    },
+
     USERS: {
         key: "user",
         group: PERMISSION_GROUPS.USERS.key,
@@ -472,8 +566,8 @@ const ADMIN_SCREENS = Object.freeze({
         icon: "users",
         order: 10,
         routes: [
-            "/admin/user", // GET list, POST create (tuỳ bạn tách route)
-            "/admin/user/:id", // GET detail / PATCH update / DELETE delete
+            "/admin/user",
+            "/admin/user/:id",
             "/admin/user/:id/status",
             "/admin/user/bulk/status",
             "/admin/user/bulk/delete",
@@ -488,6 +582,7 @@ const ADMIN_SCREENS = Object.freeze({
             PERMISSIONS.USER_BULK_STATUS,
             PERMISSIONS.USER_BULK_DELETE,
             PERMISSIONS.USER_UPLOAD_AVATAR,
+            PERMISSIONS.USER_SET_ROLES,
         ],
         actions: {
             view: [PERMISSIONS.USER_READ],
@@ -500,38 +595,8 @@ const ADMIN_SCREENS = Object.freeze({
             uploadAvatar: [PERMISSIONS.USER_UPLOAD_AVATAR],
             setRoles: [PERMISSIONS.USER_SET_ROLES],
             restore: [PERMISSIONS.USER_UPDATE],
-
         },
     },
-    DASHBOARD: {
-        key: "dashboard",
-
-        label: "Dashboard",
-        icon: "home",
-        order: 0,
-        routes: ["/admin/dashboard"],
-        public: true, //quan trọng
-    },
-
-    PROFILE: {
-        key: "profile",
-        group: PERMISSION_GROUPS.USERS.key,
-        label: "Profile",
-        icon: "profile",
-        order: 15,
-        routes: ["/admin/profile"],
-        public: true,
-    },
-    SETTINGS: {
-        key: "settings",
-        group: PERMISSION_GROUPS.SYSTEM.key,
-        label: "Settings",
-        icon: "settings",
-        order: 15,
-        routes: ["/admin/settings"],
-        public: true,
-    },
-
 
     CATEGORIES: {
         key: "category",
@@ -539,12 +604,7 @@ const ADMIN_SCREENS = Object.freeze({
         label: "Danh mục",
         icon: "tags",
         order: 20,
-        routes: [
-            "/admin/category",
-            "/admin/category/:id",
-            "/admin/category/create",
-            "/admin/category/:id/status",
-        ],
+        routes: ["/admin/category", "/admin/category/:id", "/admin/category/create", "/admin/category/:id/status"],
         accessAny: [
             PERMISSIONS.CATEGORY_READ,
             PERMISSIONS.CATEGORY_CREATE,
@@ -568,11 +628,13 @@ const ADMIN_SCREENS = Object.freeze({
         icon: "package",
         order: 30,
         routes: [
-            "/admin/product", // GET / POST
-            "/admin/product/:id", // GET
-            "/admin/product/update/:id", // PATCH
-            "/admin/product/delete/:id", // DELETE
-            "/admin/product/:id/status", // PATCH
+            "/admin/product",
+            "/admin/product/:id",
+            "/admin/product/update/:id",
+            "/admin/product/delete/:id",
+            "/admin/product/:id/status",
+            "/admin/audit/product/:id/history",
+
         ],
         accessAny: [
             PERMISSIONS.PRODUCT_READ,
@@ -580,6 +642,8 @@ const ADMIN_SCREENS = Object.freeze({
             PERMISSIONS.PRODUCT_UPDATE,
             PERMISSIONS.PRODUCT_DELETE,
             PERMISSIONS.PRODUCT_CHANGE_STATUS,
+            PERMISSIONS.AUDIT_PRODUCT_READ,
+
         ],
         actions: {
             view: [PERMISSIONS.PRODUCT_READ],
@@ -587,6 +651,9 @@ const ADMIN_SCREENS = Object.freeze({
             update: [PERMISSIONS.PRODUCT_UPDATE],
             delete: [PERMISSIONS.PRODUCT_DELETE],
             changeStatus: [PERMISSIONS.PRODUCT_CHANGE_STATUS],
+
+            // (tuỳ chọn) nếu trong trang product bạn có nút "xem lịch sử"
+            audit: [PERMISSIONS.AUDIT_PRODUCT_READ],
         },
     },
 
@@ -596,11 +663,7 @@ const ADMIN_SCREENS = Object.freeze({
         label: "Đơn hàng",
         icon: "receipt",
         order: 40,
-        routes: [
-            "/admin/order",
-            "/admin/order/:id",
-            "/admin/order/:id/status",
-        ],
+        routes: ["/admin/order", "/admin/order/:id", "/admin/order/:id/status"],
         accessAny: [
             PERMISSIONS.ORDER_READ,
             PERMISSIONS.ORDER_CREATE,
@@ -647,6 +710,59 @@ const ADMIN_SCREENS = Object.freeze({
     },
 
 
+    // ===== STAFF ORDER SCREENS (nếu bạn dùng) =====
+    ORDERS_INBOX: {
+        key: "order-inbox",
+        group: PERMISSION_GROUPS.ORDERS.key,
+        label: "Inbox (Chưa gán)",
+        icon: "order",
+        order: 41,
+        routes: ["/admin/order-inbox"],
+        accessAny: [PERMISSIONS.ORDER_STAFF_INBOX_READ, PERMISSIONS.ORDER_STAFF_CLAIM],
+        actions: {
+            view: [PERMISSIONS.ORDER_STAFF_INBOX_READ],
+            claim: [PERMISSIONS.ORDER_STAFF_CLAIM],
+        },
+    },
+
+    MY_STAFF_ORDERS: {
+        key: "my-staff-orders",
+        group: PERMISSION_GROUPS.ORDERS.key,
+        label: "Đơn của tôi",
+        icon: "order",
+        order: 42,
+        routes: ["/admin/my-staff-orders"],
+        accessAny: [PERMISSIONS.ORDER_STAFF_MY_READ],
+        actions: {
+            view: [PERMISSIONS.ORDER_STAFF_MY_READ],
+        },
+    },
+
+    AUDIT: {
+        key: "audit",
+        group: PERMISSION_GROUPS.AUDIT.key,
+        label: "Audit Log",
+        icon: "history",
+        order: 95,
+
+        children: [
+            {
+                key: "audit-product",
+                label: "Lịch sử sản phẩm",
+                routes: ["/admin/audit/product"],
+                accessAny: [PERMISSIONS.AUDIT_PRODUCT_READ],
+            },
+            {
+                key: "audit-user",
+                label: "Lịch sử người dùng",
+                routes: ["/admin/audit/user"],
+                accessAny: [PERMISSIONS.AUDIT_READ],
+            },
+        ],
+
+    },
+
+
     RBAC: {
         key: "rbac",
         group: PERMISSION_GROUPS.SYSTEM.key,
@@ -661,6 +777,7 @@ const ADMIN_SCREENS = Object.freeze({
             "/admin/rbac/role-permissions",
             "/admin/rbac/user-roles",
             "/admin/rbac/user-override",
+
         ],
         accessAny: [
             PERMISSIONS.RBAC_READ,
@@ -676,33 +793,35 @@ const ADMIN_SCREENS = Object.freeze({
             PERMISSIONS.RBAC_SET_USER_OVERRIDE,
             PERMISSIONS.RBAC_REMOVE_USER_OVERRIDE,
             PERMISSIONS.RBAC_SYNC_ADMIN,
+            PERMISSIONS.RBAC_MANAGE,
+
         ],
         actions: {
             view: [PERMISSIONS.RBAC_READ],
             listPermissions: [PERMISSIONS.RBAC_READ_PERMISSION],
-
             createRole: [PERMISSIONS.RBAC_CREATE_ROLE],
             updateRole: [PERMISSIONS.RBAC_UPDATE_ROLE],
             deleteRole: [PERMISSIONS.RBAC_DELETE_ROLE],
-
-            createPermission: [PERMISSIONS.RBAC_CREATE_PERMISSION],
-            updatePermission: [PERMISSIONS.RBAC_UPDATE_PERMISSION],
-            deletePermission: [PERMISSIONS.RBAC_DELETE_PERMISSION],
-
             setRolePermissions: [PERMISSIONS.RBAC_SET_ROLE_PERMISSIONS],
             setUserRoles: [PERMISSIONS.RBAC_SET_USER_ROLES],
             setUserOverride: [PERMISSIONS.RBAC_SET_USER_OVERRIDE],
             removeUserOverride: [PERMISSIONS.RBAC_REMOVE_USER_OVERRIDE],
-
             syncAdmin: [PERMISSIONS.RBAC_SYNC_ADMIN],
+            manage: [PERMISSIONS.RBAC_MANAGE],
         },
     },
+});
+
+// ✅ merge Audit screens (menu cha/con)
+const ADMIN_SCREENS = Object.freeze({
+    ...BASE_ADMIN_SCREENS,
 });
 
 module.exports = {
     PERMISSIONS,
     PERMISSION_GROUPS,
-    ADMIN_SCREENS,
     PERMISSION_META,
     PERMISSION_META_LIST,
+    ADMIN_SCREENS,
+};
 };

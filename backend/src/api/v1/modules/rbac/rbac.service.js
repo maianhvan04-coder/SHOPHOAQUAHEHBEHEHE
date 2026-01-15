@@ -183,13 +183,13 @@ exports.setRolePermissions = async (roleCode, permissions = []) => {
         throw new ApiError(httpStatus.BAD_REQUEST, "Thiếu roleCode");
     }
 
-    // 🔒 khóa ADMIN
-    if (roleCode.trim().toUpperCase() === "ADMIN") {
-        throw new ApiError(
-            httpStatus.FORBIDDEN,
-            "Không được chỉnh quyền của ADMIN"
-        );
-    }
+    // // 🔒 khóa ADMIN
+    // if (roleCode.trim().toUpperCase() === "ADMIN") {
+    //     throw new ApiError(
+    //         httpStatus.FORBIDDEN,
+    //         "Không được chỉnh quyền của ADMIN"
+    //     );
+    // }
 
     if (!Array.isArray(permissions)) {
         throw new ApiError(
@@ -208,7 +208,8 @@ exports.setRolePermissions = async (roleCode, permissions = []) => {
     // =========================
     const keys = permissions.map(p => p.key);
     const permDocs = await rbacRepo.findPermissionsByKeys(keys);
-
+    console.log(keys)
+    console.log(keys.length, permDocs.length)
     if (permDocs.length !== keys.length) {
         throw new ApiError(
             httpStatus.BAD_REQUEST,
