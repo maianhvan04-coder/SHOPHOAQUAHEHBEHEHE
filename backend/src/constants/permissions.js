@@ -8,32 +8,6 @@ const { PERMISSION_GROUPS } = require("./permission.groups");
 //
 // Gợi ý seed DB: upsert Permission theo permissionMetaList bên dưới.
 
-const PERMISSION_GROUPS = Object.freeze({
-    USERS: {
-        key: "USERS",
-        label: "Người dùng",
-        icon: "users",
-        order: 10
-    },
-    CATALOG: {
-        key: "CATALOG",
-        label: "Danh mục & Sản phẩm",
-        icon: "box",
-        order: 20
-    },
-    ORDERS: {
-        key: "ORDERS",
-        label: "Đơn hàng",
-        icon: "receipt",
-        order: 30
-    },
-    SYSTEM: {
-        key: "SYSTEM",
-        label: "Hệ thống",
-        icon: "settings",
-        order: 99
-    },
-});
 
 // =====================================================
 // 1) PERMISSIONS: keys chuẩn để guard backend & FE check
@@ -812,7 +786,7 @@ const BASE_ADMIN_SCREENS = Object.freeze({
     },
 });
 
-// ✅ merge Audit screens (menu cha/con)
+// merge Audit screens (menu cha/con)
 const ADMIN_SCREENS = Object.freeze({
     ...BASE_ADMIN_SCREENS,
 });
@@ -824,4 +798,4 @@ module.exports = {
     PERMISSION_META_LIST,
     ADMIN_SCREENS,
 };
-};
+
