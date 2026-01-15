@@ -69,6 +69,14 @@ export const endpoints = {
     rolesStatus: ({ id }) => `${v1Admin}/rbac/roles/${id}/status`,
   },
 
+
+  audit: {
+    ProductHistory: (id) => `${v1Admin}/audit/product/${id}/history`,
+    getProductAuditList: `${v1Admin}/audit/product`,
+    getProductAuditDetail: (auditId) => `${v1Admin}/audit/products/${auditId}`,
+  },
+
+
   upload: {
     signature: `${v1Admin}/upload/signature`,
   },

@@ -11,7 +11,6 @@ const httpStatus = require("../../../../core/httpStatus");
 const buildProductQuery = require("../../../../helpers/productQuery.js");
 const productRepo = require("./product.repo");
 const categoryRepo = require("../category/category.repo");
-const parsePaging = require("../../../../helpers/query.util.js");
 const Category = require("../category/category.model.js");
 const Product = require("./product.model.js");
 const assertOwnership = require("./assertOwnership.helper")
@@ -114,7 +113,8 @@ exports.productAdminList = async (query, user) => {
   const search = query.search?.trim();
   const category = query.category;
   let isActive = parseBoolean(query.isActive);
-  console.log("userId", user.sub)
+
+
   if (!authz) {
     throw new ApiError(httpStatus.FORBIDDEN, "Không có quyền xem sản phẩm")
   }
@@ -128,7 +128,6 @@ exports.productAdminList = async (query, user) => {
   if (authz.scope === "own") {
     filter.createdBy = user.sub;
   }
-  console.log(authz.scope, "CreateBy")
   if (typeof isActive === "boolean") filter.isActive = isActive;
   if (category && mongoose.Types.ObjectId.isValid(category))
     filter.category = category;

@@ -7,6 +7,7 @@ const rbac = require("../modules/rbac/rbacAdmin.routes");
 const categoryAdmin = require("../modules/category/category.admin.routes");
 const categoryPublic = require("../modules/category/category.public.routes");
 const productAdmin = require("../modules/product/product.admin.routes");
+const Audit = require("../modules/audit/audit.routers");
 const uploadRoutes = require("../modules/upload/upload.routes");
 
 const publicProduct = require("../modules/product/public.router");
@@ -43,7 +44,15 @@ module.exports = (app) => {
 
   // dashboard (staff xem của mình, admin xem all + compare)
   app.use(v1 + "/dashboard/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderDashboardRoute);
-  
+
+
+
+
+  // audit 
+  app.use(v1 + "/admin/audit", ...guard({ any: [PERMISSIONS.AUDIT_PRODUCT_READ] }), Audit);
+
+
+
   // public client
   app.use(v1 + "/products", publicProduct);
   app.use(v1 + "/categories", categoryPublic);

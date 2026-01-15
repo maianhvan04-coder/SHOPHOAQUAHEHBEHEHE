@@ -5,7 +5,7 @@ exports.listAdminProduct = async ({ page, limit, filter, sort }) => {
 
     const items = await Product.find(filter)
         .populate("category", "name slug")
-        .populate("createdBy", "fullName email")
+        .populate("createdBy", "fullName email image")
         .sort(sort)
         .skip(skip)
         .limit(limit);
@@ -14,6 +14,10 @@ exports.listAdminProduct = async ({ page, limit, filter, sort }) => {
     return { items, total };
 };
 
+exports.findByCreatedBy = (createdBy) => Product.find(
+    { createdBy },
+    { _id: 1 }
+).lean();
 exports.create = (payload) => Product.create(payload);
 
 exports.findAnyByIdSlug = (slug) => Product.findOne({ slug });

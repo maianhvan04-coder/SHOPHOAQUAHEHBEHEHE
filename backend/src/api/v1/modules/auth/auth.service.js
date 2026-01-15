@@ -28,7 +28,7 @@ const remainingSec = (expiresAt) => {
 
 const buildLoginResult = async (user, req) => {
   const authz = await rbacService.buildAuthz(user._id);
-  console.log(authz)
+
   const expiresAt = new Date(Date.now() + SESSION_MS);
 
   // ✅ tạo session trước
