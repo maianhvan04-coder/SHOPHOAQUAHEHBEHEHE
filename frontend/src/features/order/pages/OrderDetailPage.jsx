@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Button, Spin, Result, Steps, Divider, message, Modal } from "antd";
 import {
@@ -10,6 +10,7 @@ import {
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import { fetchOrderDetail, cancelOrder } from "../order.slice";
+import FeedbackAction from "../../feedback/components/FeedbackAction";
 
 const OrderDetailPage = () => {
   const { id } = useParams();
@@ -67,7 +68,7 @@ const OrderDetailPage = () => {
         try {
           const result = await dispatch(cancelOrder(id)).unwrap();
           message.success("Đã hủy đơn hàng thành công.");
-         navigate("/my-orders");
+          navigate("/my-orders");
         } catch (err) {
           message.error(err || "Không thể hủy đơn hàng lúc này.");
         }
@@ -135,7 +136,10 @@ const OrderDetailPage = () => {
                   {currentOrder.shippingAddress?.fullName}
                 </p>
                 <p>SĐT: {currentOrder.shippingAddress?.phone}</p>
-                <p>Tỉnh/Thành phố: {currentOrder.shippingAddress?.province} - Phường/Xã: {currentOrder.shippingAddress?.ward}</p>
+                <p>
+                  Tỉnh/Thành phố: {currentOrder.shippingAddress?.province} -
+                  Phường/Xã: {currentOrder.shippingAddress?.ward}
+                </p>
                 <p>Địa chỉ: {currentOrder.shippingAddress?.addressDetails}</p>
                 {currentOrder.customerNote && (
                   <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100 text-sm italic">
@@ -144,7 +148,7 @@ const OrderDetailPage = () => {
                 )}
                 {currentOrder.shopNote && (
                   <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100 text-sm italic">
-                   Tin nhắn từ shop: {currentOrder.shopNote}
+                    Tin nhắn từ shop: {currentOrder.shopNote}
                   </div>
                 )}
               </div>
@@ -225,6 +229,11 @@ const OrderDetailPage = () => {
                     </span>
                   )}
                 </div>
+              </div>
+              <div className="p-2">
+                {currentOrder.status?.orderStatus === "Delivered" && (
+                  <FeedbackAction order={currentOrder} navigate={navigate} />
+                )}
               </div>
 
               {/* Button Hủy đơn (Chỉ hiện khi đơn đang Pending) */}

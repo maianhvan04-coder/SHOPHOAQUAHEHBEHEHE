@@ -60,7 +60,7 @@ const productSchema = new mongoose.Schema(
     // giữ lại field cũ
     sold: { type: Number, default: 0 },
     rating: { type: Number, default: 0 },
-
+    ratingCount: { type: Number, default: 0 },
     description: { type: String, default: "", trim: true },
 
     //THÊM featured

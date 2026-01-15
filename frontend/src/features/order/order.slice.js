@@ -11,7 +11,6 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export const createNewOrder = createAsyncThunk(
   "order/create",
   async (orderData, { rejectWithValue }) => {
- 
     try {
       await delay(1000);
       const response = await createOrderAPI(orderData);
@@ -29,7 +28,7 @@ export const fetchMyOrders = createAsyncThunk(
   async (status, { rejectWithValue }) => {
     try {
       const response = await getMyOrdersAPI(status);
-
+  
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
@@ -72,7 +71,7 @@ export const fetchAllOrdersAdmin = createAsyncThunk(
   async (query, { rejectWithValue }) => {
     try {
       const response = await getAllOrdersAPI(query);
-      
+
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
