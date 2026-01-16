@@ -13,6 +13,7 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       index: true,
+      default: null,
       // required: true, // bật sau khi migrate
     },
 
@@ -46,15 +47,31 @@ const orderSchema = new mongoose.Schema(
     totalPrice: { type: Number, required: true },
 
     status: {
-      isPaid: { type: Boolean, default: false },
-      paidAt: { type: Date },
-      isDelivered: { type: Boolean, default: false },
-      deliveredAt: { type: Date },
-      orderStatus: {
-        type: String,
-        enum: ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"],
-        default: "Pending",
+      type: {
+        isPaid: { type: Boolean, default: false },
+        paidAt: { type: Date, default: null },
+
+        isDelivered: { type: Boolean, default: false },
+        deliveredAt: { type: Date, default: null },
+
+        confirmedAt: { type: Date, default: null },
+
+        orderStatus: {
+          type: String,
+          enum: ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"],
+          default: "Pending",
+        },
       },
+
+      //  default cho cả object status (khi create mà không truyền status)
+      default: () => ({
+        orderStatus: "Pending",
+        isPaid: false,
+        isDelivered: false,
+        paidAt: null,
+        deliveredAt: null,
+        confirmedAt: null,
+      }),
     },
   },
   { timestamps: true }

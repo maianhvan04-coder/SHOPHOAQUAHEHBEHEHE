@@ -125,78 +125,90 @@ module.exports.cancelOrderService = async (userId, orderId) => {
 };
 
 
-module.exports.updateOrderStatusAdmin = async (orderId, statusData) => {
-  const {
-    orderStatus,
-    shopNote
-  } = statusData;
+module.exports.updateOrderStatusAdmin = async (orderId, statusData = {}) => {
+  const { orderStatus, shopNote } = statusData;
 
   const order = await Order.findById(orderId);
   if (!order) throw new Error("Không tìm thấy đơn hàng.");
 
-  // Chặn cập nhật nếu đã Delivered/Cancelled
-  if (order.status.orderStatus === "Delivered") {
-    throw new Error("Đơn hàng đã hoàn thành, không thể cập nhật thêm.");
-  }
-  if (order.status.orderStatus === "Cancelled") {
-    throw new Error("Đơn hàng đã bị hủy, không thể cập nhật.");
-  }
+  const current = order.status?.orderStatus ?? "Pending";
+
+  // Stop nếu end-state
+  if (current === "Delivered") throw new Error("Đơn hàng đã hoàn thành, không thể cập nhật thêm.");
+  if (current === "Cancelled") throw new Error("Đơn hàng đã bị hủy, không thể cập nhật.");
 
   if (typeof shopNote === "string") order.shopNote = shopNote;
 
-  if (orderStatus) {
-    order.status.orderStatus = orderStatus;
+  // Không truyền orderStatus thì chỉ update shopNote
+  if (!orderStatus) return await order.save();
 
+  // Chặn chuyển trạng thái sai luồng
+  const allowedNext = {
+    Pending: ["Confirmed", "Cancelled"],
+    Confirmed: ["Shipped", "Cancelled"],
+    Shipped: ["Delivered", "Cancelled"],
+    Delivered: [],
+    Cancelled: [],
+  };
 
-    if (orderStatus === "Delivered") {
-      // ✅ CHẶN: đơn chưa có staff thì không cho Delivered
-      if (!order.staff) {
-        throw new Error("Đơn chưa có staff (chưa claim), không thể đánh dấu Delivered.");
-      }
+  if (!allowedNext[current]?.includes(orderStatus)) {
+    throw new Error(`Không thể chuyển từ ${current} sang ${orderStatus}.`);
+  }
 
-      if (order.status.isDelivered) {
-        throw new Error("Đơn hàng đã được đánh dấu Delivered trước đó.");
-      }
+  // Rule chung: muốn ship/deliver thì phải có staff + đã confirmed
+  if (orderStatus === "Shipped" || orderStatus === "Delivered") {
+    if (!order.staff) throw new Error("Đơn chưa có staff (chưa claim), không thể giao.");
+    if (!order.status?.confirmedAt) throw new Error("Đơn chưa Confirmed, không thể giao.");
+  }
 
-      const qtyByProduct = new Map();
-      for (const item of order.orderItems || []) {
-        const pid = String(item.product);
-        const q = Number(item.quantity || 0);
-        if (!pid || q <= 0) continue;
-        qtyByProduct.set(pid, (qtyByProduct.get(pid) || 0) + q);
-      }
+  // ✅ Update trạng thái (sau khi pass validate)
+  order.status ??= {};
+  const now = new Date();
 
-      // 2) update hàng loạt Product.sold += qty
-      const ops = Array.from(qtyByProduct.entries()).map(([pid, qty]) => ({
-        updateOne: {
-          filter: {
-            _id: pid
-          },
-          update: {
-            $inc: {
-              sold: qty,
-              stock: -qty,
-            },
-          },
-        },
-      }));
+  order.status.orderStatus = orderStatus;
 
-      if (ops.length) {
-        await Product.bulkWrite(ops);
-      }
+  // set confirmedAt khi chuyển Confirmed
+  if (orderStatus === "Confirmed" && !order.status.confirmedAt) {
+    order.status.confirmedAt = now;
+  }
 
-      // 3) set flags cho order
-      order.status.isDelivered = true;
-      order.status.deliveredAt = Date.now();
+  // chỉ làm “trừ kho / đánh dấu delivered/paid” khi Delivered
+  if (orderStatus === "Delivered") {
+    if (order.status.isDelivered) {
+      throw new Error("Đơn hàng đã được đánh dấu Delivered trước đó.");
+    }
 
+    // gom qty theo product
+    const qtyByProduct = new Map();
+    for (const item of order.orderItems || []) {
+      const pid = String(item.product);
+      const q = Number(item.quantity || 0);
+      if (!pid || q <= 0) continue;
+      qtyByProduct.set(pid, (qtyByProduct.get(pid) || 0) + q);
+    }
+
+    // update Product.sold += qty, stock -= qty
+    const ops = Array.from(qtyByProduct.entries()).map(([pid, qty]) => ({
+      updateOne: {
+        filter: { _id: pid },
+        update: { $inc: { sold: qty, stock: -qty } },
+      },
+    }));
+    if (ops.length) await Product.bulkWrite(ops);
+
+    // flags delivered
+    order.status.isDelivered = true;
+    order.status.deliveredAt = now;
+
+    // ✅ chỉ auto-paid nếu COD và chưa paid
+    if (order.paymentMethod === "COD" && !order.status.isPaid) {
       order.status.isPaid = true;
-      order.status.paidAt = Date.now();
+      order.status.paidAt = now;
     }
   }
 
   return await order.save();
 };
-
 
 module.exports.getAllOrdersAdmin = async (query) => {
   const {
@@ -278,36 +290,31 @@ module.exports.claimOrderService = async (orderId, staffId) => {
     throw err;
   }
 
-  const updated = await Order.findOneAndUpdate({
+  const now = new Date();
+
+  const updated = await Order.findOneAndUpdate(
+  {
     _id: orderId,
     "status.orderStatus": "Pending",
-    $or: [{
-      staff: null
-    }, {
-      staff: {
-        $exists: false
-      }
-    }],
-  }, {
+    $or: [{ staff: null }, { staff: { $exists: false } }],
+  },
+  {
     $set: {
       staff: staffId,
-      staffAssignedAt: new Date()
-    }, // staffAssignedAt optional
-  }, {
-    new: true
-  });
+      "status.orderStatus": "Confirmed",
+      "status.confirmedAt": now,
+    },
+  },
+  { new: true }
+);
 
   if (!updated) {
-    // check tồn tại để trả mã đúng
-    const exists = await Order.exists({
-      _id: orderId
-    });
+    const exists = await Order.exists({ _id: orderId });
     if (!exists) {
       const err = new Error("Không tìm thấy đơn hàng");
       err.statusCode = 404;
       throw err;
     }
-
     const err = new Error("Đơn không Pending hoặc đã được staff khác nhận");
     err.statusCode = 409;
     throw err;
@@ -315,6 +322,7 @@ module.exports.claimOrderService = async (orderId, staffId) => {
 
   return updated;
 };
+
 
 //dashboard
 function monthToRangeVN(month) {
@@ -764,21 +772,13 @@ module.exports.getDashboardYearService = async ({
 
 // staff xem danh sách đơn chưa có staff (inbox)
 module.exports.getUnassignedOrdersService = async (query = {}) => {
-  const filter = {
-    $or: [{
-      staff: null
-    }, {
-      staff: {
-        $exists: false
-      }
-    }],
-  };
+  const status = String(query.status || "Pending").trim();
 
-  // mặc định inbox là Pending
-  const status = (query.status || "Pending").trim();
-  if (status) filter["status.orderStatus"] = status;
-
-  return Order.find(filter).sort({
-    createdAt: -1
-  }).limit(50);
+  return Order.find({
+    "status.orderStatus": status,
+    $or: [{ staff: null }, { staff: { $exists: false } }],
+  })
+    .sort({ createdAt: -1 })
+    .limit(50);
 };
+
