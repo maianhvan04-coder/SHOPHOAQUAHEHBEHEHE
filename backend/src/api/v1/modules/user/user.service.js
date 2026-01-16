@@ -556,7 +556,7 @@ exports.updateUserAdmin = async (userId, payload) => {
         { session }
       );
 
-      const INTERNAL_ROLE_TYPES = ["owner", "manager", "staff"];
+      const INTERNAL_ROLE_TYPES = ["owner", "manager", "staff", "shipper"];
       const hasInternalRole = (newRoles || []).some((r) =>
         INTERNAL_ROLE_TYPES.includes(r.type)
       );

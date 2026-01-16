@@ -56,7 +56,7 @@ router.delete(
 );
 
 router.post(
-    "roles/create",
+    "/roles/create",
     ...RBAC_SYNC_ADMIN,
     validate(validator.createRole),
     controller.createRole

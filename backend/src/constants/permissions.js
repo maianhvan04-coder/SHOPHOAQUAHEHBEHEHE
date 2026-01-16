@@ -76,9 +76,11 @@ const BASE_PERMISSIONS = Object.freeze({
     RBAC_SYNC_ADMIN: "rbac:sync_admin",
 
     // ===== AUDIT =====
+    AUDIT_READ: "audit:read",
     AUDIT_PRODUCT_READ: "audit:product:read",
-    AUDIT_READ: "audit:read"
+    AUDIT_PRODUCT_ROLLBACK: "audit:product:rollback",
 
+    AUDIT_SECURITY_READ: "audit:security:read",
 
 });
 
@@ -482,6 +484,18 @@ const BASE_PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.SYSTEM.label,
         order: 890,
     },
+
+
+
+    [PERMISSIONS.AUDIT_SECURITY_READ]: {
+        key: PERMISSIONS.AUDIT_SECURITY_READ,
+        resource: "audit",
+        action: "security_read",
+        label: "Xem lịch sử đăng nhập & bảo mật",
+        groupKey: PERMISSION_GROUPS.AUDIT.key,
+        groupLabel: PERMISSION_GROUPS.AUDIT.label,
+        order: 1020,
+    },
     [PERMISSIONS.AUDIT_PRODUCT_READ]: {
         key: PERMISSIONS.AUDIT_PRODUCT_READ,
         resource: "audit",
@@ -491,6 +505,17 @@ const BASE_PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.SYSTEM.label,
         order: 1000,
     },
+    [PERMISSIONS.AUDIT_PRODUCT_ROLLBACK]: {
+        key: PERMISSIONS.AUDIT_PRODUCT_ROLLBACK,
+        resource: "audit",
+        action: "rollback",
+        label: "Rollback sản phẩm",
+        groupKey: PERMISSION_GROUPS.SYSTEM.key,
+        groupLabel: PERMISSION_GROUPS.SYSTEM.label,
+        order: 1020,
+    },
+
+
 });
 
 //merge audit meta
@@ -725,6 +750,12 @@ const BASE_ADMIN_SCREENS = Object.freeze({
                 label: "Lịch sử sản phẩm",
                 routes: ["/admin/audit/product"],
                 accessAny: [PERMISSIONS.AUDIT_PRODUCT_READ],
+            },
+            {
+                key: "audit-security",
+                label: "Lịch sử bảo mật",
+                routes: ["/admin/audit/security"],
+                accessAny: [PERMISSIONS.AUDIT_SECURITY_READ],
             },
             {
                 key: "audit-user",

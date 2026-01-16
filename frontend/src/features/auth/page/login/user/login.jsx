@@ -171,6 +171,27 @@ export default function LoginPage() {
                 }}
               />
             </div>
+             {/* Remember + Forgot */}
+<div className="flex items-center justify-between text-sm text-white/85 pt-1">
+  <label className="flex items-center gap-2 cursor-pointer select-none">
+    <input
+      type="checkbox"
+      className="h-4 w-4 rounded border-white/40 bg-transparent accent-white focus:ring-2 focus:ring-white/20"
+    />
+    <span className="hover:text-white transition">
+      Remember me
+    </span>
+  </label>
+
+  <Link
+    to="/forgot-password"
+    className="text-white/80 hover:text-white hover:underline transition"
+  >
+    Forgot password?
+  </Link>
+</div>
+
+          
 
             <p className="text-center text-sm text-white/90">
               Don&apos;t have an account?{" "}

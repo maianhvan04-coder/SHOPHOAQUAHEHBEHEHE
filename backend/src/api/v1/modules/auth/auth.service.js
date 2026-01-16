@@ -8,6 +8,11 @@ const httpStatus = require("../../../../core/httpStatus");
 const authRepo = require("./auth.repo");
 const userRepo = require("../user/user.repo");
 const rbacService = require("../rbac/rbac.service");
+const auditService = require("../audit/audit.service")
+const { detectLoginAnomaly } = require("../security/security.rule");
+
+const { handleLoginFail } = require("../security/security.policy");
+const { queue } = require("../../../../infra");
 
 const { hashPassword, comparePassword } = require("../../../../helpers/password.auth");
 const { generateAccessToken, signRefreshToken, verifyRefreshToken } = require("../../../../helpers/jwt.auth");
@@ -70,33 +75,178 @@ const buildLoginResult = async (user, req) => {
 };
 
 // LOGIN
+// LOGIN
 exports.login = async ({ email, password }, req) => {
-  //  tìm auth provider local
-
+  // 1️⃣ tìm auth provider
   const auth = await authRepo.findLocalAuthByEmail(email);
 
+  /* ======================
+   * EMAIL KHÔNG TỒN TẠI
+   * ====================== */
   if (!auth) {
+    const failCount = await handleLoginFail({
+      userId: null,
+      ip: req.ip,
+    });
+
+    const alerts = await detectLoginAnomaly({
+      email,
+      ip: req.ip,
+      failCount,
+    });
+
+    await auditService.logAudit({
+      actorId: null,
+      actorRoles: [],
+      resource: "security",
+      action: "login_failed",
+      resourceId: email,
+      changes: {
+        meta: {
+          email,
+          reason: "EMAIL_NOT_FOUND",
+          failCount: failCount.ipFailCount,
+          blocked: failCount.blocked,
+          window: "5m",
+          alerts,
+        },
+      },
+      req,
+    });
+
     throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
   }
 
-  //  so sánh password
+  /* ======================
+   * SAI MẬT KHẨU
+   * ====================== */
   const ok = await comparePassword(password, auth.passwordHash);
   if (!ok) {
+    const failCount = await handleLoginFail({
+      userId: auth.userId,
+      ip: req.ip,
+    });
+
+    const alerts = await detectLoginAnomaly({
+      email,
+      ip: req.ip,
+      failCount,
+    });
+
+    await auditService.logAudit({
+      actorId: auth.userId,
+      actorRoles: [],
+      resource: "security",
+      action: "login_failed",
+      resourceId: auth.userId,
+      changes: {
+        meta: {
+          email,
+          reason: "EMAIL_NOT_FOUND",
+          failCount: failCount.ipFailCount,
+          blocked: failCount.blocked,
+          window: "5m",
+          alerts,
+        },
+      },
+      req,
+    });
+
     throw new ApiError(httpStatus.UNAUTHORIZED, "Sai Email hoặc mật khẩu");
   }
 
-  // load user
+  /* ======================
+   * LOAD USER
+   * ====================== */
   const user = await authRepo.findUserById(auth.userId);
   if (!user || user.isDeleted) {
+    const failCount = await handleLoginFail({
+      userId: auth.userId,
+      ip: req.ip,
+    });
+
+    const alerts = await detectLoginAnomaly({
+      email,
+      ip: req.ip,
+      failCount,
+    });
+
+    await auditService.logAudit({
+      actorId: auth.userId,
+      actorRoles: [],
+      resource: "security",
+      action: "login_failed",
+      resourceId: auth.userId,
+      changes: {
+        meta: {
+          email,
+          reason: "EMAIL_NOT_FOUND",
+          failCount: failCount.ipFailCount,
+          blocked: failCount.blocked,
+          window: "5m",
+          alerts,
+        },
+      },
+      req,
+    });
+
     throw new ApiError(httpStatus.UNAUTHORIZED, "User không tồn tại");
   }
 
   if (!user.isActive) {
+    await auditService.logAudit({
+      actorId: user._id,
+      actorRoles: user.roles,
+      resource: "security",
+      action: "login_failed",
+      resourceId: user._id,
+      changes: {
+        meta: {
+          email,
+          reason: "EMAIL_NOT_FOUND",
+          failCount: failCount.ipFailCount,
+          blocked: failCount.blocked,
+          window: "5m",
+          alerts,
+        },
+      },
+      req,
+    });
+
     throw new ApiError(httpStatus.UNAUTHORIZED, "Tài khoản bị khóa");
   }
 
+  /* ======================
+   * LOGIN SUCCESS
+   * ====================== */
+  const successAlerts = await detectLoginAnomaly({
+    user,
+    email,
+    ip: req.ip,
+    userAgent: req.userAgentParsed,
+  });
+
+  queue.enqueueLoginAnomaly({
+    userId: user._id,
+    ip: req.ip,
+    userAgent: req.userAgentParsed,
+    timestamp: Date.now(),
+  });
+
+  req.user = {
+    sub: user._id,
+    roles: user.roles,
+  };
+
+  req.auditUserId = user._id;
+  req.auditMeta = {
+    method: "password",
+    alerts: successAlerts,
+  };
+
   return buildLoginResult(user, req);
 };
+
 
 // ===== GOOGLE LOGIN SERVICE =====
 exports.googleLogin = async ({ credential }, req) => {

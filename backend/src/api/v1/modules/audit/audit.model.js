@@ -13,8 +13,13 @@ const auditSchema = new Schema({
     changes: {
         before: { type: Schema.Types.Mixed },
         after: { type: Schema.Types.Mixed },
+        meta: { type: Schema.Types.Mixed },
     },
-
+    rollbackOf: {
+        type: Types.ObjectId,
+        ref: "AuditLog",
+        default: null,
+    },
     ip: String,
     userAgent: {
         browser: {

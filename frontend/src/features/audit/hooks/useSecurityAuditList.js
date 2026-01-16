@@ -1,27 +1,24 @@
 import { useEffect, useState, useCallback } from "react";
 import { auditApi } from "~/api/auditApi";
 
-export function useProductAuditList(filters) {
+export function useSecurityAuditList(filters) {
     const [items, setItems] = useState([]);
     const [cursor, setCursor] = useState(null);
     const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(false);
 
-    /**
-     * LOAD MORE (cursor pagination)
-     */
     const loadMore = useCallback(async () => {
         if (!hasMore || loading) return;
 
         setLoading(true);
 
-        const res = await auditApi.getProductAuditList({
+        const res = await auditApi.getSecurityAuditList({
             before: cursor,
             limit: 20,
 
-            // 🔥 FILTERS gửi lên backend
             search: filters?.search || undefined,
-            role: filters?.role || undefined,
+            action: filters?.action || undefined,
+            riskLevel: filters?.riskLevel || undefined,
             fromDate: filters?.fromDate || undefined,
             toDate: filters?.toDate || undefined,
         });
@@ -34,23 +31,19 @@ export function useProductAuditList(filters) {
         setLoading(false);
     }, [cursor, hasMore, loading, filters]);
 
-    /**
-     * 🔁 RESET khi filter thay đổi
-     */
+    // 🔁 reset khi filter đổi
     useEffect(() => {
         setItems([]);
         setCursor(null);
         setHasMore(true);
     }, [
         filters?.search,
-        filters?.role,
+        filters?.action,
+        filters?.riskLevel,
         filters?.fromDate,
         filters?.toDate,
     ]);
 
-    /**
-     * LOAD FIRST PAGE
-     */
     useEffect(() => {
         loadMore();
     }, [loadMore]);

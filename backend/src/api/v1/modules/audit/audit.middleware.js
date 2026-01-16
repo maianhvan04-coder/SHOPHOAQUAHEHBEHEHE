@@ -1,7 +1,7 @@
 const { logAudit } = require("./audit.service");
 
 exports.withAudit =
-    ({ resource, action, getResourceId, getBefore, getAfter }) =>
+    ({ resource, action, getResourceId, getBefore, getAfter, getMeta }) =>
         async (req, res, next) => {
             try {
                 // 1️⃣ snapshot BEFORE
@@ -11,7 +11,7 @@ exports.withAudit =
                 res.on("finish", async () => {
                     if (res.statusCode >= 200 && res.statusCode < 300) {
                         const after = getAfter ? await getAfter(req) : req.auditAfter ?? null;
-
+                        const meta = getMeta ? await getMeta(req, res) : null;
                         await logAudit({
                             actorId: req.user.sub,
                             actorRoles: req.user.roles,
@@ -21,6 +21,7 @@ exports.withAudit =
                             changes: {
                                 before,
                                 after,
+                                meta
                             },
                             req,
                         });
