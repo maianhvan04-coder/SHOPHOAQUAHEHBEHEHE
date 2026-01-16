@@ -33,7 +33,7 @@ import {
   useBreakpointValue,
   useColorModeValue,
   Icon,
-  
+
 } from "@chakra-ui/react";
 
 import {
@@ -220,8 +220,8 @@ function UsersView({
     const label = isDeletedTab
       ? "User đã bị xoá (soft-delete)"
       : !canChangeStatus
-      ? "Bạn không có quyền đổi status"
-      : "Click để đổi trạng thái";
+        ? "Bạn không có quyền đổi status"
+        : "Click để đổi trạng thái";
 
     return (
       <Tooltip label={label} hasArrow>
@@ -281,10 +281,11 @@ function UsersView({
             <Box flex="1">
               <PageHeader
                 title="User Management"
-                description={isDeletedTab ? "Restore soft-deleted users." : "Create, edit and manage users."}
-                buttonLabel={!isDeletedTab && canCreate ? "New User" : undefined}
-                buttonIcon={!isDeletedTab && canCreate ? PlusIcon : undefined}
-                onButtonClick={!isDeletedTab && canCreate ? onAddUser : undefined}
+                description={
+                  isDeletedTab
+                    ? "Restore soft-deleted users."
+                    : "Create, edit and manage users."
+                }
               />
 
               <Box mt={3}>
@@ -292,12 +293,34 @@ function UsersView({
               </Box>
             </Box>
 
-            <HStack justify={{ base: "flex-start", md: "flex-end" }} w={{ base: "full", md: "auto" }}>
+            {/* ✅ Actions: New User + Refresh (same row, right aligned on desktop) */}
+            <HStack
+              spacing={3}
+              justify={{ base: "flex-start", md: "flex-end" }}
+              w={{ base: "full", md: "auto" }}
+              flexWrap="wrap"
+            >
+              {!isDeletedTab && canCreate && (
+                <Button
+                  size="sm"
+                  borderRadius="full"
+                  bg="#304945"
+                  color="white"
+                  leftIcon={<PlusIcon className="h-4 w-4" />}
+                  onClick={onAddUser}
+                  _hover={{ bg: "#263b38" }}
+                >
+                  New User
+                </Button>
+              )}
+
               <Button
                 size="sm"
                 variant="outline"
                 borderRadius="full"
-                leftIcon={<ArrowPathIcon className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />}
+                leftIcon={
+                  <ArrowPathIcon className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                }
                 onClick={onRefresh}
               >
                 Refresh

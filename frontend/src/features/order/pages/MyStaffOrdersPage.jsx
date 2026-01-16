@@ -116,7 +116,7 @@ export default function MyStaffOrdersPage() {
               </HStack>
 
               <Text mt={1} fontSize="sm" color="gray.500">
-                Lọc theo tháng / trạng thái, tìm theo mã đơn / tên / SĐT
+                Quản lí đơn hàng của nhân viên
               </Text>
             </Box>
 
