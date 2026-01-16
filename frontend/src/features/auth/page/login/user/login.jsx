@@ -45,7 +45,8 @@ export default function LoginPage() {
     "focus:ring-4 disabled:opacity-70 disabled:cursor-not-allowed";
 
   const inputOk = "border-white/25 focus:border-white/45 focus:ring-white/10";
-  const inputErr = "border-red-300/60 focus:border-red-200 focus:ring-red-200/10";
+  const inputErr =
+    "border-red-300/60 focus:border-red-200 focus:ring-red-200/10";
 
   return (
     <div
@@ -101,6 +102,7 @@ export default function LoginPage() {
                 placeholder="Email"
                 autoComplete="username"
                 className={[
+                  "glass-input",
                   inputBase,
                   fieldErrors.email ? inputErr : inputOk,
                 ].join(" ")}
@@ -124,24 +126,38 @@ export default function LoginPage() {
                   placeholder="Password"
                   autoComplete="current-password"
                   className={[
+                    "glass-input",
                     inputBase,
                     "pr-12",
                     fieldErrors.password ? inputErr : inputOk,
                   ].join(" ")}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword((p) => !p)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
               </div>
-              {fieldErrors.password && (
-                <p className="mt-2 text-xs text-red-200">
-                  {fieldErrors.password}
-                </p>
-              )}
+
+              <div className="mt-2 flex items-center justify-between">
+                {fieldErrors.password ? (
+                  <p className="text-xs text-red-200">{fieldErrors.password}</p>
+                ) : (
+                  <span />
+                )}
+
+                {/* ✅ Link sang trang quên password có sẵn */}
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-white/85 hover:text-white hover:underline"
+                >
+                  Forgot-password?
+                </Link>
+              </div>
             </div>
 
             {/* Local login button */}
@@ -186,6 +202,23 @@ export default function LoginPage() {
         @keyframes shrink {
           from { width: 100%; }
           to { width: 0%; }
+        }
+
+        /* ✅ Remove Chrome/Google autofill white/blue background (scoped) */
+        input.glass-input:-webkit-autofill,
+        input.glass-input:-webkit-autofill:hover,
+        input.glass-input:-webkit-autofill:focus,
+        textarea.glass-input:-webkit-autofill,
+        select.glass-input:-webkit-autofill {
+          -webkit-text-fill-color: #ffffff !important;
+          caret-color: #ffffff !important;
+
+          /* phủ nền autofill bằng nền glass */
+          box-shadow: 0 0 0px 1000px rgba(255,255,255,0.10) inset !important;
+          -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.10) inset !important;
+
+          /* trick để chrome không “vẽ lại” nền autofill */
+          transition: background-color 9999s ease-out 0s !important;
         }
       `}</style>
     </div>
