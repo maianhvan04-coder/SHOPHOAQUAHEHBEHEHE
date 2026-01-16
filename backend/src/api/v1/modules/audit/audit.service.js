@@ -14,6 +14,39 @@ const {
  * Ghi audit log
  * @param {Object} payload
  */
+function mapRiskLevel(action, meta = {}) {
+    if (action === "login_failed") {
+        if (meta.blocked) return "critical";
+        if ((meta.failCount ?? 0) >= 5) return "high";
+        if ((meta.failCount ?? 0) >= 3) return "medium";
+        return "low";
+    }
+    return "low";
+}
+
+function mapMeta(action, meta = {}) {
+    if (action === "login_success") {
+        return {
+            email: meta.email ?? null,
+            method: meta.method ?? "password",
+        };
+    }
+
+    // login_failed
+    return {
+        email: meta.email ?? null,
+        reason: meta.reason ?? null,
+        failCount: meta.failCount ?? 0,
+        window: meta.window ?? "5m",
+        blocked: Boolean(meta.blocked),
+        alerts: Array.isArray(meta.alerts) ? meta.alerts : [],
+    };
+}
+
+
+
+
+
 exports.logAudit = async ({
     actorId,
     actorRoles = [],
@@ -23,7 +56,9 @@ exports.logAudit = async ({
     changes = {},
     req,
 }) => {
-    if (!actorId || !resource || !action || !resourceId) return;
+
+    if (!resource || !action) return;
+    console.log("Vào đến đây")
     const rawUA = req?.headers?.["user-agent"];
     const parser = new UAParser(rawUA);
     const ua = parser.getResult();
@@ -62,6 +97,7 @@ exports.logAudit = async ({
         console.error("AUDIT_LOG_ERROR:", err);
     }
 };
+
 exports.getProductAudit = async ({ resource, resourceId }) => {
     return auditRepo.findById({
         resource,
@@ -123,7 +159,19 @@ exports.getProductHistory = async ({ productId, user, query }) => {
 
 exports.getProductAuditList = async ({ user, query }) => {
     const limit = Math.min(Number(query.limit || 20), 50);
-    const { productId, action, actorId, before } = query;
+
+    const {
+        productId,
+        action,
+        actorId,
+        before,
+
+        // 🔥 filters mới
+        search,
+        role,
+        fromDate,
+        toDate,
+    } = query;
 
     const isAdmin =
         user.roles?.includes("ADMIN") ||
@@ -132,6 +180,10 @@ exports.getProductAuditList = async ({ user, query }) => {
     const filter = {
         resource: "product",
     };
+
+    /* =======================
+     * BASIC FILTERS
+     * ======================= */
 
     if (productId && mongoose.Types.ObjectId.isValid(productId)) {
         filter.resourceId = productId;
@@ -145,29 +197,75 @@ exports.getProductAuditList = async ({ user, query }) => {
         filter.actorId = actorId;
     }
 
-    // ⏱ load theo thời gian (Chrome style)
-    if (before) {
-        const beforeDate = new Date(before);
-        if (!isNaN(beforeDate)) {
-            filter.createdAt = { $lt: beforeDate };
+    /* =======================
+     * 🔍 SEARCH (name / email)
+     * ======================= */
+    if (search) {
+        filter.$or = [
+            { "actorId.fullName": { $regex: search, $options: "i" } },
+            { "actorId.email": { $regex: search, $options: "i" } },
+        ];
+    }
+
+    /* =======================
+     * 🎭 ROLE
+     * ======================= */
+    if (role) {
+        filter.actorRoles = role;
+    }
+
+    /* =======================
+     * 📅 DATE RANGE
+     * ======================= */
+    if (fromDate || toDate) {
+        filter.createdAt = {};
+
+        if (fromDate) {
+            const from = new Date(fromDate);
+            if (!isNaN(from)) {
+                filter.createdAt.$gte = from;
+            }
+        }
+
+        if (toDate) {
+            const to = new Date(`${toDate}T23:59:59.999Z`);
+            if (!isNaN(to)) {
+                filter.createdAt.$lte = to;
+            }
         }
     }
 
-    // STAFF chỉ xem sản phẩm của mình
+    /* =======================
+     * ⏱ CURSOR (Chrome-style)
+     * ======================= */
+    if (before) {
+        const beforeDate = new Date(before);
+        if (!isNaN(beforeDate)) {
+            filter.createdAt = {
+                ...(filter.createdAt || {}),
+                $lt: beforeDate,
+            };
+        }
+    }
+
+    /* =======================
+     * 🔒 PERMISSION
+     * ======================= */
     if (!isAdmin) {
         if (!mongoose.Types.ObjectId.isValid(user.sub)) {
             throw new ApiError(400, "UserId không hợp lệ");
         }
 
-        const myProducts = await productRepo.findByCreatedBy(
-            user.sub
-        );
+        const myProducts = await productRepo.findByCreatedBy(user.sub);
 
         filter.resourceId = {
             $in: myProducts.map((p) => p._id),
         };
     }
 
+    /* =======================
+     * QUERY DB
+     * ======================= */
     const items = await auditRepo.find({
         filter,
         limit,
@@ -180,9 +278,10 @@ exports.getProductAuditList = async ({ user, query }) => {
 
     return {
         items,
-        nextCursor, // 🔥 FE dùng để load tiếp
+        nextCursor,
     };
 };
+
 
 
 exports.getProductAuditDetail = async ({
@@ -230,5 +329,145 @@ exports.getProductAuditDetail = async ({
     }
 
     return audit;
+};
+
+exports.getSecurityAuditList = async ({ user, query }) => {
+    const limit = Math.min(Number(query.limit || 20), 50);
+
+    const {
+        action,     // login_success | login_failed
+        actorId,    // userId
+        role,       // ADMIN | STAFF
+        search,     // email | fullName
+        fromDate,
+        toDate,
+        before,     // cursor
+        riskLevel,  // high | medium | low
+    } = query;
+
+    const isAdmin =
+        user.roles?.includes("ADMIN") ||
+        user.roles?.includes("MANAGER");
+
+    const filter = {
+        resource: "security",
+    };
+
+    /* =======================
+     * ACTION
+     * ======================= */
+    if (action) {
+        filter.action = action;
+    }
+
+    if (actorId && mongoose.Types.ObjectId.isValid(actorId)) {
+        filter.actorId = actorId;
+    }
+
+
+    if (role) {
+        filter.actorRoles = role;
+    }
+
+
+    if (search) {
+        filter.$or = [
+            { "changes.meta.email": { $regex: search, $options: "i" } },
+            { "actorId.fullName": { $regex: search, $options: "i" } },
+            { "actorId.email": { $regex: search, $options: "i" } },
+        ];
+    }
+
+    if (fromDate || toDate) {
+        filter.createdAt = {};
+
+        if (fromDate) {
+            const from = new Date(fromDate);
+            if (!isNaN(from)) filter.createdAt.$gte = from;
+        }
+
+        if (toDate) {
+            const to = new Date(`${toDate}T23:59:59.999Z`);
+            if (!isNaN(to)) filter.createdAt.$lte = to;
+        }
+    }
+
+    /* =======================
+     * CURSOR (Chrome-style)
+     * ======================= */
+    if (before) {
+        const beforeDate = new Date(before);
+        if (!isNaN(beforeDate)) {
+            filter.createdAt = {
+                ...(filter.createdAt || {}),
+                $lt: beforeDate,
+            };
+        }
+    }
+
+
+    if (!isAdmin) {
+        if (!mongoose.Types.ObjectId.isValid(user.sub)) {
+            throw new ApiError(400, "UserId không hợp lệ");
+        }
+
+        // Non-admin chỉ xem log của chính mình
+        filter.actorId = user.sub;
+    }
+
+
+    const rawItems = await auditRepo.find({
+        filter,
+        limit,
+    });
+
+    let items = rawItems.map(item => {
+        const meta = item.changes?.meta || {};
+
+        return {
+            _id: item._id,
+            resource: item.resource,
+            action: item.action,
+
+            riskLevel: mapRiskLevel(item.action, meta),
+
+            actorId: item.actorId
+                ? {
+                    _id: item.actorId._id,
+                    fullName: item.actorId.fullName,
+                    email: item.actorId.email,
+                }
+                : null,
+
+            changes: {
+                meta: mapMeta(item.action, meta),
+            },
+
+            ip: item.ip,
+
+            userAgent: {
+                device: {
+                    type: item.userAgent?.device?.type ?? "desktop",
+                },
+            },
+
+            createdAt: item.createdAt,
+        };
+    });
+
+    if (riskLevel) {
+        items = items.filter(item => item.riskLevel === riskLevel);
+    }
+
+
+    const nextCursor =
+        items.length > 0
+            ? items[items.length - 1].createdAt
+            : null;
+
+    return {
+        items,
+        nextCursor,
+    };
 };
 

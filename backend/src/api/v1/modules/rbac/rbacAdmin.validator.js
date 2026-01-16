@@ -63,7 +63,6 @@ exports.createRole = Joi.object({
     type,
     priority,
     isActive,
-    isDeleted,
 
 });
 

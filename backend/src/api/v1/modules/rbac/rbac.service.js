@@ -281,7 +281,8 @@ exports.setUserRoles = async (userId, roleCodes) => {
     }
 
     await rbacRepo.replaceUserRoles(userId, roles.map((r) => r._id));
-    const INTERNAL_ROLE_TYPES = ["owner", "manager", "staff"];
+
+    const INTERNAL_ROLE_TYPES = ["owner", "manager", "staff", "shipper"];
 
     const hasInternalRole = roles.some((r) =>
         INTERNAL_ROLE_TYPES.includes(r.type)

@@ -44,3 +44,17 @@ exports.getProductAuditDetail = asyncHandler(async (req, res) => {
 
     res.json({ data });
 });
+
+// audit.controller.js
+exports.getSecurityAuditList = asyncHandler(async (req, res) => {
+    const data = await auditService.getSecurityAuditList({
+        user: {
+            sub: req.user.sub,
+            roles: req.user.roles,
+        },
+        query: req.query,
+    });
+
+    res.json(data);
+});
+

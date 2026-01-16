@@ -8,6 +8,7 @@ import ProductsTabs from "./ProductsTabs";
 import ProductForm from "./ProductForm";
 import DeleteModals from "./components/DeleteModals";
 import ProductHistoryModal from "./components/history/ProductHistoryModal";
+import ProductsToolbar from "./components/ProductsToolbar";
 
 import {
   Box,
@@ -16,23 +17,18 @@ import {
   HStack,
   IconButton,
   SimpleGrid,
-  Skeleton,
   Stack,
   Text,
   useBreakpointValue,
   useColorModeValue,
-  VStack,
 } from "@chakra-ui/react";
 
 import {
   PlusIcon,
-  MagnifyingGlassIcon,
   ArrowPathIcon,
-  ClockIcon ,
 } from "@heroicons/react/24/outline";
 
-import { computePermission, getThumb } from "./products.helpers";
-import ProductsToolbar from "./components/ProductsToolbar";
+import { computePermission } from "./products.helpers";
 import ProductsTableDesktop from "./components/ProductsTableDesktop";
 import MobileProductCard from "./components/MobileProductCard";
 
@@ -80,7 +76,7 @@ export default function ProductsView(props) {
     openBulkDelete,
     closeBulkDelete,
     confirmBulkDelete,
-    
+    bulkSetStatus,
 
     activeCount = 0,
     deletedCount = 0,
@@ -88,7 +84,7 @@ export default function ProductsView(props) {
 
   const isDeletedTab = tab === "deleted";
 
-  // ===== HISTORY STATE =====
+  /* ================= HISTORY ================= */
   const [historyProduct, setHistoryProduct] = useState(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
@@ -102,13 +98,13 @@ export default function ProductsView(props) {
     setIsHistoryOpen(false);
   };
 
-  // ===== THEME =====
+  /* ================= THEME ================= */
   const bgMain = useColorModeValue("gray.50", "gray.950");
   const cardBg = useColorModeValue("white", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.800");
-
   const displayMode = useBreakpointValue({ base: "mobile", lg: "desktop" });
-  // ===== PERMISSIONS =====
+
+  /* ================= PERMISSION ================= */
   const canCreate = computePermission({
     screens,
     userPermissions,
@@ -137,7 +133,7 @@ export default function ProductsView(props) {
     actionKey: "audit",
   });
 
-  // ===== CATEGORY MAP =====
+  /* ================= CATEGORY ================= */
   const categoryList = useMemo(() => {
     if (Array.isArray(categories)) return categories;
     return categories?.data?.items || [];
@@ -157,7 +153,8 @@ export default function ProductsView(props) {
   return (
     <Box bg={bgMain} minH="100vh" py={6} px={6}>
       <Box maxW="1600px" mx="auto">
-        {/* HEADER */}
+
+        {/* ================= HEADER ================= */}
         <Stack direction="row" justify="space-between" mb={5}>
           <Box>
             <PageHeader title="Sản phẩm" />
@@ -188,8 +185,26 @@ export default function ProductsView(props) {
           </HStack>
         </Stack>
 
-        {/* TABLE / LIST */}
+        {/* ================= CONTENT ================= */}
         <Card bg={cardBg} border="1px solid" borderColor={borderColor}>
+
+          {/* 🔥 TOOLBAR */}
+          <ProductsToolbar
+            filters={filters}
+            onFilterChange={onFilterChange}
+            categoryList={categoryList}
+            categoryNameById={categoryNameById}
+            selectedIds={selectedIds}
+            clearSelection={clearSelection}
+            isDeletedTab={isDeletedTab}
+            isLoading={isLoading}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+            bulkSetStatus={bulkSetStatus}
+            openBulkDelete={openBulkDelete}
+          />
+
+          {/* TABLE / MOBILE */}
           {displayMode === "desktop" ? (
             <ProductsTableDesktop
               filteredProducts={filteredProducts}
@@ -238,14 +253,13 @@ export default function ProductsView(props) {
         </Card>
       </Box>
 
-      {/* HISTORY MODAL */}
+      {/* ================= MODALS ================= */}
       <ProductHistoryModal
         isOpen={isHistoryOpen}
         onClose={closeHistory}
         product={historyProduct}
       />
 
-      {/* FORM + DELETE */}
       <Modal isOpen={isFormOpen} onClose={closeForm}>
         <ProductForm
           product={selectedProduct}
@@ -261,12 +275,6 @@ export default function ProductsView(props) {
         productToDelete={productToDelete}
         onConfirmDelete={onConfirmDelete}
       />
-      <ProductHistoryModal
-  isOpen={isHistoryOpen}
-  onClose={closeHistory}
-  product={historyProduct}
-/>
-
     </Box>
   );
 }

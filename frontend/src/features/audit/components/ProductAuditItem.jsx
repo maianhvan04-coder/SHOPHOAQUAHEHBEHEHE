@@ -19,6 +19,7 @@ import {
   DevicePhoneMobileIcon,
 } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
+import { renderUserAgent } from '../components/renderImage';
 
 const ACTION_CONFIG = {
   create: { color: "green", label: "Tạo", icon: SparklesIcon },
@@ -79,10 +80,7 @@ const handleViewDetail = () => {
 
         <Flex justify="space-between" pl={6}>
           <HStack fontSize="xs" color="gray.500">
-            <Icon as={DevicePhoneMobileIcon} w={3} h={3} />
-            <Text>{log.userAgent?.browser?.name}</Text>
-            <Text>•</Text>
-            <Text fontFamily="mono">{log.ip}</Text>
+           {renderUserAgent(log)}
           </HStack>
 
           <Button

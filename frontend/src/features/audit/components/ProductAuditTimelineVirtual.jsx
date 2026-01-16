@@ -2,7 +2,8 @@ import { Box, Text, VStack } from "@chakra-ui/react";
 import { Virtuoso } from "react-virtuoso";
 import { useMemo } from "react";
 
-import ProductAuditItem from "./ProductAuditItem";
+import AuditItem from "./AuditItem";
+
 import { groupAuditByDate } from "../utils/groupAuditByDate";
 
 export default function ProductAuditTimelineVirtual({
@@ -59,7 +60,7 @@ export default function ProductAuditTimelineVirtual({
               <VStack align="stretch" spacing={0} p={4}>
                 {group.logs.map((log) => (
                   <Box key={log._id} mb="16px">
-                    <ProductAuditItem log={log} />
+                    <AuditItem log={log} />
                   </Box>
                 ))}
               </VStack>

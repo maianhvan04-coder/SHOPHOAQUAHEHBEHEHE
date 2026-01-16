@@ -68,7 +68,7 @@ export const endpoints = {
 
     rolesStatus: ({ id }) => `${v1Admin}/rbac/roles/${id}/status`,
   },
-    orders: {
+  orders: {
     // USER (me)
     me: `${v1}/order/me`,
     meDetail: (id) => `${v1}/order/me/${id}`,
@@ -92,6 +92,7 @@ export const endpoints = {
   audit: {
     ProductHistory: (id) => `${v1Admin}/audit/product/${id}/history`,
     getProductAuditList: `${v1Admin}/audit/product`,
+    getSecurityAuditList: `${v1Admin}/audit/security`,
     getProductAuditDetail: (auditId) => `${v1Admin}/audit/products/${auditId}`,
   },
 

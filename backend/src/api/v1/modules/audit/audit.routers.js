@@ -27,5 +27,12 @@ router.get(
     controller.getProductAuditDetail
 );
 
+// GET /api/v1/admin/audit/security
+router.get(
+    "/security",
+    ...guard({ any: [PERMISSIONS.AUDIT_SECURITY_READ] }),
+    controller.getSecurityAuditList
+);
+
 
 module.exports = router;
