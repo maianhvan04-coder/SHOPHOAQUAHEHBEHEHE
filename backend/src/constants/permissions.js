@@ -8,33 +8,6 @@ const { PERMISSION_GROUPS } = require("./permission.groups");
 //
 // Gợi ý seed DB: upsert Permission theo permissionMetaList bên dưới.
 
-const PERMISSION_GROUPS = Object.freeze({
-    USERS: {
-        key: "USERS",
-        label: "Người dùng",
-        icon: "users",
-        order: 10
-    },
-    CATALOG: {
-        key: "CATALOG",
-        label: "Danh mục & Sản phẩm",
-        icon: "box",
-        order: 20
-    },
-    ORDERS: {
-        key: "ORDERS",
-        label: "Đơn hàng",
-        icon: "receipt",
-        order: 30
-    },
-    SYSTEM: {
-        key: "SYSTEM",
-        label: "Hệ thống",
-        icon: "settings",
-        order: 99
-    },
-});
-
 // =====================================================
 // 1) PERMISSIONS: keys chuẩn để guard backend & FE check
 // =====================================================
@@ -75,9 +48,6 @@ const BASE_PERMISSIONS = Object.freeze({
     ORDER_UPDATE_STATUS: "order:status",
 
     // ===== ORDERS (STAFF) =====
-    ORDER_STAFF_INBOX_READ: "order:inbox_read", // inbox đơn chưa gán
-    ORDER_STAFF_MY_READ: "order:mine_read",     // đơn của tôi
-    ORDER_STAFF_CLAIM: "order:claim",           // claim đơn
     ORDER_STAFF_INBOX_READ: "order:inbox_read", // xem inbox đơn chưa gán
     ORDER_STAFF_MY_READ: "order:mine_read", // xem đơn của tôi
     ORDER_STAFF_CLAIM: "order:claim", // claim đơn
@@ -379,35 +349,6 @@ const BASE_PERMISSION_META = Object.freeze({
         order: 380,
     },
 
-    // ===== ORDERS (STAFF) =====
-    [PERMISSIONS.ORDER_STAFF_INBOX_READ]: {
-        key: PERMISSIONS.ORDER_STAFF_INBOX_READ,
-        resource: "order",
-        action: "inbox_read",
-        label: "STAFF: Xem inbox đơn chưa gán",
-        groupKey: PERMISSION_GROUPS.ORDERS.key,
-        groupLabel: PERMISSION_GROUPS.ORDERS.label,
-        order: 360,
-    },
-    [PERMISSIONS.ORDER_STAFF_MY_READ]: {
-        key: PERMISSIONS.ORDER_STAFF_MY_READ,
-        resource: "order",
-        action: "mine_read",
-        label: "STAFF: Xem đơn của tôi",
-        groupKey: PERMISSION_GROUPS.ORDERS.key,
-        groupLabel: PERMISSION_GROUPS.ORDERS.label,
-        order: 370,
-    },
-    [PERMISSIONS.ORDER_STAFF_CLAIM]: {
-        key: PERMISSIONS.ORDER_STAFF_CLAIM,
-        resource: "order",
-        action: "claim",
-        label: "STAFF: Nhận (claim) đơn",
-        groupKey: PERMISSION_GROUPS.ORDERS.key,
-        groupLabel: PERMISSION_GROUPS.ORDERS.label,
-        order: 380,
-    },
-
     // ===== RBAC / SYSTEM =====
     [PERMISSIONS.RBAC_READ]: {
         key: PERMISSIONS.RBAC_READ,
@@ -679,7 +620,7 @@ const BASE_ADMIN_SCREENS = Object.freeze({
             changeStatus: [PERMISSIONS.ORDER_UPDATE_STATUS],
         },
     },
-    ORDERS_INBOX: {
+     ORDERS_INBOX: {
         key: "order-inbox",
         group: PERMISSION_GROUPS.ORDERS.key,
         label: "Inbox (Claim đơn)",
@@ -690,35 +631,6 @@ const BASE_ADMIN_SCREENS = Object.freeze({
             PERMISSIONS.ORDER_STAFF_INBOX_READ,
             PERMISSIONS.ORDER_STAFF_CLAIM,
         ],
-        actions: {
-            view: [PERMISSIONS.ORDER_STAFF_INBOX_READ],
-            claim: [PERMISSIONS.ORDER_STAFF_CLAIM],
-        },
-    },
-
-    MY_STAFF_ORDERS: {
-        key: "my-staff-orders",
-        group: PERMISSION_GROUPS.ORDERS.key,
-        label: "Đơn của tôi",
-        icon: "order",
-        order: 42,
-        routes: ["/admin/my-staff-orders"],
-        accessAny: [PERMISSIONS.ORDER_STAFF_MY_READ],
-        actions: {
-            view: [PERMISSIONS.ORDER_STAFF_MY_READ],
-        },
-    },
-
-
-    // ===== STAFF ORDER SCREENS (nếu bạn dùng) =====
-    ORDERS_INBOX: {
-        key: "order-inbox",
-        group: PERMISSION_GROUPS.ORDERS.key,
-        label: "Inbox (Chưa gán)",
-        icon: "order",
-        order: 41,
-        routes: ["/admin/order-inbox"],
-        accessAny: [PERMISSIONS.ORDER_STAFF_INBOX_READ, PERMISSIONS.ORDER_STAFF_CLAIM],
         actions: {
             view: [PERMISSIONS.ORDER_STAFF_INBOX_READ],
             claim: [PERMISSIONS.ORDER_STAFF_CLAIM],
@@ -824,4 +736,4 @@ module.exports = {
     PERMISSION_META_LIST,
     ADMIN_SCREENS,
 };
-};
+
