@@ -22,6 +22,7 @@ module.exports.adminList = asyncHandler(async (req, res) => {
 module.exports.createProduct = asyncHandler(async (req, res) => {
   const data = await productService.createProduct(req.body, req.user.sub);
   req.auditAfter = data;
+
   res.json({ message: "Tạo sản phẩm thành công", data });
 });
 

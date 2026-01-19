@@ -7,6 +7,8 @@ const Rbac = lazy(() => import("~/pages/admin/Roles"));
 const Orders = lazy(() => import("~/features/order/pages/OrderManagementPage"));
 const InboxOrders = lazy(() => import("~/features/order/pages/OrderInboxPage"));
 const MyStaffOrders = lazy(() => import("~/features/order/pages/MyStaffOrdersPage"));
+const ShipperInbox = lazy(() => import("~/features/order/pages/ShipperInboxPage"));
+const MyShipperOrders = lazy(() => import("~/features/order/pages/MyShipperOrdersPage"));
 const Profile = lazy(() => import("~/pages/admin/Profile"));
 const Settings = lazy(() => import("~/pages/admin/Settings"));
 const AuditProduct = lazy(() => import("~/features/audit/pages/ProductAuditListPage"));
@@ -25,10 +27,17 @@ export const adminRouters = [
   { path: "audit/product", component: AuditProduct },
   { path: "audit/security", component: AuditSecurity },
   { path: "audit/product/:auditId", component: AuditProductDetails },
+  
   // orders
   { path: "order", component: Orders },
   { path: "order-inbox", component: InboxOrders },      // staff inbox claim
-  { path: "my-staff-orders", component: MyStaffOrders },                 // admin xem tất cả
+  { path: "my-staff-orders", component: MyStaffOrders }, 
+
+  // shipper
+  { path: "shipper-inbox", component: ShipperInbox },
+  { path: "my-shipper-orders", component: MyShipperOrders },
+
+  // admin xem tất cả
   // { path: "order-inbox", component: InboxOrders },      // staff inbox claim
   // { path: "my-staff-orders", component: MyStaffOrders },// staff đơn của mình
 

@@ -4,7 +4,9 @@
 //   2) UI build menu/screen + map route/action -> permission
 //   3) Guard/authorize theo permission key
 
-const { PERMISSION_GROUPS } = require("./permission.groups");
+const {
+    PERMISSION_GROUPS
+} = require("./permission.groups");
 //
 // Gợi ý seed DB: upsert Permission theo permissionMetaList bên dưới.
 
@@ -53,6 +55,9 @@ const BASE_PERMISSIONS = Object.freeze({
     ORDER_STAFF_MY_READ: "order:mine_read", // xem đơn của tôi
     ORDER_STAFF_CLAIM: "order:claim", // claim đơn
 
+    // ===== ORDERS (SHIPPER) =====
+    ORDER_SHIPPER_INBOX_READ: "order:shipper_inbox_read", // shipper xem inbox đơn confirmed chưa có shipper
+    ORDER_SHIPPER_CLAIM: "order:shipper_claim", // shipper nhận đơn (Confirmed -> Shipped)
 
     // ===== RBAC / SYSTEM =====
     RBAC_READ: "rbac:read",
@@ -323,6 +328,7 @@ const BASE_PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.ORDERS.label,
         order: 350,
     },
+
     // ===== ORDERS (STAFF) =====
     [PERMISSIONS.ORDER_STAFF_INBOX_READ]: {
         key: PERMISSIONS.ORDER_STAFF_INBOX_READ,
@@ -350,6 +356,27 @@ const BASE_PERMISSION_META = Object.freeze({
         groupKey: PERMISSION_GROUPS.ORDERS.key,
         groupLabel: PERMISSION_GROUPS.ORDERS.label,
         order: 380,
+    },
+
+    // ===== ORDERS (SHIPPER) =====
+    [PERMISSIONS.ORDER_SHIPPER_INBOX_READ]: {
+        key: PERMISSIONS.ORDER_SHIPPER_INBOX_READ,
+        resource: "order",
+        action: "shipper_inbox_read",
+        label: "SHIPPER: Xem inbox đơn chờ giao",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 390,
+    },
+
+    [PERMISSIONS.ORDER_SHIPPER_CLAIM]: {
+        key: PERMISSIONS.ORDER_SHIPPER_CLAIM,
+        resource: "order",
+        action: "shipper_claim",
+        label: "SHIPPER: Nhận đơn giao (claim)",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 395,
     },
 
     // ===== RBAC / SYSTEM =====
@@ -646,7 +673,7 @@ const BASE_ADMIN_SCREENS = Object.freeze({
             changeStatus: [PERMISSIONS.ORDER_UPDATE_STATUS],
         },
     },
-     ORDERS_INBOX: {
+    ORDERS_INBOX: {
         key: "order-inbox",
         group: PERMISSION_GROUPS.ORDERS.key,
         label: "Inbox (Claim đơn)",
@@ -676,6 +703,37 @@ const BASE_ADMIN_SCREENS = Object.freeze({
         },
     },
 
+    // ===== ORDERS (SHIPPER) =====
+    SHIPPER_INBOX: {
+        key: "shipper-inbox",
+        group: PERMISSION_GROUPS.ORDERS.key,
+        label: "Inbox Shipper (nhận đơn)",
+        icon: "order",
+        order: 43,
+        routes: ["/admin/shipper-inbox"],
+        accessAny: [
+            PERMISSIONS.ORDER_SHIPPER_INBOX_READ,
+            PERMISSIONS.ORDER_SHIPPER_CLAIM,
+        ],
+        actions: {
+            view: [PERMISSIONS.ORDER_SHIPPER_INBOX_READ],
+            claim: [PERMISSIONS.ORDER_SHIPPER_CLAIM],
+        },
+    },
+
+    MY_SHIPPER_ORDERS: {
+        key: "my-shipper-orders",
+        group: PERMISSION_GROUPS.ORDERS.key,
+        label: "Đơn tôi đang giao",
+        icon: "order",
+        order: 44,
+        routes: ["/admin/my-shipper-orders"],
+        accessAny: [PERMISSIONS.ORDER_SHIPPER_INBOX_READ], // hoặc tạo permission riêng "shipper_my_read" nếu muốn chuẩn
+        actions: {
+            view: [PERMISSIONS.ORDER_SHIPPER_INBOX_READ],
+        },
+    },
+
     AUDIT: {
         key: "audit",
         group: PERMISSION_GROUPS.AUDIT.key,
@@ -683,8 +741,7 @@ const BASE_ADMIN_SCREENS = Object.freeze({
         icon: "history",
         order: 95,
 
-        children: [
-            {
+        children: [{
                 key: "audit-product",
                 label: "Lịch sử sản phẩm",
                 routes: ["/admin/audit/product"],
@@ -768,4 +825,3 @@ module.exports = {
     PERMISSION_META_LIST,
     ADMIN_SCREENS,
 };
-

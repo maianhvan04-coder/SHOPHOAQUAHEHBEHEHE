@@ -14,6 +14,7 @@ const publicProduct = require("../modules/product/public.router");
 const orderUserRouter = require("../modules/order/routes/order.user.routes");
 const orderAdminRoute = require("../modules/order/routes/order.admin.routes");
 const orderStaffRoute = require("../modules/order/routes/order.staff.routes");
+const orderShipperRoute = require("../modules/order/routes/order.shipper.routes");
 const orderDashboardRoute = require("../modules/order/routes/order.dashboard.routes");
 const cartRouter = require("../modules/cart/cart.route")
 const chatRoutes = require("../modules/chat/chat.route");
@@ -50,6 +51,13 @@ module.exports = (app) => {
     ],
   }),
   orderStaffRoute
+);
+
+// shiper nhận đơn hàng củab mình
+app.use(
+  v1 + "/shipper/order",
+  ...guard({ any: [PERMISSIONS.ORDER_SHIPPER_INBOX_READ, PERMISSIONS.ORDER_SHIPPER_CLAIM] }),
+  orderShipperRoute
 );
 
   // dashboard (staff xem của mình, admin xem all + compare)
