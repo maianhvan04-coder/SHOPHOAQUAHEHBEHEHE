@@ -60,3 +60,28 @@ export const getMyStaffOrdersAPI = (params) => {
   const URL_API = "/api/v1/staff/order";
   return apiClient.get(URL_API, { params });
 };
+
+// ====================== SH ======================
+export function getShipperInboxAPI(params) {
+  return apiClient.get("/api/v1/shipper/order/inbox", { params });
+}
+
+export function shipperClaimOrderAPI(orderId) {
+  return apiClient.post(`/api/v1/shipper/order/claim/${orderId}`);
+}
+
+// ✅ Đơn tôi đang giao (bạn cần có endpoint này ở backend)
+export function getMyShipperOrdersAPI(params) {
+  return apiClient.get("/api/v1/shipper/order/my", { params });
+  // Nếu backend bạn đặt khác, đổi đúng path:
+  // "/api/v1/shipper/order/mine" hoặc "/api/v1/shipper/orders/my"...
+}
+
+export function shipperMarkDeliveredAPI(orderId) {
+  return apiClient.post(`/api/v1/shipper/order/delivered/${orderId}`);
+}
+
+export function shipperCancelOrderAPI(orderId, payload) {
+  // payload có thể { reason: "..." }
+  return apiClient.post(`/api/v1/shipper/order/cancel/${orderId}`, payload);
+}

@@ -172,6 +172,14 @@ module.exports.updateOrderStatusAdmin = async (orderId, statusData = {}) => {
     order.status.confirmedAt = now;
   }
 
+  // chặn Shipped nếu chưa có shipper
+if (orderStatus === "Shipped") {
+  if (!order.shipper) {
+    throw new Error("Chưa có shipper nhận đơn, không thể chuyển Shipped.");
+  }
+  order.status.shippedAt ??= now;
+}
+
   // chỉ làm “trừ kho / đánh dấu delivered/paid” khi Delivered
   if (orderStatus === "Delivered") {
     if (order.status.isDelivered) {
@@ -554,7 +562,7 @@ module.exports.getDashboardMonthService = async ({
             },
           },
 
-          // ✅ lấy info staff (tên collection thường là "users")
+          // lấy tên người dùng trong bảng
           {
             $lookup: {
               from: "users", // nếu bạn đặt collection khác thì đổi
@@ -563,6 +571,7 @@ module.exports.getDashboardMonthService = async ({
               as: "staff",
             },
           },
+          // tách các staff trong bảng
           {
             $unwind: {
               path: "$staff",
@@ -573,7 +582,7 @@ module.exports.getDashboardMonthService = async ({
           {
             $project: {
               _id: "$_id", // ✅ FE đang dùng x._id
-              staffId: "$_id", // (giữ thêm cho rõ)
+              staffId: "$_id", // (giữ thêm cho rõ)n  
               staffName: "$staff.fullName",
               staffPhone: "$staff.phone",
               revenue: 1,
@@ -718,7 +727,7 @@ module.exports.getDashboardYearService = async ({
             timezone: "Asia/Ho_Chi_Minh",
           },
         },
-        revenue: {
+        revenue: {   
           $sum: {
             $cond: [successExpr, "$totalPrice", 0]
           }
@@ -782,3 +791,247 @@ module.exports.getUnassignedOrdersService = async (query = {}) => {
     .limit(50);
 };
 
+// shiper nhận đơn
+module.exports.getShipperInboxService = async (query = {}) => {
+  return Order.find({
+    "status.orderStatus": "Confirmed",
+    shipper: null, //  chưa ai nhận giao
+    staff: { $ne: null },
+    "status.confirmedAt": { $ne: null },
+  })
+    .populate("user", "fullName phone")
+    .populate("staff", "fullName phone")
+    .sort({ createdAt: -1 })
+    .limit(50);
+};
+
+module.exports.shipperClaimOrderService = async (orderId, shipperId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    const err = new Error("orderId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!mongoose.Types.ObjectId.isValid(shipperId)) {
+    const err = new Error("shipperId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const now = new Date();
+
+  const updated = await Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      "status.orderStatus": "Confirmed",
+      shipper: null,                         // ✅ chưa ai nhận
+      staff: { $ne: null },                  // ✅ staff đã claim
+      "status.confirmedAt": { $ne: null },   // ✅ đã confirmed
+    },
+    {
+      $set: {
+        shipper: shipperId,
+        "status.orderStatus": "Shipped",
+        "status.shippedAt": now,
+      },
+    },
+    { new: true }
+  );
+
+  if (!updated) {
+    const exists = await Order.exists({ _id: orderId });
+    if (!exists) {
+      const err = new Error("Không tìm thấy đơn hàng");
+      err.statusCode = 404;
+      throw err;
+    }
+    const err = new Error("Đơn không Confirmed hoặc đã có shipper nhận");
+    err.statusCode = 409;
+    throw err;
+  }
+
+  return updated;
+};
+
+//đơn hàng của shipper
+module.exports.getMyShipperOrdersService = async (shipperId, query = {}) => {
+  if (!mongoose.Types.ObjectId.isValid(shipperId)) {
+    const err = new Error("shipperId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const page = Math.max(1, Number(query.page || 1));
+  const limit = Math.max(1, Math.min(50, Number(query.limit || 10)));
+  const q = String(query.q || "").trim();
+  const status = String(query.status || "").trim(); // Shipped/Delivered/Cancelled...
+
+  const filter = { shipper: shipperId };
+
+  // mặc định: đơn đã nhận (đang giao + đã giao)
+  if (status) filter["status.orderStatus"] = status;
+  else filter["status.orderStatus"] = { $in: ["Shipped", "Delivered"] };
+
+  if (q) {
+    if (mongoose.Types.ObjectId.isValid(q)) {
+      filter._id = q;
+    } else {
+      const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { "shippingAddress.fullName": rx },
+        { "shippingAddress.phone": rx },
+      ];
+    }
+  }
+
+  const totalItems = await Order.countDocuments(filter);
+
+  const items = await Order.find(filter)
+    .populate("user", "fullName phone")
+    .populate("staff", "fullName phone")
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean();
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+
+  return {
+    items,
+    pagination: { page, limit, totalItems, totalPages },
+  };
+};
+
+
+// ✅ shipper giao xong => Delivered
+module.exports.shipperMarkDeliveredService = async (orderId, shipperId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    const err = new Error("orderId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!mongoose.Types.ObjectId.isValid(shipperId)) {
+    const err = new Error("shipperId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const now = new Date();
+
+    // ✅ chỉ shipper của đơn & đơn đang Shipped (đang giao / khách delay)
+    const order = await Order.findOne({
+      _id: orderId,
+      shipper: shipperId,
+      "status.orderStatus": "Shipped",
+    }).session(session);
+
+    if (!order) {
+      const exists = await Order.exists({ _id: orderId });
+      const err = new Error(
+        exists
+          ? "Đơn không ở trạng thái Shipped hoặc không thuộc shipper này"
+          : "Không tìm thấy đơn hàng"
+      );
+      err.statusCode = exists ? 409 : 404;
+      throw err;
+    }
+
+    if (order.status?.isDelivered) {
+      const err = new Error("Đơn đã Delivered trước đó");
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // an toàn: nếu thiếu shippedAt thì set
+    order.status ??= {};
+    order.status.shippedAt ??= now;
+
+    // ✅ trừ kho + tăng sold giống admin (chỉ làm khi Delivered)
+    const qtyByProduct = new Map();
+    for (const item of order.orderItems || []) {
+      const pid = String(item.product);
+      const q = Number(item.quantity || 0);
+      if (!pid || q <= 0) continue;
+      qtyByProduct.set(pid, (qtyByProduct.get(pid) || 0) + q);
+    }
+
+    const ops = Array.from(qtyByProduct.entries()).map(([pid, qty]) => ({
+      updateOne: {
+        filter: { _id: pid },
+        update: { $inc: { sold: qty, stock: -qty } },
+      },
+    }));
+
+    if (ops.length) await Product.bulkWrite(ops, { session });
+
+    // ✅ flags delivered + COD auto-paid
+    order.status.orderStatus = "Delivered";
+    order.status.isDelivered = true;
+    order.status.deliveredAt = now;
+
+    if (order.paymentMethod === "COD" && !order.status.isPaid) {
+      order.status.isPaid = true;
+      order.status.paidAt = now;
+    }
+
+    await order.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return order;
+  } catch (e) {
+    await session.abortTransaction();
+    session.endSession();
+    throw e;
+  }
+};
+
+// ✅ shipper hủy => Cancelled (khi cần)
+module.exports.shipperCancelOrderService = async (orderId, shipperId, body = {}) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    const err = new Error("orderId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!mongoose.Types.ObjectId.isValid(shipperId)) {
+    const err = new Error("shipperId không hợp lệ");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
+
+  // ✅ chỉ huỷ khi đang Shipped (đang giao / delay)
+  const updated = await Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      shipper: shipperId,
+      "status.orderStatus": "Shipped",
+      "status.isDelivered": { $ne: true },
+    },
+    {
+      $set: {
+        "status.orderStatus": "Cancelled",
+        ...(reason ? { shopNote: reason } : {}),
+      },
+    },
+    { new: true }
+  );
+
+  if (!updated) {
+    const exists = await Order.exists({ _id: orderId });
+    const err = new Error(
+      exists
+        ? "Không thể huỷ: đơn không ở trạng thái Shipped hoặc không thuộc shipper này"
+        : "Không tìm thấy đơn hàng"
+    );
+    err.statusCode = exists ? 409 : 404;
+    throw err;
+  }
+
+  return updated;
+};
