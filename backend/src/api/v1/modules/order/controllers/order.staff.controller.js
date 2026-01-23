@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const orderService = require("../order.service");
 
 // STAFF xem đơn của mình
@@ -24,6 +25,10 @@ module.exports.claimOrder = async (req, res) => {
     }
 
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "orderId không hợp lệ" });
+    }
+
     const updated = await orderService.claimOrderService(id, staffId);
 
     return res.status(200).json({

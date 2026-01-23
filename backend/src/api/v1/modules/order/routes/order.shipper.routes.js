@@ -1,12 +1,7 @@
-// modules/order/routes/order.shipper.routes.js
 const router = require("express").Router();
-const orderCtrl = require("../controllers/order.shipper.controller"); // hoặc ../order.controller tuỳ bạn
+const orderCtrl = require("../controllers/order.shipper.controller");
 const { guard } = require("../../../middlewares/auth");
 const { PERMISSIONS } = require("../../../../../constants/permissions");
-
-
-// console.log("SHIPPER_INBOX perm =", PERMISSIONS.ORDER_SHIPPER_INBOX_READ);
-// console.log("SHIPPER_CLAIM perm =", PERMISSIONS.ORDER_SHIPPER_CLAIM);
 
 // GET /api/v1/shipper/order/inbox
 router.get(
@@ -15,9 +10,9 @@ router.get(
   orderCtrl.getShipperInbox
 );
 
-// POST /api/v1/shipper/order/claim/:id
-router.post(
-  "/claim/:id",
+// PATCH /api/v1/shipper/order/:id/claim
+router.patch(
+  "/:id/claim",
   ...guard({ any: [PERMISSIONS.ORDER_SHIPPER_CLAIM] }),
   orderCtrl.shipperClaimOrder
 );
@@ -25,23 +20,22 @@ router.post(
 // GET /api/v1/shipper/order/my
 router.get(
   "/my",
-  ...guard({ any: [PERMISSIONS.ORDER_SHIPPER_INBOX_READ] }), // dùng tạm perm này cho SH
+  ...guard({ any: [PERMISSIONS.ORDER_SHIPPER_MY_READ] }),
   orderCtrl.getMyShipperOrders
 );
 
-// ✅ POST /api/v1/shipper/order/delivered/:id
+// PATCH /api/v1/shipper/order/:id/delivered
 router.post(
   "/delivered/:id",
-  ...guard({ any: [PERMISSIONS.ORDER_SHIPPER_DELIVER ?? PERMISSIONS.ORDER_SHIPPER_CLAIM] }),
+  ...guard({ any: [PERMISSIONS.ORDER_SHIPPER_DELIVER] }),
   orderCtrl.shipperMarkDelivered
 );
 
-// ✅ POST /api/v1/shipper/order/cancel/:id
+// PATCH /api/v1/shipper/order/:id/cancel
 router.post(
   "/cancel/:id",
-  ...guard({ any: [PERMISSIONS.ORDER_SHIPPER_CANCEL ?? PERMISSIONS.ORDER_SHIPPER_CLAIM] }),
+  ...guard({ any: [PERMISSIONS.ORDER_SHIPPER_CANCEL] }),
   orderCtrl.shipperCancelOrder
 );
-
 
 module.exports = router;

@@ -1,4 +1,4 @@
-// scripts/seed-permissions.js
+// seeds/seed.rbac.base.js
 require("dotenv").config();
 const mongoose = require("mongoose");
 
