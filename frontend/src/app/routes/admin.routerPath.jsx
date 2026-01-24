@@ -50,7 +50,8 @@ const AuditSecurity = lazy(() =>
 const AuditProductDetails = lazy(() =>
   import("~/features/audit/pages/ProductAuditDetailPage")
 );
-
+const ShipperInbox = lazy(() => import("~/features/order/pages/ShipperInboxPage"));
+const MyShipperOrders = lazy(() => import("~/features/order/pages/MyShipperOrdersPage"));
 export const adminRoutes = [
   { path: "dashboard", element: <Dashboard /> },
 
@@ -96,7 +97,9 @@ export const adminRoutes = [
   { path: "order", element: <Orders /> },
   { path: "order-inbox", element: <InboxOrders /> },
   { path: "my-staff-orders", element: <MyStaffOrders /> },
-
+ // ===== SHIPPER (ADDED) =====
+  { path: "shipper-inbox", element: <ShipperInbox /> },
+  { path: "my-shipper-orders", element: <MyShipperOrders /> },
   { path: "rbac", element: <Rbac /> },
   { path: "profile", element: <Profile /> },
   { path: "settings", element: <Settings /> },
