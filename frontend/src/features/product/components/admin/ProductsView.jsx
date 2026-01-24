@@ -1,11 +1,11 @@
 import PropTypes from "prop-types";
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Pagination from "~/components/common/Pagination";
-import Modal from "~/components/common/Modal";
 import PageHeader from "~/components/layout/admin/PageHeader";
 import ProductsTabs from "./ProductsTabs";
-import ProductForm from "./ProductForm";
+
 import DeleteModals from "./components/DeleteModals";
 import ProductHistoryModal from "./components/history/ProductHistoryModal";
 import ProductsToolbar from "./components/ProductsToolbar";
@@ -18,7 +18,7 @@ import {
   IconButton,
   SimpleGrid,
   Stack,
-  Text,
+
   useBreakpointValue,
   useColorModeValue,
 } from "@chakra-ui/react";
@@ -33,6 +33,7 @@ import ProductsTableDesktop from "./components/ProductsTableDesktop";
 import MobileProductCard from "./components/MobileProductCard";
 
 export default function ProductsView(props) {
+    const navigate = useNavigate();
   const {
     tab = "active",
     onTabChange,
@@ -61,8 +62,8 @@ export default function ProductsView(props) {
     closeForm,
     isDeleteOpen,
     closeDelete,
-    onAddProduct,
-    onEditProduct,
+    
+ 
     onDeleteClick,
     onSubmitProduct,
     onConfirmDelete,
@@ -83,11 +84,15 @@ export default function ProductsView(props) {
   } = props;
 
   const isDeletedTab = tab === "deleted";
-
+ const handleAddProduct = () => {
+    navigate("/admin/product/create");
+  };
   /* ================= HISTORY ================= */
   const [historyProduct, setHistoryProduct] = useState(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-
+  const onEditProduct =(product)=>{
+     navigate(`/admin/product/${product._id}/edit`);
+  }
   const openHistory = (product) => {
     setHistoryProduct(product);
     setIsHistoryOpen(true);
@@ -177,7 +182,8 @@ export default function ProductsView(props) {
               <Button
                 leftIcon={<PlusIcon className="h-5 w-5" />}
                 colorScheme="blue"
-                onClick={onAddProduct}
+                categories
+                onClick={handleAddProduct}
               >
                 Thêm mới
               </Button>
@@ -260,14 +266,6 @@ export default function ProductsView(props) {
         product={historyProduct}
       />
 
-      <Modal isOpen={isFormOpen} onClose={closeForm}>
-        <ProductForm
-          product={selectedProduct}
-          categories={categoryList}
-          onSubmit={onSubmitProduct}
-          onCancel={closeForm}
-        />
-      </Modal>
 
       <DeleteModals
         isDeleteOpen={isDeleteOpen}

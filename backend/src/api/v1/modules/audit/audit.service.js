@@ -3,9 +3,12 @@ const UAParser = require("ua-parser-js");
 
 const auditRepo = require("./audit.repo");
 const AuditLog = require("./audit.model"); // 🔥 THIẾU DÒNG NÀY
-const productRepo = require("../product/product.repo");
+const productRepo = require("../product/repositories/product.repo.js");
 const ApiError = require("../../../../core/apiError");
 const httpStatus = require("../../../../core/httpStatus");
+
+const { buildRollbackPayload } = require("./audit.rollback");
+
 const {
     parsePagination,
     parseBoolean,
@@ -470,4 +473,41 @@ exports.getSecurityAuditList = async ({ user, query }) => {
         nextCursor,
     };
 };
+
+
+exports.rollback = async ({ auditId, user, resourceService }) => {
+    const audit = await AuditLog.findById(auditId).lean();
+    if (!audit) throw new ApiError(404, "Audit không tồn tại");
+
+    if (!user.permissions?.["audit:product:rollback"]) {
+        throw new ApiError(403, "Không có quyền rollback");
+    }
+
+    // build payload theo policy
+    const payload = buildRollbackPayload({ audit });
+
+    // gọi service của resource
+    const updated = await resourceService.rollbackById(
+        audit.resourceId,
+        payload,
+        user
+    );
+
+    // ghi audit rollback
+    await AuditLog.create({
+        actorId: user.sub,
+        actorRoles: user.roles,
+        resource: audit.resource,
+        action: "rollback",
+        resourceId: audit.resourceId,
+        rollbackOf: audit._id,
+        changes: {
+            before: audit.changes.after,
+            after: payload,
+        },
+    });
+
+    return updated;
+};
+
 

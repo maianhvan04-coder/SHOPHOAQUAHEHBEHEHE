@@ -128,3 +128,10 @@ exports.hardDelete = asyncHandler(async (req, res) => {
   });
 });
 
+exports.getCategoriesForProduct = async (req, res) => {
+  const categories = await categoryService.getCategoriesForProduct()
+
+
+  res.json(categories);
+};
+

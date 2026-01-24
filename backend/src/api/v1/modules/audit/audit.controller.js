@@ -1,4 +1,5 @@
 const asyncHandler = require("../../../../core/asyncHandler");
+const httpStatus = require("../../../../core/httpStatus");
 const auditService = require("./audit.service");
 
 
@@ -57,4 +58,30 @@ exports.getSecurityAuditList = asyncHandler(async (req, res) => {
 
     res.json(data);
 });
+
+// Rollback dữ liệu chung
+exports.rollback = asyncHandler(async (req, res) => {
+    const { resource, auditId } = req.params;
+
+    const serviceMap = {
+        product: productService,
+        user: userService,
+        order: orderService,
+    };
+
+    const resourceService = serviceMap[resource];
+    if (!resourceService) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Resource không hợp lệ");
+    }
+
+    const data = await auditService.rollback({
+        auditId,
+        user: req.user,
+        resourceService,
+    });
+
+    res.json({ message: "Rollback thành công", data });
+});
+
+
 

@@ -17,7 +17,7 @@ export function useProductHistory(productId, { enabled }) {
         auditApi
             .getProductHistory(productId, { page, limit })
             .then((res) => {
-                console.log(res?.data.data.items)
+
                 setItems(res?.data?.data.items || []);
                 setPagination(res?.data?.data.pagination || null);
             })

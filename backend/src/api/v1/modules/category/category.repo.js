@@ -103,3 +103,13 @@ exports.restoreById = (id) =>
 exports.hardDeleteById = (id) =>
   Category.findOneAndDelete({ _id: id, isDeleted: true }).select("-__v");
 
+
+exports.getCategoriesForProduct = async () => {
+  const data = await Category.find({
+    isActive: true,
+    isDeleted: false
+  }).select("_id name slug")
+    .sort({ name: 1 })
+    .lean()
+  return data
+}

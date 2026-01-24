@@ -76,6 +76,11 @@ exports.create = async (payload = {}) => {
   });
 };
 
+
+exports.getCategoriesForProduct = async () => {
+  return categoryRepo.getCategoriesForProduct();
+}
+
 // ================== LIST (ADMIN) ==================
 exports.adminList = async (query = {}) => {
   const { page, limit } = parsePagination(query);

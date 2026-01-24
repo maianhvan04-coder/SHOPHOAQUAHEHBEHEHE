@@ -6,11 +6,17 @@ const publicUser = require("../modules/user/publicUser.routes");
 const rbac = require("../modules/rbac/rbacAdmin.routes");
 const categoryAdmin = require("../modules/category/category.admin.routes");
 const categoryPublic = require("../modules/category/category.public.routes");
-const productAdmin = require("../modules/product/product.admin.routes");
+const productAdmin = require("../modules/product/router/product.admin.routes");
+const publicProduct = require("../modules/product/router/public.router");
+
+// Template Description
+const templateDescriptionRouter = require("../modules/product/router/template.routes");
+
+
 const Audit = require("../modules/audit/audit.routers");
 const uploadRoutes = require("../modules/upload/upload.routes");
 
-const publicProduct = require("../modules/product/public.router");
+
 const orderUserRouter = require("../modules/order/routes/order.user.routes");
 const orderAdminRoute = require("../modules/order/routes/order.admin.routes");
 const orderStaffRoute = require("../modules/order/routes/order.staff.routes");
@@ -43,19 +49,17 @@ module.exports = (app) => {
   app.use(v1 + "/admin/user", ...guard({ any: [PERMISSIONS.USER_READ] }), user);
   app.use(v1 + "/admin/category", ...guard({ any: [PERMISSIONS.CATEGORY_READ] }), categoryAdmin);
   app.use(v1 + "/admin/product", ...guard({ any: [PERMISSIONS.PRODUCT_READ] }), productAdmin);
+
   app.use(v1 + "/admin/upload", uploadRoutes);
   app.use(v1 + "/admin/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderAdminRoute);
-
-  // staff
-  app.use(
-    v1 + "/staff/order",
-    ...guard({
-      any: [
-        PERMISSIONS.ORDER_STAFF_INBOX_READ,
-        PERMISSIONS.ORDER_STAFF_MY_READ,
-        PERMISSIONS.ORDER_STAFF_CLAIM,
-      ],
-    }),
+  // staff (xem đơn của mình + claim)
+  app.use(v1 + "/staff/order", ...guard({
+    any: [
+      PERMISSIONS.ORDER_STAFF_INBOX_READ,
+      PERMISSIONS.ORDER_STAFF_MY_READ,
+      PERMISSIONS.ORDER_STAFF_CLAIM,
+    ],
+  }),
     orderStaffRoute
   );
 
@@ -77,12 +81,13 @@ module.exports = (app) => {
   // audit
   app.use(v1 + "/admin/audit", ...guard({ any: [PERMISSIONS.AUDIT_PRODUCT_READ] }), Audit);
 
-  // ✅ dashboard read (KHÔNG guard ở đây nếu bạn guard trong router orderDashboardRoute)
-  app.use(v1 + "/dashboard/order", orderDashboardRoute);
 
-  // ✅ dashboard rebuild (admin tool) -> mount chuẩn /admin/dashboard
-  // ❌ KHÔNG guard ở đây (để route file tự guard, tránh chặn nhầm RBAC_MANAGE)
-  app.use(v1 + "/admin/dashboard", dashboardAdminRoute);
+
+  app.use(
+    v1 + "/dashboard/order",
+    ...guard({ any: [PERMISSIONS.ORDER_READ, PERMISSIONS.ORDER_STAFF_MY_READ] }),
+    orderDashboardRoute
+  );
 
   // public client
   app.use(v1 + "/products", publicProduct);

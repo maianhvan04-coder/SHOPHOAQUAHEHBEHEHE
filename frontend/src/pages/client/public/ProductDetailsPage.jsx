@@ -15,6 +15,7 @@ import {
   clearCurrentProduct,
 } from "~/features/product/product_slice";
 import { addToCart, fetchCart } from "../../../features/cart/cart.slice";
+import ProductDescription from "~/components/product/ProductDescription";
 
 import { toggleWishlistLocal } from "../../../features/wishlist/wishlist.slice";
 import {
@@ -30,6 +31,9 @@ const ProductDetails = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [filterStar, setFilterStar] = useState(0);
   const { items } = useSelector((state) => state.wishlist);
+  const [activeTab, setActiveTab] = useState("description");
+  const [activeImage, setActiveImage] = useState(null);
+
   const { currentProduct, isLoading, error } = useSelector(
     (state) => state.product
   );
@@ -40,9 +44,11 @@ const ProductDetails = () => {
   const isFavorite = items?.includes(currentProduct?._id);
   useEffect(() => {
     if (slug) {
+      
       dispatch(fetchProductDetailBySlug(slug))
         .unwrap()
         .then((product) => {
+          setActiveImage(product.image?.url || product.images?.[0]?.url);
           dispatch(
             fetchFeedbacksByProduct({
               productId: product._id,
@@ -126,18 +132,48 @@ const ProductDetails = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-10 lg:gap-16">
           {/* --- CỘT TRÁI: HÌNH ẢNH --- */}
-          <div className="w-full lg:w-1/2">
-            <div className="relative aspect-square rounded-3xl overflow-hidden shadow-sm border border-gray-100">
-              <img
-                src={currentProduct.image?.url} // Lấy URL từ Cloudinary
-                alt={currentProduct.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute top-5 left-5 bg-[#c4cd38] text-white font-bold px-4 py-2 rounded-lg shadow-md">
-                {currentProduct.sold > 10 ? "BÁN CHẠY" : "NEW"}
-              </div>
-            </div>
-          </div>
+          {/* ================= IMAGE GALLERY ================= */}
+<div className="w-full lg:w-1/2">
+  {/* MAIN IMAGE */}
+  <div className="relative aspect-square rounded-3xl overflow-hidden border border-gray-100 mb-4">
+    <img
+      src={activeImage}
+      alt={currentProduct.name}
+      className="w-full h-full object-cover transition-all duration-300"
+    />
+    <div className="absolute top-5 left-5 bg-[#c4cd38] text-white font-bold px-4 py-2 rounded-lg shadow-md">
+      {currentProduct.sold > 10 ? "BÁN CHẠY" : "NEW"}
+    </div>
+  </div>
+
+  {/* THUMBNAILS */}
+  {currentProduct.images?.length > 1 && (
+    <div className="flex gap-3">
+      {currentProduct.images.map((img) => {
+        const isActive = img.url === activeImage;
+
+        return (
+          <button
+            key={img._id}
+            onClick={() => setActiveImage(img.url)}
+            className={`w-20 h-20 rounded-xl overflow-hidden border transition-all ${
+              isActive
+                ? "border-[#153a2e] ring-2 ring-[#153a2e]"
+                : "border-gray-200 hover:border-[#153a2e]"
+            }`}
+          >
+            <img
+              src={img.url}
+              alt={img.alt || currentProduct.name}
+              className="w-full h-full object-cover"
+            />
+          </button>
+        );
+      })}
+    </div>
+  )}
+</div>
+
 
           {/* --- CỘT PHẢI: THÔNG TIN --- */}
           <div className="w-full lg:w-1/2 space-y-6">
@@ -169,10 +205,7 @@ const ProductDetails = () => {
               )}
             </div>
 
-            <p className="text-gray-600 leading-relaxed border-l-4 border-[#c4cd38] pl-4 italic">
-              {currentProduct.description ||
-                "Chưa có mô tả chi tiết cho sản phẩm này."}
-            </p>
+
 
             <ul className="space-y-3 pt-2">
               <li className="flex items-center gap-3 text-sm font-medium text-gray-700">
@@ -206,11 +239,10 @@ const ProductDetails = () => {
               <button
                 disabled={isAdding}
                 onClick={handleAddToCart}
-                className={`flex-1 text-white font-bold uppercase py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg ${
-                  isAdding
+                className={`flex-1 text-white font-bold uppercase py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg ${isAdding
                     ? "bg-gray-500 cursor-not-allowed"
                     : "bg-[#153a2e] hover:bg-[#1d4d3d] active:scale-95"
-                }`}
+                  }`}
               >
                 {isAdding ? (
                   <Spin size="small" className="brightness-200" />
@@ -222,11 +254,10 @@ const ProductDetails = () => {
 
               <button
                 onClick={handleFavoriteToggle}
-                className={`p-4 border-2 rounded-xl transition-all duration-300 ${
-                  isFavorite
+                className={`p-4 border-2 rounded-xl transition-all duration-300 ${isFavorite
                     ? "border-red-500 bg-red-50 text-red-500"
                     : "border-gray-100 hover:bg-red-50 hover:text-red-500 text-gray-400"
-                }`}
+                  }`}
               >
                 {isFavorite ? (
                   <FaHeart size={20} className="text-red-500" />
@@ -259,105 +290,139 @@ const ProductDetails = () => {
             </div>
           </div>
         </div>
-        <div className="mt-20 border-t pt-16">
-          <h2 className="text-2xl font-black text-gray-800 uppercase mb-10">
-            Khách hàng nói gì?
-          </h2>
 
-          <div className="flex flex-col lg:flex-row gap-12">
-            {/* Tóm tắt sao (Bên trái) */}
-            <div className="w-full lg:w-80 bg-[#153a2e] p-8 rounded-[40px] text-white shadow-xl h-fit">
-              <div className="text-center mb-8">
-                <div className="text-6xl font-black mb-2">
-                  {currentProduct.rating}
+        {/* ===== TABS ===== */}
+        <div className="mt-20 border-b flex gap-8 text-sm font-bold uppercase">
+          <button
+            onClick={() => setActiveTab("description")}
+            className={`pb-3 transition-all ${activeTab === "description"
+                ? "border-b-2 border-[#153a2e] text-[#153a2e]"
+                : "text-gray-400 hover:text-gray-600"
+              }`}
+          >
+            Mô tả
+          </button>
+
+          <button
+            onClick={() => setActiveTab("reviews")}
+            className={`pb-3 transition-all ${activeTab === "reviews"
+                ? "border-b-2 border-[#153a2e] text-[#153a2e]"
+                : "text-gray-400 hover:text-gray-600"
+              }`}
+          >
+            Đánh giá ({ratingSummary?.totalReviews || 0})
+          </button>
+        </div>
+
+        {activeTab === "description" && (
+          <div className="pt-12">
+            <ProductDescription
+              description={currentProduct.description}
+            />
+          </div>
+        )}
+
+        {activeTab === "reviews" && (
+          <div className="border-t pt-16">
+            <h2 className="text-2xl font-black text-gray-800 uppercase mb-10">
+              Khách hàng nói gì?
+            </h2>
+
+            <div className="flex flex-col lg:flex-row gap-12">
+              {/* Tóm tắt sao (Bên trái) */}
+              <div className="w-full lg:w-80 bg-[#153a2e] p-8 rounded-[40px] text-white shadow-xl h-fit">
+                <div className="text-center mb-8">
+                  <div className="text-6xl font-black mb-2">
+                    {currentProduct.rating}
+                  </div>
+                  <Rate
+                    disabled
+                    allowHalf
+                    value={currentProduct.rating}
+                    className="text-yellow-400"
+                  />
+                  <p className="mt-3 text-green-200 opacity-80">
+                    ({ratingSummary?.totalReviews || 0} đánh giá)
+                  </p>
                 </div>
-                <Rate
-                  disabled
-                  allowHalf
-                  value={currentProduct.rating}
-                  className="text-yellow-400"
-                />
-                <p className="mt-3 text-green-200 opacity-80">
-                  ({ratingSummary?.totalReviews || 0} đánh giá)
-                </p>
-              </div>
-              <div className="space-y-4">
-                {[5, 4, 3, 2, 1].map((s) => (
-                  <div
-                    key={s}
-                    className="flex items-center gap-3 text-xs font-bold"
-                  >
-                    <span className="w-10">{s} sao</span>
-                    <Progress
-                      percent={
-                        ratingSummary?.stars
-                          ? (ratingSummary.stars[s] /
+                <div className="space-y-4">
+                  {[5, 4, 3, 2, 1].map((s) => (
+                    <div
+                      key={s}
+                      className="flex items-center gap-3 text-xs font-bold"
+                    >
+                      <span className="w-10">{s} sao</span>
+                      <Progress
+                        percent={
+                          ratingSummary?.stars
+                            ? (ratingSummary.stars[s] /
                               ratingSummary.totalReviews) *
                             100
-                          : 0
-                      }
-                      showInfo={false}
-                      strokeColor="#c4cd38"
-                      trailColor="#ffffff20"
-                    />
-                    <span className="w-6 text-right opacity-60">
-                      {ratingSummary?.stars?.[s] || 0}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Danh sách bình luận & Bộ lọc (Bên phải) */}
-            <div className="flex-1 space-y-8">
-              <div className="flex flex-wrap gap-3">
-                {["Tất cả", "5 sao", "4 sao", "3 sao", "2 sao", "1 sao"].map(
-                  (btn, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setFilterStar(i === 0 ? 0 : 6 - i)}
-                      className={`px-6 py-2 rounded-xl font-bold border-2 transition-all ${
-                        (i === 0 && filterStar === 0) ||
-                        (i !== 0 && filterStar === 6 - i)
-                          ? "bg-[#153a2e] border-[#153a2e] text-white"
-                          : "bg-white border-gray-100 text-gray-500"
-                      }`}
-                    >
-                      {btn}
-                    </button>
-                  )
-                )}
-              </div>
-
-              {isFeedbackLoading ? (
-                <div className="text-center py-10">
-                  <Spin />
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {filteredFeedbacks?.length > 0 ? (
-                    filteredFeedbacks.map((fb) => (
-                      <FeedbackProduct
-                        key={fb._id}
-                        avatar={fb.user?.image.url}
-                        fullName={fb.user?.fullName}
-                        rating={fb.rating}
-                        createdAt={fb.createdAt}
-                        comment={fb.comment}
-                        images={fb.images}
+                            : 0
+                        }
+                        showInfo={false}
+                        strokeColor="#c4cd38"
+                        trailColor="#ffffff20"
                       />
-                    ))
-                  ) : (
-                    <Empty
-                      className="py-10"
-                      description="Chưa có đánh giá nào."
-                    />
+                      <span className="w-6 text-right opacity-60">
+                        {ratingSummary?.stars?.[s] || 0}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Danh sách bình luận & Bộ lọc (Bên phải) */}
+              <div className="flex-1 space-y-8">
+                <div className="flex flex-wrap gap-3">
+                  {["Tất cả", "5 sao", "4 sao", "3 sao", "2 sao", "1 sao"].map(
+                    (btn, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setFilterStar(i === 0 ? 0 : 6 - i)}
+                        className={`px-6 py-2 rounded-xl font-bold border-2 transition-all ${(i === 0 && filterStar === 0) ||
+                            (i !== 0 && filterStar === 6 - i)
+                            ? "bg-[#153a2e] border-[#153a2e] text-white"
+                            : "bg-white border-gray-100 text-gray-500"
+                          }`}
+                      >
+                        {btn}
+                      </button>
+                    )
                   )}
                 </div>
-              )}
+
+                {isFeedbackLoading ? (
+                  <div className="text-center py-10">
+                    <Spin />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {filteredFeedbacks?.length > 0 ? (
+                      filteredFeedbacks.map((fb) => (
+                        <FeedbackProduct
+                          key={fb._id}
+                          avatar={fb.user?.image.url}
+                          fullName={fb.user?.fullName}
+                          rating={fb.rating}
+                          createdAt={fb.createdAt}
+                          comment={fb.comment}
+                          images={fb.images}
+                        />
+                      ))
+                    ) : (
+                      <Empty
+                        className="py-10"
+                        description="Chưa có đánh giá nào."
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
       </div>
     </section>
   );

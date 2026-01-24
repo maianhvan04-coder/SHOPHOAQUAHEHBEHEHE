@@ -1,4 +1,4 @@
-const Tasks = require("../api/v1/modules/product/tasks.model");
+const Tasks = require("../api/v1/modules/product/models/tasks.model");
 
 const removeAccent = (str = "") =>
   str

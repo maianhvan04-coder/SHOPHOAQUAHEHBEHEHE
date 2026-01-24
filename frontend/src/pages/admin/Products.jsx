@@ -31,7 +31,7 @@ function Products() {
       closeDelete={vm.closeDelete}
 
       onAddProduct={vm.handleAddProduct}
-      onEditProduct={vm.handleEditProduct}
+
       onDeleteClick={vm.handleDeleteClick}
       onSubmitProduct={vm.handleProductSubmit}
       onConfirmDelete={vm.handleDeleteConfirm}

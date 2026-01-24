@@ -31,7 +31,7 @@ export const endpoints = {
 
     // soft delete -> vào thùng rác
     remove: (id) => `${v1Admin}/category/${id}`, // DELETE
-
+    getForProduct: `${v1Admin}/category/product/for-product`,
     // restore từ thùng rác
     restore: (id) => `${v1Admin}/category/${id}/restore`, // PATCH
 
@@ -47,6 +47,17 @@ export const endpoints = {
     update: (id) => `${v1Admin}/product/update/${id}`,
     delete: (id) => `${v1Admin}/product/delete/${id}`,
     changeStatus: (id) => `${v1Admin}/product/${id}/status`,
+  },
+
+  template: {
+    getTemplates: `${v1Admin}/templates`,
+    createTemplate: `${v1Admin}/templates/create`,
+    detailTemplate: (type) => `${v1Admin}/templates/details/${type}`,
+    createTemplateVersion: (type) => `${v1Admin}/templates/${type}/version`,
+    activateTemplateVersion: (type, version) => `${v1Admin}/templates/${type}/activate/${version}`,
+    updateTemplateVersion: (type, version) => `${v1Admin}/templates/${type}/version/${version}`,
+    getTemplateVersion: (type, version) => `${v1Admin}/templates/${type}/version/${version}`,
+    productDescriptionTemplateApi: `${v1Admin}/templates/product-description-templates`
   },
   rbac: {
     roles: `${v1Admin}/rbac/roles`,
