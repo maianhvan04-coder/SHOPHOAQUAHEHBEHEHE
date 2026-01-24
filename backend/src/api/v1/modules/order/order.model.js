@@ -49,7 +49,7 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       index: true,
       default: null,
-    },
+    },      
 
     // ✅ shipper phụ trách giao
     shipper: {
@@ -148,6 +148,7 @@ orderSchema.index({ shipper: 1, "status.orderStatus": 1, createdAt: 1 });
 // ✅ thêm index cho KPI theo paidAt (rất cần nếu tính doanh thu theo ngày trả tiền)
 orderSchema.index({ "status.isPaid": 1, "status.paidAt": 1 });
 orderSchema.index({ "status.orderStatus": 1, "status.paidAt": 1 });
+
 
 const Order = mongoose.model("Order", orderSchema);
 module.exports = Order;
