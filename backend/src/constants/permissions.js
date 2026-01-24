@@ -52,6 +52,7 @@ const BASE_PERMISSIONS = Object.freeze({
 
     // DASHBOARD
     ORDER_DASHBOARD_READ: "order:dashboard_read",
+    ORDER_DASHBOARD_REBUILD: "order:dashboard_rebuild",
 
     // ===== ORDERS (STAFF) =====
     ORDER_STAFF_INBOX_READ: "order:inbox_read", // xem inbox đơn chưa gán
@@ -346,6 +347,16 @@ const BASE_PERMISSION_META = Object.freeze({
         order: 305, // bạn chọn số nào cũng được, miễn không trùng
     },
 
+    [PERMISSIONS.ORDER_DASHBOARD_REBUILD]: {           // ✅ thêm block này
+        key: PERMISSIONS.ORDER_DASHBOARD_REBUILD,
+        resource: "order",
+        action: "dashboard_rebuild",
+        label: "Rebuild dashboard (xoá cache & replay đơn)",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 306,
+    },
+
     // ===== ORDERS (STAFF) =====
     [PERMISSIONS.ORDER_STAFF_INBOX_READ]: {
         key: PERMISSIONS.ORDER_STAFF_INBOX_READ,
@@ -573,17 +584,22 @@ const PERMISSION_META_LIST = Object.freeze(Object.values(PERMISSION_META));
 // =====================================================
 const BASE_ADMIN_SCREENS = Object.freeze({
     DASHBOARD: {
-        key: "dashboard",
-        label: "Dashboard",
-        icon: "home",
-        order: 0,
-        routes: ["/admin/dashboard"],
-        public: false,
-        accessAny: [PERMISSIONS.ORDER_DASHBOARD_READ],
-        actions: {
-            view: [PERMISSIONS.ORDER_DASHBOARD_READ]
-        },
-    },
+  key: "dashboard",
+  label: "Dashboard",
+  icon: "home",
+  order: 0,
+  routes: ["/admin/dashboard"],
+  public: false,
+  accessAny: [
+    PERMISSIONS.ORDER_DASHBOARD_READ,
+    PERMISSIONS.ORDER_DASHBOARD_REBUILD, // ✅ thêm (tuỳ bạn: có thể không thêm nếu chỉ dùng cho nút)
+  ],
+  actions: {
+    view: [PERMISSIONS.ORDER_DASHBOARD_READ],
+    rebuild: [PERMISSIONS.ORDER_DASHBOARD_REBUILD], // ✅ thêm action này
+  },
+},
+
 
     PROFILE: {
         key: "profile",
