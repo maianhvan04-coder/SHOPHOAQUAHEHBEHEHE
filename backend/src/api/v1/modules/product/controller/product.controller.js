@@ -20,16 +20,9 @@ module.exports.adminList = asyncHandler(async (req, res) => {
 });
 
 module.exports.createProduct = asyncHandler(async (req, res) => {
-  const product = await productService.createProduct(req.body, req.user.sub);
-  req.auditAfter = product;
-  res.json({
-    message: "Tạo sản phẩm thành công",
-    data: {
-      _id: product._id,
-      name: product.name,
-      slug: product.slug,
-    }
-  });
+  const data = await productService.createProduct(req.body, req.user.sub);
+  req.auditAfter = data;
+  res.json({ message: "Tạo sản phẩm thành công", data });
 });
 
 module.exports.updateProduct = asyncHandler(async (req, res) => {

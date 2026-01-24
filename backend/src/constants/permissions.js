@@ -4,7 +4,9 @@
 //   2) UI build menu/screen + map route/action -> permission
 //   3) Guard/authorize theo permission key
 
-const { PERMISSION_GROUPS } = require("./permission.groups");
+const {
+    PERMISSION_GROUPS
+} = require("./permission.groups");
 //
 // Gợi ý seed DB: upsert Permission theo permissionMetaList bên dưới.
 
@@ -48,11 +50,21 @@ const BASE_PERMISSIONS = Object.freeze({
     ORDER_DELETE: "order:delete",
     ORDER_UPDATE_STATUS: "order:status",
 
+    // DASHBOARD
+    ORDER_DASHBOARD_READ: "order:dashboard_read",
+    ORDER_DASHBOARD_REBUILD: "order:dashboard_rebuild",
+
     // ===== ORDERS (STAFF) =====
     ORDER_STAFF_INBOX_READ: "order:inbox_read", // xem inbox đơn chưa gán
     ORDER_STAFF_MY_READ: "order:mine_read", // xem đơn của tôi
     ORDER_STAFF_CLAIM: "order:claim", // claim đơn
 
+    // ===== ORDERS (SHIPPER) =====
+    ORDER_SHIPPER_INBOX_READ: "order:shipper_inbox_read", // shipper xem inbox đơn confirmed chưa có shipper
+    ORDER_SHIPPER_CLAIM: "order:shipper_claim", // shipper nhận đơn (Confirmed -> Shipped)
+    ORDER_SHIPPER_MY_READ: "order:shipper_my_read", // ✅ THÊM
+    ORDER_SHIPPER_DELIVER: "order:shipper_deliver", // ✅ THÊM
+    ORDER_SHIPPER_CANCEL: "order:shipper_cancel", // ✅ THÊM
 
     // ===== RBAC / SYSTEM =====
     RBAC_READ: "rbac:read",
@@ -396,6 +408,28 @@ const BASE_PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.ORDERS.label,
         order: 350,
     },
+
+    // ===== DASHBOARH =====
+    [PERMISSIONS.ORDER_DASHBOARD_READ]: {
+        key: PERMISSIONS.ORDER_DASHBOARD_READ,
+        resource: "order",
+        action: "dashboard_read",
+        label: "Xem dashboard đơn hàng",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 305, // bạn chọn số nào cũng được, miễn không trùng
+    },
+
+    [PERMISSIONS.ORDER_DASHBOARD_REBUILD]: {           // ✅ thêm block này
+        key: PERMISSIONS.ORDER_DASHBOARD_REBUILD,
+        resource: "order",
+        action: "dashboard_rebuild",
+        label: "Rebuild dashboard (xoá cache & replay đơn)",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 306,
+    },
+
     // ===== ORDERS (STAFF) =====
     [PERMISSIONS.ORDER_STAFF_INBOX_READ]: {
         key: PERMISSIONS.ORDER_STAFF_INBOX_READ,
@@ -424,6 +458,58 @@ const BASE_PERMISSION_META = Object.freeze({
         groupLabel: PERMISSION_GROUPS.ORDERS.label,
         order: 380,
     },
+
+    // ===== ORDERS (SHIPPER) =====
+    [PERMISSIONS.ORDER_SHIPPER_INBOX_READ]: {
+        key: PERMISSIONS.ORDER_SHIPPER_INBOX_READ,
+        resource: "order",
+        action: "shipper_inbox_read",
+        label: "SHIPPER: Xem inbox đơn chờ giao",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 390,
+    },
+
+    [PERMISSIONS.ORDER_SHIPPER_CLAIM]: {
+        key: PERMISSIONS.ORDER_SHIPPER_CLAIM,
+        resource: "order",
+        action: "shipper_claim",
+        label: "SHIPPER: Nhận đơn giao (claim)",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 395,
+    },
+
+    [PERMISSIONS.ORDER_SHIPPER_MY_READ]: {
+        key: PERMISSIONS.ORDER_SHIPPER_MY_READ,
+        resource: "order",
+        action: "shipper_my_read",
+        label: "SHIPPER: Xem đơn tôi đang giao",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 398,
+    },
+
+    [PERMISSIONS.ORDER_SHIPPER_DELIVER]: {
+        key: PERMISSIONS.ORDER_SHIPPER_DELIVER,
+        resource: "order",
+        action: "shipper_deliver",
+        label: "SHIPPER: Xác nhận đã giao",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 399,
+    },
+
+    [PERMISSIONS.ORDER_SHIPPER_CANCEL]: {
+        key: PERMISSIONS.ORDER_SHIPPER_CANCEL,
+        resource: "order",
+        action: "shipper_cancel",
+        label: "SHIPPER: Hủy đơn đang giao",
+        groupKey: PERMISSION_GROUPS.ORDERS.key,
+        groupLabel: PERMISSION_GROUPS.ORDERS.label,
+        order: 400,
+    },
+
 
     // ===== RBAC / SYSTEM =====
     [PERMISSIONS.RBAC_READ]: {
@@ -571,13 +657,22 @@ const PERMISSION_META_LIST = Object.freeze(Object.values(PERMISSION_META));
 // =====================================================
 const BASE_ADMIN_SCREENS = Object.freeze({
     DASHBOARD: {
-        key: "dashboard",
-        label: "Dashboard",
-        icon: "home",
-        order: 0,
-        routes: ["/admin/dashboard"],
-        public: true,
-    },
+  key: "dashboard",
+  label: "Dashboard",
+  icon: "home",
+  order: 0,
+  routes: ["/admin/dashboard"],
+  public: false,
+  accessAny: [
+    PERMISSIONS.ORDER_DASHBOARD_READ,
+    PERMISSIONS.ORDER_DASHBOARD_REBUILD, // ✅ thêm (tuỳ bạn: có thể không thêm nếu chỉ dùng cho nút)
+  ],
+  actions: {
+    view: [PERMISSIONS.ORDER_DASHBOARD_READ],
+    rebuild: [PERMISSIONS.ORDER_DASHBOARD_REBUILD], // ✅ thêm action này
+  },
+},
+
 
     PROFILE: {
         key: "profile",
@@ -736,8 +831,8 @@ const BASE_ADMIN_SCREENS = Object.freeze({
     ORDERS_INBOX: {
         key: "order-inbox",
         group: PERMISSION_GROUPS.ORDERS.key,
-        label: "Inbox (Claim đơn)",
-        icon: "order", // ⚠️ quan trọng: sidebar ICON map của bạn có "order"
+        label: "Staff Inbox (claim đơn)",
+        icon: "order", // quan trọng: sidebar ICON map của bạn có "order"
         order: 41,
         routes: ["/admin/order-inbox"],
         accessAny: [
@@ -763,6 +858,39 @@ const BASE_ADMIN_SCREENS = Object.freeze({
         },
     },
 
+    // ===== ORDERS (SHIPPER) =====
+    SHIPPER_INBOX: {
+        key: "shipper-inbox",
+        group: PERMISSION_GROUPS.ORDERS.key,
+        label: "Shipper Inbox (nhận đơn)",
+        icon: "order",
+        order: 43,
+        routes: ["/admin/shipper-inbox"],
+        accessAny: [
+            PERMISSIONS.ORDER_SHIPPER_INBOX_READ,
+            PERMISSIONS.ORDER_SHIPPER_CLAIM,
+        ],
+        actions: {
+            view: [PERMISSIONS.ORDER_SHIPPER_INBOX_READ],
+            claim: [PERMISSIONS.ORDER_SHIPPER_CLAIM],
+        },
+    },
+
+    MY_SHIPPER_ORDERS: {
+        key: "my-shipper-orders",
+        group: PERMISSION_GROUPS.ORDERS.key,
+        label: "Đơn tôi đang giao",
+        icon: "order",
+        order: 44,
+        routes: ["/admin/my-shipper-orders"],
+        accessAny: [PERMISSIONS.ORDER_SHIPPER_INBOX_READ], // hoặc tạo permission riêng "shipper_my_read" nếu muốn chuẩn
+        actions: {
+            view: [PERMISSIONS.ORDER_SHIPPER_MY_READ],
+            delivered: [PERMISSIONS.ORDER_SHIPPER_DELIVER],
+            cancel: [PERMISSIONS.ORDER_SHIPPER_CANCEL],
+        },
+    },
+
     AUDIT: {
         key: "audit",
         group: PERMISSION_GROUPS.AUDIT.key,
@@ -770,8 +898,7 @@ const BASE_ADMIN_SCREENS = Object.freeze({
         icon: "history",
         order: 95,
 
-        children: [
-            {
+        children: [{
                 key: "audit-product",
                 label: "Lịch sử sản phẩm",
                 routes: ["/admin/audit/product"],
@@ -855,4 +982,3 @@ module.exports = {
     PERMISSION_META_LIST,
     ADMIN_SCREENS,
 };
-

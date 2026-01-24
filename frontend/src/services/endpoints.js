@@ -95,6 +95,10 @@ export const endpoints = {
     staffClaim: (id) => `${v1}/staff/order/${id}/claim`, // PATCH
     staffMyOrders: `${v1}/staff/order`, // GET ?status=&month=
 
+    // SHIPPER ✅ thêm
+    shipperInbox: `${v1}/shipper/order/inbox`,                 // GET
+    shipperClaim: (id) => `${v1}/shipper/order/claim/${id}`,   // POST
+
     // DASHBOARD
     dashboardMonth: `${v1}/dashboard/order/month`, // GET ?month=YYYY-MM&compare=1&staffId=
   },

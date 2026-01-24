@@ -30,18 +30,6 @@ export const updateOrderStatusAPI = (orderId, data) => {
   return apiClient.patch(URL_API, data);
 };
 
-// ====================== DASHBOARD ======================
-// GET /api/v1/dashboard/order/month?month=2026-01&compare=1&staffId=...
-export const getDashboardMonthAPI = (params) => {
-  const URL_API = "/api/v1/dashboard/order/month";
-  return apiClient.get(URL_API, { params });
-};
-
-export const getDashboardYearAPI = (params) => {
-  const URL_API = "/api/v1/dashboard/order/year";
-  return apiClient.get(URL_API, { params });
-};
-
 // ====================== STAFF ======================
 // inbox đơn chưa gán staff: /api/v1/staff/order/unassigned?status=Pending
 export const getUnassignedOrdersAPI = (params) => {
@@ -60,3 +48,34 @@ export const getMyStaffOrdersAPI = (params) => {
   const URL_API = "/api/v1/staff/order";
   return apiClient.get(URL_API, { params });
 };
+
+// ====================== SH ======================
+
+// 📥 Inbox đơn hàng cho shipper
+export function getShipperInboxAPI(params) {
+  return apiClient.get("/api/v1/shipper/order/inbox", { params });
+}
+
+// ✋ Shipper nhận đơn (CLAIM)
+// Backend: PATCH /api/v1/shipper/order/:id/claim
+export function shipperClaimOrderAPI(orderId) {
+  return apiClient.patch(`/api/v1/shipper/order/${orderId}/claim`);
+}
+
+// 🚚 Đơn tôi đang giao
+export function getMyShipperOrdersAPI(params) {
+  return apiClient.get("/api/v1/shipper/order/my", { params });
+}
+
+// ✅ Đánh dấu đã giao
+// Backend: POST /api/v1/shipper/order/delivered/:id
+export function shipperMarkDeliveredAPI(orderId) {
+  return apiClient.post(`/api/v1/shipper/order/delivered/${orderId}`);
+}
+
+// ❌ Hủy đơn
+// Backend: POST /api/v1/shipper/order/cancel/:id
+export function shipperCancelOrderAPI(orderId, payload) {
+  return apiClient.post(`/api/v1/shipper/order/cancel/${orderId}`, payload);
+}
+

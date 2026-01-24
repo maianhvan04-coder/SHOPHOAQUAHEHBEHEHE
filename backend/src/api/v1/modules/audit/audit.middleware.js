@@ -6,7 +6,6 @@ exports.withAudit =
             try {
                 // 1️⃣ snapshot BEFORE
                 const before = getBefore ? await getBefore(req) : null;
-
                 // 2️⃣ hook sau khi response xong
                 res.on("finish", async () => {
                     if (res.statusCode >= 200 && res.statusCode < 300) {
