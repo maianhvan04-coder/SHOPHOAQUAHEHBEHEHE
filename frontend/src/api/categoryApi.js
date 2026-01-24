@@ -27,7 +27,7 @@ export const categoryApi = {
 
   // soft delete (DELETE /:id)
   remove: (id) => apiClient.delete(endpoints.categories.remove(id)),
-
+  getForProduct: () => apiClient.get(endpoints.categories.getForProduct),
   // restore (PATCH /:id/restore)
   restore: (id) => apiClient.patch(endpoints.categories.restore(id)),
 

@@ -17,4 +17,6 @@ export const auditApi = {
         apiClient.get(endpoints.audit.getProductAuditList, { params }),
     getSecurityAuditList: (params) =>
         apiClient.get(endpoints.audit.getSecurityAuditList, { params }),
+    rollback: ({ resource, auditId }) =>
+        apiClient.post(`/admin/audit/${resource}/${auditId}/rollback`),
 };

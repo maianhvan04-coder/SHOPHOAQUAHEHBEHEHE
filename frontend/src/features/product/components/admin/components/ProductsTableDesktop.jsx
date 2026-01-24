@@ -35,7 +35,7 @@ export default function ProductsTableDesktop({
   canUpdate,
   canDelete,
   canRestore,
-   canViewHistory,        // ✅ NEW
+   canViewHistory,       
   onViewHistory,  
 
   onEditProduct,

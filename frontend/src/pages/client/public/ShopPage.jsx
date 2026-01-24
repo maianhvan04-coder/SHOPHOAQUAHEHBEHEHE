@@ -19,6 +19,7 @@ const ShopPage = () => {
   const { listProducts, isLoading, totalItems, totalPages } = useSelector(
     (state) => state.product
   );
+  console.log(listProducts,"List Products")
 
   useEffect(() => {
     dispatch(fetchAllCategories());

@@ -56,5 +56,5 @@ router.delete(
   ...guard({ any: [PERMISSIONS.CATEGORY_DELETE] }),
   controller.softDelete
 );
-
+router.get("/product/for-product", controller.getCategoriesForProduct);
 module.exports = router;

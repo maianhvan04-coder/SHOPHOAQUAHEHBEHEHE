@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const Order = require("./order.model");
-const Product = require("../product/product.model");
+const Product = require("../product/models/product.model");
 
 module.exports.createOrderService = async (userId, data) => {
 
@@ -88,9 +88,9 @@ module.exports.getMyOrdersService = async (userId, status) => {
 };
 module.exports.getOrderDetailService = async (userId, orderId) => {
   const order = await Order.findOne({
-      _id: orderId,
-      user: userId
-    })
+    _id: orderId,
+    user: userId
+  })
     .populate("staff", "fullName phone");
   if (!order) {
     throw new Error(
@@ -293,20 +293,20 @@ module.exports.claimOrderService = async (orderId, staffId) => {
   const now = new Date();
 
   const updated = await Order.findOneAndUpdate(
-  {
-    _id: orderId,
-    "status.orderStatus": "Pending",
-    $or: [{ staff: null }, { staff: { $exists: false } }],
-  },
-  {
-    $set: {
-      staff: staffId,
-      "status.orderStatus": "Confirmed",
-      "status.confirmedAt": now,
+    {
+      _id: orderId,
+      "status.orderStatus": "Pending",
+      $or: [{ staff: null }, { staff: { $exists: false } }],
     },
-  },
-  { new: true }
-);
+    {
+      $set: {
+        staff: staffId,
+        "status.orderStatus": "Confirmed",
+        "status.confirmedAt": now,
+      },
+    },
+    { new: true }
+  );
 
   if (!updated) {
     const exists = await Order.exists({ _id: orderId });
@@ -397,14 +397,14 @@ module.exports.getDashboardMonthService = async ({
   // COD => Delivered, non-COD => isPaid
   const successExpr = {
     $cond: [{
-        $eq: ["$paymentMethod", "COD"]
-      },
-      {
-        $eq: ["$status.orderStatus", "Delivered"]
-      },
-      {
-        $eq: ["$status.isPaid", true]
-      },
+      $eq: ["$paymentMethod", "COD"]
+    },
+    {
+      $eq: ["$status.orderStatus", "Delivered"]
+    },
+    {
+      $eq: ["$status.isPaid", true]
+    },
     ],
   };
 
@@ -413,183 +413,183 @@ module.exports.getDashboardMonthService = async ({
   };
 
   const pipeline = [{
-      $match: match
-    },
-    {
-      $facet: {
-        kpi: [{
-            $group: {
-              _id: null,
-              revenue: {
-                $sum: {
-                  $cond: [successExpr, "$totalPrice", 0]
-                }
-              },
-              ordersTotal: {
-                $sum: 1
-              },
-              ordersCancelled: {
-                $sum: {
-                  $cond: [cancelledExpr, 1, 0]
-                }
-              },
-              ordersSuccess: {
-                $sum: {
-                  $cond: [successExpr, 1, 0]
-                }
-              },
-              customers: {
-                $addToSet: "$user"
-              },
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              revenue: 1,
-              ordersTotal: 1,
-              ordersCancelled: 1,
-              ordersValid: {
-                $subtract: ["$ordersTotal", "$ordersCancelled"]
-              },
-              ordersSuccess: 1,
-              aov: {
-                $cond: [{
-                    $gt: ["$ordersSuccess", 0]
-                  },
-                  {
-                    $divide: ["$revenue", "$ordersSuccess"]
-                  },
-                  0,
-                ],
-              },
-              uniqueCustomers: {
-                $size: "$customers"
-              },
-            },
-          },
-        ],
-
-        revenueByDay: [{
-            $group: {
-              _id: {
-                day: {
-                  $dateToString: {
-                    format: "%Y-%m-%d",
-                    date: "$createdAt",
-                    timezone: "Asia/Ho_Chi_Minh",
-                  },
-                },
-              },
-              revenue: {
-                $sum: {
-                  $cond: [successExpr, "$totalPrice", 0]
-                }
-              },
-              ordersSuccess: {
-                $sum: {
-                  $cond: [successExpr, 1, 0]
-                }
-              },
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              day: "$_id.day",
-              revenue: 1,
-              ordersSuccess: 1
+    $match: match
+  },
+  {
+    $facet: {
+      kpi: [{
+        $group: {
+          _id: null,
+          revenue: {
+            $sum: {
+              $cond: [successExpr, "$totalPrice", 0]
             }
           },
-          {
-            $sort: {
-              day: 1
+          ordersTotal: {
+            $sum: 1
+          },
+          ordersCancelled: {
+            $sum: {
+              $cond: [cancelledExpr, 1, 0]
             }
           },
-        ],
-
-        ordersByStatus: [{
-            $group: {
-              _id: "$status.orderStatus",
-              count: {
-                $sum: 1
-              }
+          ordersSuccess: {
+            $sum: {
+              $cond: [successExpr, 1, 0]
             }
           },
-          {
-            $project: {
-              _id: 0,
-              status: "$_id",
-              count: 1
-            }
+          customers: {
+            $addToSet: "$user"
           },
-          {
-            $sort: {
-              count: -1
-            }
-          },
-        ],
-
-        compareByStaff: isCompare ? [{
-            $match: {
-              staff: {
-                $exists: true,
-                $ne: null
-              }
-            }
-          },
-          {
-            $group: {
-              _id: "$staff",
-              revenue: {
-                $sum: {
-                  $cond: [successExpr, "$totalPrice", 0]
-                }
-              },
-              ordersSuccess: {
-                $sum: {
-                  $cond: [successExpr, 1, 0]
-                }
-              },
-            },
-          },
-
-          // ✅ lấy info staff (tên collection thường là "users")
-          {
-            $lookup: {
-              from: "users", // nếu bạn đặt collection khác thì đổi
-              localField: "_id",
-              foreignField: "_id",
-              as: "staff",
-            },
-          },
-          {
-            $unwind: {
-              path: "$staff",
-              preserveNullAndEmptyArrays: true
-            }
-          },
-
-          {
-            $project: {
-              _id: "$_id", // ✅ FE đang dùng x._id
-              staffId: "$_id", // (giữ thêm cho rõ)
-              staffName: "$staff.fullName",
-              staffPhone: "$staff.phone",
-              revenue: 1,
-              ordersSuccess: 1,
-            },
-          },
-
-          {
-            $sort: {
-              revenue: -1
-            }
-          },
-        ] : [],
-
+        },
       },
+      {
+        $project: {
+          _id: 0,
+          revenue: 1,
+          ordersTotal: 1,
+          ordersCancelled: 1,
+          ordersValid: {
+            $subtract: ["$ordersTotal", "$ordersCancelled"]
+          },
+          ordersSuccess: 1,
+          aov: {
+            $cond: [{
+              $gt: ["$ordersSuccess", 0]
+            },
+            {
+              $divide: ["$revenue", "$ordersSuccess"]
+            },
+              0,
+            ],
+          },
+          uniqueCustomers: {
+            $size: "$customers"
+          },
+        },
+      },
+      ],
+
+      revenueByDay: [{
+        $group: {
+          _id: {
+            day: {
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$createdAt",
+                timezone: "Asia/Ho_Chi_Minh",
+              },
+            },
+          },
+          revenue: {
+            $sum: {
+              $cond: [successExpr, "$totalPrice", 0]
+            }
+          },
+          ordersSuccess: {
+            $sum: {
+              $cond: [successExpr, 1, 0]
+            }
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          day: "$_id.day",
+          revenue: 1,
+          ordersSuccess: 1
+        }
+      },
+      {
+        $sort: {
+          day: 1
+        }
+      },
+      ],
+
+      ordersByStatus: [{
+        $group: {
+          _id: "$status.orderStatus",
+          count: {
+            $sum: 1
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          status: "$_id",
+          count: 1
+        }
+      },
+      {
+        $sort: {
+          count: -1
+        }
+      },
+      ],
+
+      compareByStaff: isCompare ? [{
+        $match: {
+          staff: {
+            $exists: true,
+            $ne: null
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$staff",
+          revenue: {
+            $sum: {
+              $cond: [successExpr, "$totalPrice", 0]
+            }
+          },
+          ordersSuccess: {
+            $sum: {
+              $cond: [successExpr, 1, 0]
+            }
+          },
+        },
+      },
+
+      // ✅ lấy info staff (tên collection thường là "users")
+      {
+        $lookup: {
+          from: "users", // nếu bạn đặt collection khác thì đổi
+          localField: "_id",
+          foreignField: "_id",
+          as: "staff",
+        },
+      },
+      {
+        $unwind: {
+          path: "$staff",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      {
+        $project: {
+          _id: "$_id", // ✅ FE đang dùng x._id
+          staffId: "$_id", // (giữ thêm cho rõ)
+          staffName: "$staff.fullName",
+          staffPhone: "$staff.phone",
+          revenue: 1,
+          ordersSuccess: 1,
+        },
+      },
+
+      {
+        $sort: {
+          revenue: -1
+        }
+      },
+      ] : [],
+
     },
+  },
   ];
 
   const [result] = await Order.aggregate(pipeline);
@@ -695,54 +695,54 @@ module.exports.getDashboardYearService = async ({
   // ✅ success rule: COD => Delivered, non-COD => isPaid
   const successExpr = {
     $cond: [{
-        $eq: ["$paymentMethod", "COD"]
-      },
-      {
-        $eq: ["$status.orderStatus", "Delivered"]
-      },
-      {
-        $eq: ["$status.isPaid", true]
-      },
+      $eq: ["$paymentMethod", "COD"]
+    },
+    {
+      $eq: ["$status.orderStatus", "Delivered"]
+    },
+    {
+      $eq: ["$status.isPaid", true]
+    },
     ],
   };
 
   const rows = await Order.aggregate([{
-      $match: match
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: {
-            format: "%Y-%m",
-            date: "$createdAt",
-            timezone: "Asia/Ho_Chi_Minh",
-          },
-        },
-        revenue: {
-          $sum: {
-            $cond: [successExpr, "$totalPrice", 0]
-          }
-        },
-        ordersSuccess: {
-          $sum: {
-            $cond: [successExpr, 1, 0]
-          }
+    $match: match
+  },
+  {
+    $group: {
+      _id: {
+        $dateToString: {
+          format: "%Y-%m",
+          date: "$createdAt",
+          timezone: "Asia/Ho_Chi_Minh",
         },
       },
-    },
-    {
-      $project: {
-        _id: 0,
-        month: "$_id",
-        revenue: 1,
-        ordersSuccess: 1,
+      revenue: {
+        $sum: {
+          $cond: [successExpr, "$totalPrice", 0]
+        }
+      },
+      ordersSuccess: {
+        $sum: {
+          $cond: [successExpr, 1, 0]
+        }
       },
     },
-    {
-      $sort: {
-        month: 1
-      }
+  },
+  {
+    $project: {
+      _id: 0,
+      month: "$_id",
+      revenue: 1,
+      ordersSuccess: 1,
     },
+  },
+  {
+    $sort: {
+      month: 1
+    }
+  },
   ]);
 
   // ✅ fill đủ 12 tháng (tháng nào không có thì 0)

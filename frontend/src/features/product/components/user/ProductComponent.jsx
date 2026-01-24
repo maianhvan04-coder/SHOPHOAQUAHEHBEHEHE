@@ -4,6 +4,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { toggleWishlistLocal } from "../../../wishlist/wishlist.slice";
 import { HeartOutlined } from "@ant-design/icons";
 import { Modal } from "antd";
+import { getThumb } from "~/shared/utils/image.helpers";
+import productPlaceholder from "~/assets/product-placeholder.webp";
 
 const ProductComponent = ({ fruit, num, showDetails }) => {
   const navigate = useNavigate();
@@ -11,6 +13,11 @@ const ProductComponent = ({ fruit, num, showDetails }) => {
   const { items, isLoading } = useSelector((state) => state.wishlist);
 
   const { name, image, price, _id } = fruit;
+  const imageUrl =
+  fruit.image?.url ||
+  fruit.images?.[0]?.url ||
+  productPlaceholder;
+
   const isFavorite = items.includes(_id);
   const handleBuyNow = (e) => {
     e.stopPropagation();
@@ -19,7 +26,7 @@ const ProductComponent = ({ fruit, num, showDetails }) => {
       {
         product: _id,
         name: name,
-        image: image.url,
+        image: imageUrl,
         price: price,
         quantity: 1,
       },
@@ -53,13 +60,21 @@ const handleFavoriteClick = (e) => {
       onClick={showDetails}
       className="bg-white w-full max-w-[280px] md:min-w-[240px] rounded-xl relative shadow-md overflow-hidden flex-shrink-1 transition-all hover:shadow-xl cursor-pointer"
     >
-      <div className="h-[250px] md:h-[300px] overflow-hidden relative">
-        <img
-          src={fruit.image.url}
-          alt={fruit.name}
-          className="block w-full h-full object-cover"
-        />
-      </div>
+   <div className="h-[250px] md:h-[300px] overflow-hidden relative">
+  <img
+    src={getThumb(imageUrl, 480)}
+    srcSet={`
+      ${getThumb(imageUrl, 240)} 240w,
+      ${getThumb(imageUrl, 360)} 360w,
+      ${getThumb(imageUrl, 480)} 480w
+    `}
+    sizes="(max-width: 768px) 50vw, 280px"
+    alt={`Mua ${fruit.name} tươi ngon, giao nhanh trong ngày`}
+    loading="lazy"
+    className="block w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+  />
+</div>
+
 
       <div className="bg-[#c4cd38] rounded-lg absolute top-[220px] md:top-[270px] right-5 text-white font-montserrat text-3xl font-extrabold size-15 flex items-center justify-center shadow-md z-10">
         {num + 1 < 10 ? `0${num + 1}` : num + 1}

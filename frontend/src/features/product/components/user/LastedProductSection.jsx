@@ -58,7 +58,6 @@ const LastedProductSection = forwardRef((_, ref) => {
   const displayedProducts = listProducts
     ? listProducts.slice(0, visibleCount)
     : [];
-
   return (
     <section className="bg-[#ffffff] py-10 md:py-16" ref={ref}>
       <div className="space-y-8 w-[95vw] mx-auto">
@@ -74,9 +73,11 @@ const LastedProductSection = forwardRef((_, ref) => {
             {listProducts && listProducts.length > 0 ? (
               <>
                 {displayedProducts.map((fruit, index) => (
+                  
                   <ProductComponent
                     key={fruit._id}
                     fruit={fruit}
+                    
                     showDetails={() => navigate(`/details/${fruit.slug}`)}
                     num={index}
                    

@@ -6,11 +6,17 @@ const publicUser = require("../modules/user/publicUser.routes");
 const rbac = require("../modules/rbac/rbacAdmin.routes");
 const categoryAdmin = require("../modules/category/category.admin.routes");
 const categoryPublic = require("../modules/category/category.public.routes");
-const productAdmin = require("../modules/product/product.admin.routes");
+const productAdmin = require("../modules/product/router/product.admin.routes");
+const publicProduct = require("../modules/product/router/public.router");
+
+// Template Description
+const templateDescriptionRouter = require("../modules/product/router/template.routes");
+
+
 const Audit = require("../modules/audit/audit.routers");
 const uploadRoutes = require("../modules/upload/upload.routes");
 
-const publicProduct = require("../modules/product/public.router");
+
 const orderUserRouter = require("../modules/order/routes/order.user.routes");
 const orderAdminRoute = require("../modules/order/routes/order.admin.routes");
 const orderStaffRoute = require("../modules/order/routes/order.staff.routes");
@@ -38,6 +44,7 @@ module.exports = (app) => {
 
   app.use(v1 + "/admin/category", ...guard({ any: [PERMISSIONS.CATEGORY_READ] }), categoryAdmin);
   app.use(v1 + "/admin/product", ...guard({ any: [PERMISSIONS.PRODUCT_READ] }), productAdmin);
+  app.use(v1 + "/admin/templates", ...guard({ any: [PERMISSIONS.TEMPLATE_READ] }), templateDescriptionRouter);
 
   app.use(v1 + "/admin/upload", uploadRoutes);
   app.use(v1 + "/admin/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderAdminRoute);
@@ -49,8 +56,8 @@ module.exports = (app) => {
       PERMISSIONS.ORDER_STAFF_CLAIM,
     ],
   }),
-  orderStaffRoute
-);
+    orderStaffRoute
+  );
 
   // dashboard (staff xem của mình, admin xem all + compare)
   app.use(v1 + "/dashboard/order", ...guard({ any: [PERMISSIONS.ORDER_READ] }), orderDashboardRoute);
@@ -64,11 +71,11 @@ module.exports = (app) => {
 
 
   app.use(
-  v1 + "/dashboard/order",
-  ...guard({ any: [PERMISSIONS.ORDER_READ, PERMISSIONS.ORDER_STAFF_MY_READ] }),
-  orderDashboardRoute
-);
-  
+    v1 + "/dashboard/order",
+    ...guard({ any: [PERMISSIONS.ORDER_READ, PERMISSIONS.ORDER_STAFF_MY_READ] }),
+    orderDashboardRoute
+  );
+
   // public client
   app.use(v1 + "/products", publicProduct);
   app.use(v1 + "/categories", categoryPublic);

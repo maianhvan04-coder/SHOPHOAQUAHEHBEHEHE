@@ -1,18 +1,28 @@
 import { getUploadSignature } from "~/api/uploadApi";
-
-import apiClient from "~/services/apiClient";
-import { endpoints } from "~/services/endpoints";
+import { compressImage } from "~/shared/utils/compressImage.helper";
+import { uploadWithProgress } from "./uploadWithProgress";
 
 function pickDT(resData) {
-    // Hỗ trợ nhiều format:
-    // - { EC, EM, DT: {...} }
-    // - { data: {...} }
-    // - { ... }
     return resData?.DT || resData?.data || resData;
 }
 
-export async function uploadToCloudinarySigned(file, { type = "product", productId } = {}) {
+export async function uploadToCloudinarySigned(
+    file,
+    {
+        type = "product",
+        productId,
+        onProgress,
+        format = "image/webp",
+    } = {}
+) {
     if (!file) throw new Error("Không có file để upload");
+
+    // NÉN + CONVERT
+    const compressedFile = await compressImage(file, {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1600,
+        format,
+    });
 
     const sigRes = await getUploadSignature({ type, productId });
     const sig = pickDT(sigRes);
@@ -22,30 +32,22 @@ export async function uploadToCloudinarySigned(file, { type = "product", product
     const timestamp = sig.timestamp;
     const signature = sig.signature;
     const folder = sig.folder;
-    const publicId = sig.publicId || sig.public_id;     // ✅ lấy publicId từ backend
-    const resourceType = sig.resourceType || sig.resource_type || "image";
-
-    if (!cloudName || !apiKey || !timestamp || !signature) {
-        throw new Error("Thiếu dữ liệu ký upload từ backend (cloudName/apiKey/timestamp/signature).");
-    }
+    const publicId = sig.publicId || sig.public_id;
+    const resourceType = sig.resourceType || "image";
 
     const form = new FormData();
-    form.append("file", file);
+    form.append("file", compressedFile);
     form.append("api_key", apiKey);
     form.append("timestamp", String(timestamp));
     form.append("signature", signature);
 
-    if (folder) form.append("folder", folder);
 
-    //  QUAN TRỌNG: backend ký public_id thì frontend PHẢI gửi public_id
+    if (folder) form.append("folder", folder);
     if (publicId) form.append("public_id", publicId);
 
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
 
-    const resp = await fetch(url, { method: "POST", body: form });
-    const json = await resp.json();
-
-    if (!resp.ok) throw new Error(json?.error?.message || "Upload Cloudinary thất bại");
+    const json = await uploadWithProgress(url, form, onProgress);
 
     return {
         url: json.secure_url || json.url,
@@ -54,4 +56,3 @@ export async function uploadToCloudinarySigned(file, { type = "product", product
         height: json.height,
     };
 }
-

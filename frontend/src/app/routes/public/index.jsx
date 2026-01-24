@@ -9,7 +9,7 @@ import AdminRoute from "../guards/admin.router"; // guard RBAC của bạn
 // Nếu client cần bắt login thì tạo PrivateRoute tương tự
 
 // Public pages/admin (client)
-import ProductDetails from "~/pages/client/public/ProductDetailsPage";
+import ProductDetails from "~/pages/client/public/product/pages/ProductDetails";
 import HomePage from "~/pages/client/public/HomePage";
 import CartPage from "~/features/cart/page/CartPage";
 import ShopPage from "~/pages/client/public/ShopPage";
@@ -26,11 +26,21 @@ import ForbiddenPage from "~/pages/admin/ForbiddenPage";
 import NotFound from "~/pages/admin/NotFound";
 
 // Admin routers list
-import { adminRouters } from "../admin.routerPath";
+import { adminRoutes } from "../admin.routerPath";
 import CheckoutPage from "../../../features/order/pages/CheckOutPage";
 import OrderDetailPage from "../../../features/order/pages/OrderDetailPage";
 import MyOrdersPage from "../../../features/order/pages/MyOrdersPage";
 import FeedbackPage from "../../../features/feedback/pages/FeedbackPage";
+const renderAdminRoutes = (routes) =>
+  routes.map((r) => {
+    if (r.children) {
+      return {
+        path: r.path,
+        children: renderAdminRoutes(r.children),
+      };
+    }
+    return r;
+  });
 
 const routes = [
   // ===== CLIENT PUBLIC =====
@@ -63,24 +73,20 @@ const routes = [
   { path: "/reset-password", element: <ResetPasswordPage /> },
 
   // ===== ADMIN PRIVATE (RBAC) =====
-  {
-    path: "/admin",
-    element: <AdminRoute />,
-    children: [
-      {
-        element: <AdminLayout />,
-        children: [
-          // ✅ ĐỪNG redirect hardcode "home" nữa (vì catalog ko có)
-          { index: true, element: <Navigate to="user" replace /> },
+ {
+  path: "/admin",
+  element: <AdminRoute />,
+  children: [
+    {
+      element: <AdminLayout />,
+      children: [
+        { index: true, element: <Navigate to="user" replace /> },
+        ...renderAdminRoutes(adminRoutes),
+      ],
+    },
+  ],
+},
 
-          ...adminRouters.map((r) => {
-            const Page = r.component;
-            return { path: r.path, element: <Page /> };
-          }),
-        ],
-      },
-    ],
-  },
 
   // ===== ERRORS =====
   { path: "/403", element: <ForbiddenPage /> },

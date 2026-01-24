@@ -34,5 +34,12 @@ router.get(
     controller.getSecurityAuditList
 );
 
+// POST /api/v1/admin/audit/rollback
+router.post(
+    "/product/:auditId/rollback",
+    ...guard({ any: [PERMISSIONS.AUDIT_PRODUCT_ROLLBACK] }),
+    controller.rollback
+);
+
 
 module.exports = router;

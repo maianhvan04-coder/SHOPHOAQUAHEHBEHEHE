@@ -72,6 +72,19 @@ const BASE_PERMISSIONS = Object.freeze({
 
     RBAC_SYNC_ADMIN: "rbac:sync_admin",
 
+    // Template – basic
+    TEMPLATE_READ: "template:read",
+    TEMPLATE_CREATE: "template:create",
+    TEMPLATE_UPDATE: "template:update",
+
+    // Template – versioning
+    TEMPLATE_CREATE_VERSION: "template:create_version",
+    TEMPLATE_ACTIVATE_VERSION: "template:activate_version",
+
+    // (tuỳ chọn – khuyến nghị)
+    TEMPLATE_CHANGE_STATUS: "template:status",
+
+
     // ===== AUDIT =====
     AUDIT_READ: "audit:read",
     AUDIT_PRODUCT_READ: "audit:product:read",
@@ -81,7 +94,7 @@ const BASE_PERMISSIONS = Object.freeze({
 
 });
 
-// ✅ merge Audit perms vào PERMISSIONS
+//merge Audit perms vào PERMISSIONS
 const PERMISSIONS = Object.freeze({
     ...BASE_PERMISSIONS,
 });
@@ -276,6 +289,66 @@ const BASE_PERMISSION_META = Object.freeze({
         order: 260,
     },
 
+    // ===== PRODUCT DESCRIPTION TEMPLATE =====
+    [PERMISSIONS.TEMPLATE_READ]: {
+        key: PERMISSIONS.TEMPLATE_READ,
+        resource: "product_template",
+        action: "read",
+        label: "Xem mẫu mô tả sản phẩm",
+        groupKey: PERMISSION_GROUPS.CATALOG.key,
+        groupLabel: PERMISSION_GROUPS.CATALOG.label,
+        order: 300,
+    },
+
+    [PERMISSIONS.TEMPLATE_CREATE]: {
+        key: PERMISSIONS.TEMPLATE_CREATE,
+        resource: "product_template",
+        action: "create",
+        label: "Tạo mẫu mô tả sản phẩm",
+        groupKey: PERMISSION_GROUPS.CATALOG.key,
+        groupLabel: PERMISSION_GROUPS.CATALOG.label,
+        order: 310,
+    },
+
+    [PERMISSIONS.TEMPLATE_UPDATE]: {
+        key: PERMISSIONS.TEMPLATE_UPDATE,
+        resource: "product_template",
+        action: "update",
+        label: "Chỉnh sửa mẫu mô tả sản phẩm",
+        groupKey: PERMISSION_GROUPS.CATALOG.key,
+        groupLabel: PERMISSION_GROUPS.CATALOG.label,
+        order: 320,
+    },
+
+    [PERMISSIONS.TEMPLATE_CREATE_VERSION]: {
+        key: PERMISSIONS.TEMPLATE_CREATE_VERSION,
+        resource: "product_template",
+        action: "create_version",
+        label: "Tạo phiên bản mô tả mới",
+        groupKey: PERMISSION_GROUPS.CATALOG.key,
+        groupLabel: PERMISSION_GROUPS.CATALOG.label,
+        order: 330,
+    },
+
+    [PERMISSIONS.TEMPLATE_ACTIVATE_VERSION]: {
+        key: PERMISSIONS.TEMPLATE_ACTIVATE_VERSION,
+        resource: "product_template",
+        action: "activate_version",
+        label: "Kích hoạt phiên bản mô tả",
+        groupKey: PERMISSION_GROUPS.CATALOG.key,
+        groupLabel: PERMISSION_GROUPS.CATALOG.label,
+        order: 340,
+    },
+
+    [PERMISSIONS.TEMPLATE_CHANGE_STATUS]: {
+        key: PERMISSIONS.TEMPLATE_CHANGE_STATUS,
+        resource: "product_template",
+        action: "status",
+        label: "Bật / tắt mẫu mô tả",
+        groupKey: PERMISSION_GROUPS.CATALOG.key,
+        groupLabel: PERMISSION_GROUPS.CATALOG.label,
+        order: 350,
+    },
 
     // ===== ORDERS =====
     [PERMISSIONS.ORDER_READ]: {
@@ -594,35 +667,49 @@ const BASE_ADMIN_SCREENS = Object.freeze({
         label: "Sản phẩm",
         icon: "package",
         order: 30,
-        routes: [
-            "/admin/product",
-            "/admin/product/:id",
-            "/admin/product/update/:id",
-            "/admin/product/delete/:id",
-            "/admin/product/:id/status",
-            "/admin/audit/product/:id/history",
 
-        ],
+        routes: ["/admin/product"],
+
         accessAny: [
             PERMISSIONS.PRODUCT_READ,
-            PERMISSIONS.PRODUCT_CREATE,
-            PERMISSIONS.PRODUCT_UPDATE,
-            PERMISSIONS.PRODUCT_DELETE,
-            PERMISSIONS.PRODUCT_CHANGE_STATUS,
-            PERMISSIONS.AUDIT_PRODUCT_READ,
-
+            PERMISSIONS.TEMPLATE_READ, //thêm
         ],
+
         actions: {
             view: [PERMISSIONS.PRODUCT_READ],
             create: [PERMISSIONS.PRODUCT_CREATE],
             update: [PERMISSIONS.PRODUCT_UPDATE],
             delete: [PERMISSIONS.PRODUCT_DELETE],
             changeStatus: [PERMISSIONS.PRODUCT_CHANGE_STATUS],
-
-            // (tuỳ chọn) nếu trong trang product bạn có nút "xem lịch sử"
             audit: [PERMISSIONS.AUDIT_PRODUCT_READ],
         },
+
+
     },
+
+    TEMPLATE: {
+        key: "template",
+        group: PERMISSION_GROUPS.TEMPLATE.key,
+        label: "Mẫu mô tả",
+        icon: "file-text",
+        order: 50,
+
+        routes: ["/admin/templates"],
+
+        accessAny: [
+            PERMISSIONS.TEMPLATE_READ,
+        ],
+
+        actions: {
+            view: [PERMISSIONS.TEMPLATE_READ],
+            create: [PERMISSIONS.TEMPLATE_CREATE],
+            update: [PERMISSIONS.TEMPLATE_UPDATE],
+            createVersion: [PERMISSIONS.TEMPLATE_CREATE_VERSION],
+            activateVersion: [PERMISSIONS.TEMPLATE_ACTIVATE_VERSION],
+        },
+    },
+
+
 
     ORDERS: {
         key: "order",
@@ -646,7 +733,7 @@ const BASE_ADMIN_SCREENS = Object.freeze({
             changeStatus: [PERMISSIONS.ORDER_UPDATE_STATUS],
         },
     },
-     ORDERS_INBOX: {
+    ORDERS_INBOX: {
         key: "order-inbox",
         group: PERMISSION_GROUPS.ORDERS.key,
         label: "Inbox (Claim đơn)",

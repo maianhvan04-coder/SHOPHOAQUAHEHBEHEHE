@@ -5,7 +5,7 @@ const auditSchema = new Schema({
     actorId: { type: Types.ObjectId, ref: "User", required: true, index: true },
     resource: { type: String, required: true, index: true }, // product | order | user
     action: { type: String, required: true, index: true }, // create | update | delete | status
-    resourceId: { type: Types.ObjectId, required: true, index: true },
+    resourceId: { type: String, required: true, index: true },
     actorRoles: {
         type: [String],
         default: [],

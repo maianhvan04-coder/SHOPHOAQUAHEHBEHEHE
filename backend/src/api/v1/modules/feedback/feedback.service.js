@@ -1,6 +1,6 @@
 const Feedback = require("./feedback.model");
 const mongoose = require("mongoose");
-const Product = require("../product/product.model");
+const Product = require("../product/models/product.model");
 require("../user/user.model");
 /**
  * Tạo feedback mới
@@ -140,15 +140,15 @@ module.exports.getFeedbacksByProduct = async ({
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .lean() 
-      .exec(), 
+      .lean()
+      .exec(),
     Feedback.countDocuments({ productId }),
   ]);
   const feedbacks = rawFeedbacks.map((fb) => {
-    const { userId, ...rest } = fb; 
+    const { userId, ...rest } = fb;
     return {
       ...rest,
-      user: userId, 
+      user: userId,
     };
   });
   return {
